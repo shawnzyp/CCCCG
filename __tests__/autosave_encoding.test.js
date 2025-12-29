@@ -5,11 +5,12 @@ describe('cloud autosave path encoding', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    localStorage.removeItem('cc:device-id');
     jest.resetModules();
     jest.restoreAllMocks();
   });
 
-  test('encodes dots in character names before sending autosaves', async () => {
+  test('uses device and character ids in autosave paths', async () => {
     const calls = [];
     global.fetch = jest.fn((url) => {
       calls.push(url);
@@ -28,10 +29,12 @@ describe('cloud autosave path encoding', () => {
 
     const { saveCloudAutosave } = await import('../scripts/storage.js');
 
-    await saveCloudAutosave('Al.ice.Bob', { foo: 'bar' });
+    localStorage.setItem('cc:device-id', 'device-123');
+    await saveCloudAutosave('Al.ice.Bob', { foo: 'bar', character: { characterId: 'character-456' } });
 
-    const encodedName = 'Al%2Eice%2EBob';
-    expect(calls.some((url) => url.includes(`/autosaves/${encodedName}/`))).toBe(true);
+    const encodedDevice = 'device-123';
+    const encodedCharacter = 'character-456';
+    expect(calls.some((url) => url.includes(`/autosaves/${encodedDevice}/${encodedCharacter}/`))).toBe(true);
     expect(calls.some((url) => url.includes('/autosaves/Al.ice.Bob/'))).toBe(false);
   });
 });

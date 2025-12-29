@@ -37,14 +37,95 @@ function safeToast(message, type = 'error', options = {}) {
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
+const CHARACTER_ID_STORAGE_PREFIX = 'cc:character-id:';
 export const SAVE_SCHEMA_VERSION = 2;
 export const UI_STATE_VERSION = 2;
 export const APP_VERSION = '1.0.0';
+
+function getLocalStorageSafe() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
 
 function normalizedCharacterName(name) {
   const canonical = canonicalCharacterKey(name);
   if (canonical) return canonical;
   return typeof name === 'string' ? name.trim() : '';
+}
+
+function getCharacterIdStorageKey(name) {
+  const normalized = normalizedCharacterName(name) || name;
+  return `${CHARACTER_ID_STORAGE_PREFIX}${normalized}`;
+}
+
+function readCharacterIdForName(name) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return '';
+  try {
+    const stored = storage.getItem(getCharacterIdStorageKey(name));
+    return typeof stored === 'string' && stored.trim() ? stored.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function writeCharacterIdForName(name, id) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !id || !name) return;
+  try {
+    storage.setItem(getCharacterIdStorageKey(name), id);
+  } catch {}
+}
+
+function removeCharacterIdForName(name) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !name) return;
+  try {
+    storage.removeItem(getCharacterIdStorageKey(name));
+  } catch {}
+}
+
+function generateCharacterId() {
+  try {
+    if (typeof crypto === 'object' && crypto && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 20; i++) {
+    token += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+  }
+  return token;
+}
+
+function ensureCharacterId(payload, name) {
+  if (!payload || typeof payload !== 'object') return '';
+  const character = payload.character && typeof payload.character === 'object' ? payload.character : null;
+  const existing = character?.characterId;
+  const stored = readCharacterIdForName(name);
+  const resolved = typeof existing === 'string' && existing.trim()
+    ? existing.trim()
+    : stored;
+  const characterId = resolved || generateCharacterId();
+  if (character) {
+    character.characterId = characterId;
+  }
+  if (name && characterId) {
+    writeCharacterIdForName(name, characterId);
+  }
+  return characterId;
+}
+
+function migrateCharacterIdKey(oldName, newName, characterId) {
+  if (!oldName || !newName || oldName === newName) return;
+  if (!characterId) return;
+  removeCharacterIdForName(oldName);
+  writeCharacterIdForName(newName, characterId);
 }
 
 function displayCharacterName(name) {
@@ -970,6 +1051,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    ensureCharacterId(payload, storageName);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     await verifyPin(displayCharacterName(name));
@@ -1006,6 +1088,8 @@ export async function renameCharacter(oldName, newName, data) {
     const storageNewName = normalizedCharacterName(newName) || newName;
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    const characterId = ensureCharacterId(payload, storageOldName);
+    migrateCharacterIdKey(storageOldName, storageNewName, characterId);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     if (!storageOldName || storageOldName === storageNewName) {
@@ -1103,6 +1187,7 @@ export async function deleteCharacter(name) {
       }
     }
     await deleteSave(storageName);
+    removeCharacterIdForName(storageName);
     const cleared = await clearPin(storageName);
     if (!cleared) {
       console.warn(`PIN clear skipped for ${storageName}`);
@@ -1125,6 +1210,7 @@ export async function deleteCharacter(name) {
 
 export async function listBackups(name) {
   const storageName = normalizedCharacterName(name) || name;
+  const characterId = readCharacterIdForName(storageName);
   let manual = [];
   let autos = [];
   try {
@@ -1133,7 +1219,7 @@ export async function listBackups(name) {
     console.error('Failed to list backups', e);
   }
   try {
-    autos = await listCloudAutosaves(storageName);
+    autos = await listCloudAutosaves(storageName, { characterId });
   } catch (e) {
     console.error('Failed to list autosaves', e);
   }
@@ -1148,7 +1234,9 @@ export async function loadBackup(name, ts, type = 'manual', options = {}) {
   try {
     const storageName = normalizedCharacterName(name) || name;
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
-    const data = await loader(storageName, ts);
+    const data = type === 'auto'
+      ? await loader(storageName, ts, { characterId: readCharacterIdForName(storageName) })
+      : await loader(storageName, ts);
     const { payload, recovered, changed } = preflightSnapshotForLoad(storageName, data, { showRecoveryToast: false });
     if (!bypassPin) {
       await verifyPin(displayCharacterName(name));
@@ -1200,6 +1288,7 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    ensureCharacterId(payload, storageName);
     const ts = await saveCloudAutosave(storageName, payload);
     lastAutosaveErrorKey = null;
     lastAutosaveErrorTime = 0;

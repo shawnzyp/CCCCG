@@ -89,7 +89,7 @@
     });
   }
 
-  function createCloudSaveOutboxEntry({ name, payload, ts, kind, queuedAt }) {
+  function createCloudSaveOutboxEntry({ name, payload, ts, kind, queuedAt, deviceId, characterId }) {
     if (typeof name !== 'string' || !name) {
       throw new TypeError('Invalid cloud save entry name');
     }
@@ -104,6 +104,8 @@
       ts: normalizedTs,
       queuedAt: Number.isFinite(queuedAt) ? queuedAt : Date.now(),
       kind: entryKind,
+      deviceId: typeof deviceId === 'string' && deviceId ? deviceId : null,
+      characterId: typeof characterId === 'string' && characterId ? characterId : null,
     };
   }
 

@@ -159,6 +159,57 @@ function encodePath(name) {
     .join('/');
 }
 
+function sanitizeForJson(value, seen = new WeakSet()) {
+  if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+    return { value: undefined };
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return { value: null };
+  }
+  if (value && typeof value === 'object') {
+    if (typeof value.toJSON === 'function') {
+      return sanitizeForJson(value.toJSON(), seen);
+    }
+    if (seen.has(value)) {
+      return { error: new Error('Circular JSON value detected') };
+    }
+    seen.add(value);
+    if (Array.isArray(value)) {
+      const next = [];
+      for (const entry of value) {
+        const result = sanitizeForJson(entry, seen);
+        if (result.error) return result;
+        next.push(result.value === undefined ? null : result.value);
+      }
+      seen.delete(value);
+      return { value: next };
+    }
+    const next = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const result = sanitizeForJson(entry, seen);
+      if (result.error) return result;
+      if (result.value !== undefined) {
+        next[key] = result.value;
+      }
+    }
+    seen.delete(value);
+    return { value: next };
+  }
+  return { value };
+}
+
+function safeJsonStringify(value) {
+  const sanitized = sanitizeForJson(value);
+  if (sanitized.error) {
+    return { ok: false, error: sanitized.error, value: null, json: null };
+  }
+  try {
+    return { ok: true, value: sanitized.value, json: JSON.stringify(sanitized.value) };
+  } catch (err) {
+    return { ok: false, error: err, value: null, json: null };
+  }
+}
+
 function isSwOffline() {
   return (
     typeof self.navigator !== 'undefined' &&
@@ -205,32 +256,89 @@ async function ensureLaunchVideoReset(videoUrl) {
   }
 }
 
-async function pushQueuedSave({ name, payload, ts, kind }) {
-  const encoded = encodePath(name);
-  const body = JSON.stringify(payload);
+function resolveAutosaveKey({ name, deviceId, characterId }) {
+  const trimmedDevice = typeof deviceId === 'string' ? deviceId.trim() : '';
+  const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
+  if (trimmedDevice && trimmedCharacter) {
+    return `${trimmedDevice}/${trimmedCharacter}`;
+  }
+  if (trimmedCharacter) {
+    return trimmedCharacter;
+  }
+  if (typeof name === 'string' && name.trim()) {
+    return name.trim();
+  }
+  return '';
+}
+
+function normalizeAutosaveEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return { action: 'drop', reason: 'Invalid autosave outbox entry' };
+  }
+  const name = typeof entry.name === 'string' ? entry.name : '';
+  let characterId = typeof entry.characterId === 'string' && entry.characterId.trim()
+    ? entry.characterId.trim()
+    : '';
+  const payloadCharacterId = entry?.payload?.character?.characterId;
+  if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
+    characterId = payloadCharacterId.trim();
+  }
+  const deviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
+    ? entry.deviceId.trim()
+    : '';
+  if (!characterId) {
+    return { action: 'drop', reason: 'Missing characterId for autosave outbox entry' };
+  }
+  if (!deviceId) {
+    return { action: 'drop', reason: 'Missing deviceId for autosave outbox entry' };
+  }
+  return {
+    action: 'keep',
+    entry: {
+      ...entry,
+      name,
+      deviceId,
+      characterId,
+    },
+  };
+}
+
+async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId }) {
   const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
+  const serialized = safeJsonStringify(payload);
+  if (!serialized.ok) {
+    const error = new Error('Invalid JSON payload for cloud save');
+    error.name = 'InvalidPayloadError';
+    error.cause = serialized.error;
+    throw error;
+  }
 
   if (entryKind === 'autosave') {
-    const autosaveRes = await fetch(`${CLOUD_AUTOSAVES_URL}/${encoded}/${ts}.json`, {
+    const autosaveKey = resolveAutosaveKey({ name, deviceId, characterId });
+    if (!autosaveKey) {
+      throw new Error('Invalid autosave key');
+    }
+    const autosaveRes = await fetch(`${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body,
+      body: serialized.json,
     });
     if (!autosaveRes.ok) throw new Error(`HTTP ${autosaveRes.status}`);
     return;
   }
 
+  const encoded = encodePath(name);
   const res = await fetch(`${CLOUD_SAVES_URL}/${encoded}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body,
+    body: serialized.json,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   await fetch(`${CLOUD_HISTORY_URL}/${encoded}/${ts}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body,
+    body: serialized.json,
   });
 
   const listRes = await fetch(`${CLOUD_HISTORY_URL}/${encoded}.json`, { method: 'GET' });
@@ -291,12 +399,31 @@ async function flushOutbox() {
     let synced = false;
     for (const entry of entries) {
       try {
-        await pushQueuedSave(entry);
+        if (entry?.kind === 'autosave') {
+          const normalized = normalizeAutosaveEntry(entry);
+          if (normalized.action === 'drop') {
+            console.warn('Dropping legacy autosave outbox entry', normalized.reason, entry);
+            if (entry.id !== undefined) {
+              await deleteOutboxEntry(entry.id);
+            }
+            continue;
+          }
+          await pushQueuedSave(normalized.entry);
+        } else {
+          await pushQueuedSave(entry);
+        }
         if (entry.id !== undefined) {
           await deleteOutboxEntry(entry.id);
         }
         synced = true;
       } catch (err) {
+        if (err?.name === 'InvalidPayloadError') {
+          console.warn('Dropping outbox entry with invalid payload', err, entry);
+          if (entry.id !== undefined) {
+            await deleteOutboxEntry(entry.id);
+          }
+          continue;
+        }
         console.error('Cloud outbox flush failed', err);
         if (self.registration?.sync && typeof self.registration.sync.register === 'function') {
           try {
@@ -449,7 +576,7 @@ self.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'queue-cloud-save') {
-    const { name, payload, ts, requestId = null } = data;
+    const { name, payload, ts, deviceId = '', characterId = '', requestId = null } = data;
     const port = Array.isArray(event.ports) && event.ports.length ? event.ports[0] : null;
     const respond = message => {
       if (!message || typeof message !== 'object') return;
@@ -498,6 +625,8 @@ self.addEventListener('message', event => {
         payload,
         ts,
         kind: data.kind === 'autosave' ? 'autosave' : 'manual',
+        deviceId,
+        characterId,
         queuedAt: data.queuedAt,
       });
     } catch (err) {
