@@ -107,7 +107,7 @@ function generateStableId() {
   return token;
 }
 
-function getDeviceId() {
+export function getDeviceId() {
   const storage = getLocalStorageSafe();
   if (!storage) return '';
   try {
@@ -335,7 +335,7 @@ const CLOUD_SAVES_URL = `${CLOUD_BASE_URL}/saves`;
 const CLOUD_HISTORY_URL = `${CLOUD_BASE_URL}/history`;
 const CLOUD_AUTOSAVES_URL = `${CLOUD_BASE_URL}/autosaves`;
 const CLOUD_CAMPAIGN_LOG_URL = `${CLOUD_BASE_URL}/campaignLogs`;
-const CLOUD_USERS_URL = `${CLOUD_BASE_URL}/users`;
+const CLOUD_CHARACTERS_URL = `${CLOUD_BASE_URL}/characters`;
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -725,11 +725,11 @@ function scheduleControllerFlush(registration) {
   }
 }
 
-function resolveAutosaveKey({ deviceId, characterId }) {
-  const trimmedDevice = typeof deviceId === 'string' ? deviceId.trim() : '';
+function resolveAutosaveKey({ uid, characterId }) {
+  const trimmedUid = typeof uid === 'string' ? uid.trim() : '';
   const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
-  if (trimmedDevice && trimmedCharacter) {
-    return `${trimmedDevice}/${trimmedCharacter}`;
+  if (trimmedUid && trimmedCharacter) {
+    return `${trimmedUid}/${trimmedCharacter}`;
   }
   return '';
 }
@@ -739,6 +739,9 @@ function normalizeAutosaveOutboxEntry(entry) {
     return { action: 'drop', reason: 'Invalid autosave outbox entry' };
   }
   const name = typeof entry.name === 'string' ? entry.name : '';
+  const rawUid = typeof entry.uid === 'string' && entry.uid.trim()
+    ? entry.uid.trim()
+    : '';
   const rawCharacterId = typeof entry.characterId === 'string' && entry.characterId.trim()
     ? entry.characterId.trim()
     : '';
@@ -747,35 +750,29 @@ function normalizeAutosaveOutboxEntry(entry) {
   if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
     characterId = payloadCharacterId.trim();
   }
-  const rawDeviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
-    ? entry.deviceId.trim()
-    : '';
-  let deviceId = rawDeviceId;
-  if (!rawDeviceId && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
+  if (!rawUid && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
     return { action: 'drop', reason: 'Legacy autosave entry missing identifiers' };
   }
-  if (!deviceId) {
-    deviceId = getDeviceId();
-  }
+  const uid = rawUid || activeAuthUserId;
   if (!characterId) {
     return { action: 'drop', reason: 'Missing characterId for autosave outbox entry' };
   }
-  if (!deviceId) {
-    return { action: 'drop', reason: 'Missing deviceId for autosave outbox entry' };
+  if (!uid) {
+    return { action: 'drop', reason: 'Missing uid for autosave outbox entry' };
   }
   return {
     action: 'keep',
     entry: {
       ...entry,
       name,
-      deviceId,
+      uid,
       characterId,
     },
   };
 }
 
-async function pushQueuedAutosaveLocally({ name, payload, ts, deviceId, characterId, cloudUrls }) {
-  const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
+async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId, cloudUrls }) {
+  const autosaveKey = resolveAutosaveKey({ uid, characterId });
   if (!autosaveKey) {
     throw new Error('Invalid autosave key');
   }
@@ -973,10 +970,8 @@ function getUserUrls(uid) {
   if (!normalizedUid) return null;
   const encodedUid = encodePath(normalizedUid);
   return {
-    profileUrl: `${CLOUD_USERS_URL}/${encodedUid}/profile`,
-    charactersUrl: `${CLOUD_USERS_URL}/${encodedUid}/characters`,
-    historyUrl: `${CLOUD_USERS_URL}/${encodedUid}/history`,
-    autosavesUrl: `${CLOUD_USERS_URL}/${encodedUid}/autosaves`,
+    charactersUrl: `${CLOUD_CHARACTERS_URL}/${encodedUid}`,
+    autosavesUrl: `${CLOUD_AUTOSAVES_URL}/${encodedUid}`,
   };
 }
 
@@ -1287,6 +1282,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
   }
   const data = serialized.value;
   const deviceId = getDeviceId();
+  const uid = activeAuthUserId;
   const characterId = payload?.character?.characterId || payload?.characterId || '';
   const cloudUrls = getCloudUrls();
 
@@ -1298,6 +1294,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       ts,
       kind,
       deviceId,
+      uid,
       characterId,
       cloudUrls,
     });
@@ -1332,6 +1329,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       payload: entry.payload,
       ts: entry.ts,
       deviceId,
+      uid,
       characterId,
       kind: entry.kind,
       queuedAt: entry.queuedAt,
@@ -1514,7 +1512,6 @@ export async function saveCloudAutosave(name, payload) {
     return null;
   }
   const ts = nextHistoryTimestamp();
-  const deviceId = getDeviceId();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
   const urls = getCloudUrls();
   const uid = activeAuthUserId;
@@ -1524,14 +1521,12 @@ export async function saveCloudAutosave(name, payload) {
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
-  if (!deviceId && !userUrls) {
-    const error = new Error('Autosave requires deviceId or user account');
+  if (!userUrls) {
+    const error = new Error('Autosave requires login');
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
-  const autosaveKey = userUrls
-    ? characterId
-    : resolveAutosaveKey({ deviceId, characterId });
+  const autosaveKey = characterId;
   const autosavePath = autosaveKey
     ? `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/${encodePath(autosaveKey)}/${ts}.json`
     : `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/.json`;
@@ -1540,6 +1535,9 @@ export async function saveCloudAutosave(name, payload) {
     meta: {
       ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       name: typeof name === 'string' ? name : '',
+      uid,
+      deviceId: getDeviceId(),
+      updatedAt: Date.now(),
     },
   };
   try {
@@ -1731,11 +1729,10 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const uid = activeAuthUserId;
     const userUrls = uid ? getUserUrls(uid) : null;
-    const autosaveKey = userUrls
-      ? characterId
-      : resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
+    if (!userUrls) return [];
+    const autosaveKey = characterId;
     if (!autosaveKey) return [];
-    const urls = userUrls || getCloudUrls();
+    const urls = userUrls;
     const res = await cloudFetch(
       `${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`
     );
@@ -1756,30 +1753,6 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   }
 }
 
-export async function listCloudAutosavesByIds(deviceId, characterId) {
-  try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
-    if (!autosaveKey) return [];
-    const urls = getCloudUrls();
-    const res = await cloudFetch(`${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
-    return val
-      ? Object.keys(val)
-          .map(k => Number(k))
-          .filter(ts => Number.isFinite(ts))
-          .sort((a, b) => b - a)
-          .map(ts => ({ ts }))
-      : [];
-  } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
-    console.error('Cloud autosave list failed', e);
-    return [];
-  }
-}
 
 export async function listCloudBackupNames() {
   try {
@@ -1801,10 +1774,10 @@ export async function listCloudBackupNames() {
 export async function listCloudAutosaveNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const deviceId = getDeviceId();
-    if (!deviceId) return [];
-    const urls = getCloudUrls();
-    const res = await cloudFetch(`${urls.autosavesUrl}/${encodePath(deviceId)}.json`);
+    const uid = activeAuthUserId;
+    const userUrls = uid ? getUserUrls(uid) : null;
+    if (!userUrls) return [];
+    const res = await cloudFetch(`${userUrls.autosavesUrl}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     if (!val || typeof val !== 'object') return [];
@@ -1853,9 +1826,10 @@ export async function loadCloudBackup(name, ts) {
 export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
-    if (!autosaveKey) throw new Error('Invalid autosave key');
-    const urls = getCloudUrls();
+    const uid = activeAuthUserId;
+    const urls = getUserUrls(uid);
+    const autosaveKey = characterId;
+    if (!urls || !autosaveKey) throw new Error('Invalid autosave key');
     const res = await cloudFetch(
       `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`,
       { method: 'GET' }
@@ -1871,26 +1845,6 @@ export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   throw new Error('No backup found');
 }
 
-export async function loadCloudAutosaveByIds(deviceId, characterId, ts) {
-  try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
-    if (!autosaveKey) throw new Error('Invalid autosave key');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(
-      `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`,
-      { method: 'GET' }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
-    if (val !== null) return val;
-  } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud autosave load failed', e);
-    }
-  }
-  throw new Error('No backup found');
-}
 
 const CACHE_CLOUD_BATCH_SIZE = 5; // Limit concurrent cloud fetches per batch.
 let cacheNavigationAbortController = null;

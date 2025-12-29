@@ -33,7 +33,13 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
-import { ensureAuth, subscribeAuthState, signInWithEmail, createAccount, signOut, getAuthState } from './auth.js';
+import {
+  initFirebaseAuth,
+  onAuthStateChanged,
+  signInWithUsernamePassword,
+  createAccountWithUsernamePassword,
+  getAuthState,
+} from './auth.js';
 import {
   listLocalSaves,
   loadLocal,
@@ -41,11 +47,11 @@ import {
   saveCloud,
   saveCloudCharacter,
   listCloudCharacters,
+  getDeviceId,
   getActiveUserId,
   setActiveUserId,
   setActiveAuthUserId,
   writeLastUserUid,
-  readLastUserUid,
   listLegacyLocalSaves,
   loadLegacyLocal,
   listCloudSaves,
@@ -53,8 +59,6 @@ import {
   listCloudBackups,
   loadCloud,
   loadCloudBackup,
-  listCloudAutosavesByIds,
-  loadCloudAutosaveByIds,
 } from './storage.js';
 import {
   activateTab,
@@ -23823,26 +23827,32 @@ if (btnRules) {
 }
 
 /* ========= Auth ========= */
+const welcomeLogin = $('welcome-login');
+const welcomeContinue = $('welcome-continue');
+const authModal = $('modal-auth');
 const authTabLogin = $('auth-tab-login');
 const authTabCreate = $('auth-tab-create');
 const authPanelLogin = $('auth-panel-login');
 const authPanelCreate = $('auth-panel-create');
-const authLoginEmail = $('auth-login-email');
+const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
-const authCreateEmail = $('auth-create-email');
+const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
 const authError = $('auth-error');
-const authOffline = $('auth-offline');
 const authCancel = $('auth-cancel');
-const migrationModal = $('modal-migration');
-const migrationImportLocal = $('migration-import-local');
-const migrationImportLegacy = $('migration-import-legacy');
-const migrationLegacyName = $('migration-legacy-name');
-const migrationStatus = $('migration-status');
+const nextStepsModal = $('modal-next-steps');
+const nextStepClaim = $('next-step-claim');
+const nextStepCreate = $('next-step-create');
+const nextStepSkip = $('next-step-skip');
+const claimModal = $('modal-claim');
+const claimCloudList = $('claim-cloud-list');
+const claimLegacyList = $('claim-legacy-list');
+const claimFileInput = $('claim-file-input');
+const claimFileImport = $('claim-file-import');
 
-const MIGRATION_SEEN_PREFIX = 'cc:migration-seen:';
+let pendingNextSteps = false;
 
 function setAuthView(view) {
   const isLogin = view === 'login';
@@ -23884,27 +23894,16 @@ function setDmVisibility(isDm) {
   if (dmMenu) dmMenu.hidden = hidden;
 }
 
-function markMigrationSeen(uid) {
-  if (!uid || typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(`${MIGRATION_SEEN_PREFIX}${uid}`, 'true');
-  } catch {}
+function hasLocalCacheForUid(uid) {
+  return !!(uid && listLocalSaves({ uid }).length);
 }
 
-function hasSeenMigration(uid) {
-  if (!uid || typeof localStorage === 'undefined') return false;
-  try {
-    return localStorage.getItem(`${MIGRATION_SEEN_PREFIX}${uid}`) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function updateMigrationStatus(message) {
-  if (!migrationStatus) return;
-  const text = typeof message === 'string' ? message : '';
-  migrationStatus.textContent = text;
-  migrationStatus.hidden = !text;
+function updateWelcomeContinue() {
+  if (!welcomeContinue) return;
+  const { uid } = getAuthState();
+  const allowed = !!(uid && hasLocalCacheForUid(uid));
+  welcomeContinue.disabled = !allowed;
+  welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
 
 async function rehydrateLocalCache(uid) {
@@ -23919,36 +23918,58 @@ async function rehydrateLocalCache(uid) {
   }
 }
 
-function updateOfflineOption() {
-  if (!authOffline) return;
-  const lastUid = readLastUserUid();
-  const hasCache = !!(lastUid && listLocalSaves({ uid: lastUid }).length);
-  authOffline.hidden = !hasCache;
-  return { lastUid, hasCache };
+function openAuthModal() {
+  if (!authModal) return;
+  setAuthError('');
+  setAuthView('login');
+  hide(WELCOME_MODAL_ID);
+  show('modal-auth');
+}
+
+function openNextSteps() {
+  if (!nextStepsModal) return;
+  show('modal-next-steps');
+}
+
+function closeNextSteps() {
+  hide('modal-next-steps');
+}
+
+function openClaimModal() {
+  if (!claimModal) return;
+  show('modal-claim');
+  refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
+}
+
+function closeClaimModal() {
+  hide('modal-claim');
 }
 
 async function handleAuthSubmit(mode) {
   try {
     setAuthError('');
     setAuthBusy(true);
-    await ensureAuth();
+    await initFirebaseAuth();
     if (mode === 'create') {
-      const email = authCreateEmail?.value?.trim() || '';
+      const username = authCreateUsername?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
-      if (!email || !password) {
-        setAuthError('Enter an email and password to continue.');
+      if (!username || !password) {
+        setAuthError('Enter a username and password to continue.');
         return;
       }
-      await createAccount(email, password);
+      pendingNextSteps = true;
+      await createAccountWithUsernamePassword(username, password);
     } else {
-      const email = authLoginEmail?.value?.trim() || '';
+      const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';
-      if (!email || !password) {
-        setAuthError('Enter your email and password to continue.');
+      if (!username || !password) {
+        setAuthError('Enter your username and password to continue.');
         return;
       }
-      await signInWithEmail(email, password);
+      pendingNextSteps = true;
+      await signInWithUsernamePassword(username, password);
     }
+    hide('modal-auth');
   } catch (err) {
     console.error('Auth failed', err);
     setAuthError(err?.message || 'Unable to sign in.');
@@ -23957,67 +23978,184 @@ async function handleAuthSubmit(mode) {
   }
 }
 
-async function importLocalCharacters(uid) {
-  const legacyNames = listLegacyLocalSaves();
-  if (!legacyNames.length) {
-    updateMigrationStatus('No legacy local characters found.');
-    return;
-  }
-  updateMigrationStatus('Importing local characters...');
-  for (const name of legacyNames) {
-    const data = await loadLegacyLocal(name);
-    const migrated = migrateSavePayload(data);
-    const { payload } = buildCanonicalPayload(migrated);
-    const characterId = ensureCharacterId(payload, name);
-    payload.meta = {
-      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
-      ownerUid: uid,
-      name,
-    };
-    payload.updatedAt = Date.now();
-    await saveCloudCharacter(uid, characterId, payload);
-    await saveLocal(name, payload, { uid });
-  }
-  updateMigrationStatus('Local characters imported.');
-  markMigrationSeen(uid);
+function buildClaimRow({ name, meta, actions = [] } = {}) {
+  const row = document.createElement('div');
+  row.className = 'claim-row';
+  row.setAttribute('role', 'listitem');
+  const main = document.createElement('div');
+  main.className = 'claim-row__main';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'claim-row__name';
+  nameEl.textContent = name;
+  const metaEl = document.createElement('div');
+  metaEl.className = 'claim-row__meta';
+  metaEl.textContent = meta;
+  main.append(nameEl, metaEl);
+  const actionsEl = document.createElement('div');
+  actionsEl.className = 'claim-row__actions';
+  actions.forEach(btn => actionsEl.append(btn));
+  row.append(main, actionsEl);
+  return row;
 }
 
-async function importLegacyCloudByName(uid) {
-  const name = migrationLegacyName?.value?.trim() || '';
-  if (!name) {
-    updateMigrationStatus('Enter a legacy character name to import.');
-    return;
-  }
-  updateMigrationStatus('Importing legacy cloud save...');
-  const data = await loadCloud(name);
+function renderEmptyRow(container, message) {
+  if (!container) return;
+  const row = buildClaimRow({ name: message, meta: '' });
+  row.classList.add('claim-row--empty');
+  container.append(row);
+}
+
+async function handleLegacyClaim({ name, source }) {
+  const { uid } = getAuthState();
+  if (!uid) return;
+  const data = source === 'cloud'
+    ? await loadCloud(name)
+    : await loadLegacyLocal(name);
   const migrated = migrateSavePayload(data);
   const { payload } = buildCanonicalPayload(migrated);
+  const ownerUid = payload?.meta?.ownerUid || payload?.meta?.uid || '';
+  if (ownerUid && ownerUid !== uid) {
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
   const characterId = ensureCharacterId(payload, name);
   payload.meta = {
     ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
     ownerUid: uid,
+    uid,
+    deviceId: getDeviceId(),
     name,
+    updatedAt: Date.now(),
   };
-  payload.updatedAt = Date.now();
+  payload.updatedAt = payload.meta.updatedAt;
   await saveCloudCharacter(uid, characterId, payload);
   await saveLocal(name, payload, { uid });
-  updateMigrationStatus(`Imported ${name}.`);
-  markMigrationSeen(uid);
+  toast(`Claimed ${name}.`, 'success');
+  await refreshClaimModal();
 }
 
-async function maybeShowMigration(uid) {
-  if (!migrationModal || hasSeenMigration(uid)) return;
-  const hasLegacyLocal = listLegacyLocalSaves().length > 0;
-  let hasLegacyCloud = false;
-  try {
-    const legacyCloudNames = await listCloudSaves();
-    hasLegacyCloud = legacyCloudNames.length > 0;
-  } catch (err) {
-    console.warn('Failed to check legacy cloud saves', err);
+async function handleFileImport() {
+  if (!claimFileInput?.files?.length) {
+    toast('Choose a JSON file to import.', 'info');
+    return;
   }
-  if (hasLegacyLocal || hasLegacyCloud) {
-    show('modal-migration');
+  const file = claimFileInput.files[0];
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  const migrated = migrateSavePayload(parsed);
+  const { payload } = buildCanonicalPayload(migrated);
+  let name = payload?.meta?.name || payload?.character?.name || '';
+  if (!name && typeof prompt === 'function') {
+    name = prompt('Enter a character name for this import:') || '';
   }
+  name = name.trim();
+  if (!name) {
+    toast('Character name required to import.', 'error');
+    return;
+  }
+  const { uid } = getAuthState();
+  if (!uid) return;
+  const existingOwner = payload?.meta?.ownerUid || payload?.meta?.uid || '';
+  if (existingOwner && existingOwner !== uid) {
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
+  const characterId = ensureCharacterId(payload, name);
+  payload.meta = {
+    ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+    ownerUid: uid,
+    uid,
+    deviceId: getDeviceId(),
+    name,
+    updatedAt: Date.now(),
+  };
+  payload.updatedAt = payload.meta.updatedAt;
+  await saveCloudCharacter(uid, characterId, payload);
+  await saveLocal(name, payload, { uid });
+  toast(`Imported ${name}.`, 'success');
+  claimFileInput.value = '';
+  await refreshClaimModal();
+}
+
+async function refreshClaimModal() {
+  const { uid } = getAuthState();
+  if (!uid) return;
+  if (claimCloudList) {
+    claimCloudList.textContent = '';
+    const entries = await listCloudCharacters(uid);
+    if (!entries.length) {
+      renderEmptyRow(claimCloudList, 'No cloud characters found.');
+    } else {
+      entries.forEach(entry => {
+        const name = entry?.payload?.meta?.name || entry?.payload?.character?.name || entry.characterId;
+        const btn = document.createElement('button');
+        btn.className = 'cc-btn cc-btn--ghost';
+        btn.type = 'button';
+        btn.textContent = 'Load';
+        btn.addEventListener('click', () => {
+          openCharacterModalByName(name);
+          closeClaimModal();
+        });
+        claimCloudList.append(buildClaimRow({
+          name,
+          meta: 'Already in your cloud roster.',
+          actions: [btn],
+        }));
+      });
+    }
+  }
+
+  if (claimLegacyList) {
+    claimLegacyList.textContent = '';
+    const legacyLocal = listLegacyLocalSaves();
+    let legacyCloud = [];
+    try {
+      legacyCloud = await listCloudSaves();
+    } catch (err) {
+      console.warn('Failed to list legacy cloud saves', err);
+    }
+    const combined = [
+      ...legacyLocal.map(name => ({ name, source: 'local' })),
+      ...legacyCloud.map(name => ({ name, source: 'cloud' })),
+    ];
+    if (!combined.length) {
+      renderEmptyRow(claimLegacyList, 'No legacy saves found.');
+    } else {
+      combined.forEach(entry => {
+        const claimBtn = document.createElement('button');
+        claimBtn.className = 'cc-btn cc-btn--primary';
+        claimBtn.type = 'button';
+        claimBtn.textContent = 'Claim';
+        claimBtn.addEventListener('click', () => handleLegacyClaim(entry).catch(err => {
+          console.error('Failed to claim legacy save', err);
+          toast('Failed to claim legacy save.', 'error');
+        }));
+        claimLegacyList.append(buildClaimRow({
+          name: entry.name,
+          meta: entry.source === 'local' ? 'Legacy local save' : 'Legacy cloud save',
+          actions: [claimBtn],
+        }));
+      });
+    }
+  }
+}
+
+function createNewCharacterFromModal() {
+  if (!getAuthState().uid) {
+    openAuthModal();
+    return;
+  }
+  const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';
+  if (!name) return;
+  const clean = name.trim();
+  if (!clean) return;
+  setCurrentCharacter(clean);
+  syncMiniGamePlayerName();
+  setPinInteractionGuard('', { locked: false });
+  applyAppSnapshot(createDefaultSnapshot());
+  setMode('edit');
+  queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
+  toast(`Switched to ${clean}`, 'success');
 }
 
 function handleAuthStateChange({ uid, isDm } = {}) {
@@ -24028,8 +24166,14 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     writeLastUserUid(uid);
     welcomeModalDismissed = true;
     dismissWelcomeModal();
+    updateWelcomeContinue();
     rehydrateLocalCache(uid)
-      .then(() => maybeShowMigration(uid))
+      .then(() => {
+        if (pendingNextSteps) {
+          pendingNextSteps = false;
+          openNextSteps();
+        }
+      })
       .catch(err => console.error('Failed to rehydrate local cache', err));
     return;
   }
@@ -24037,10 +24181,23 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   setActiveAuthUserId('');
   welcomeModalDismissed = false;
   welcomeSequenceComplete = false;
-  updateOfflineOption();
+  updateWelcomeContinue();
   queueWelcomeModal({ immediate: true });
 }
 
+if (welcomeLogin) {
+  welcomeLogin.addEventListener('click', () => openAuthModal());
+}
+if (welcomeContinue) {
+  welcomeContinue.addEventListener('click', () => {
+    updateWelcomeContinue();
+    if (!welcomeContinue.disabled) {
+      dismissWelcomeModal();
+      return;
+    }
+    openAuthModal();
+  });
+}
 if (authTabLogin) {
   authTabLogin.addEventListener('click', () => setAuthView('login'));
 }
@@ -24053,35 +24210,43 @@ if (authLoginSubmit) {
 if (authCreateSubmit) {
   authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
 }
-if (authOffline) {
-  authOffline.addEventListener('click', () => {
-    const lastUid = readLastUserUid();
-    if (!lastUid) return;
-    setActiveUserId(lastUid);
-    setActiveAuthUserId('');
-    welcomeModalDismissed = true;
-    dismissWelcomeModal();
+if (authCancel) {
+  authCancel.addEventListener('click', () => {
+    hide('modal-auth');
+    if (!getAuthState().uid) {
+      queueWelcomeModal({ immediate: true });
+    }
   });
 }
-
-if (migrationImportLocal) {
-  migrationImportLocal.addEventListener('click', () => {
-    const { uid } = getAuthState();
-    if (!uid) return;
-    importLocalCharacters(uid).catch(err => console.error('Failed to import local characters', err));
+if (nextStepClaim) {
+  nextStepClaim.addEventListener('click', () => {
+    closeNextSteps();
+    openClaimModal();
   });
 }
-if (migrationImportLegacy) {
-  migrationImportLegacy.addEventListener('click', () => {
-    const { uid } = getAuthState();
-    if (!uid) return;
-    importLegacyCloudByName(uid).catch(err => console.error('Failed to import legacy cloud', err));
+if (nextStepCreate) {
+  nextStepCreate.addEventListener('click', () => {
+    closeNextSteps();
+    createNewCharacterFromModal();
+  });
+}
+if (nextStepSkip) {
+  nextStepSkip.addEventListener('click', () => {
+    closeNextSteps();
+  });
+}
+if (claimFileImport) {
+  claimFileImport.addEventListener('click', () => {
+    handleFileImport().catch(err => {
+      console.error('Failed to import file', err);
+      toast('Failed to import file.', 'error');
+    });
   });
 }
 
 setAuthView('login');
-ensureAuth().catch(err => console.error('Failed to initialize auth', err));
-subscribeAuthState(handleAuthStateChange);
+initFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
+onAuthStateChanged(handleAuthStateChange);
 handleAuthStateChange(getAuthState());
 
 const welcomeOverlay = getWelcomeModal();

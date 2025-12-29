@@ -4,8 +4,6 @@ import {
   listLocalSaves,
   deleteSave,
   saveCloud,
-  loadCloud,
-  listCloudSaves,
   listCloudBackups,
   listCloudBackupNames,
   loadCloudBackup,
@@ -13,13 +11,13 @@ import {
   listCloudAutosaves,
   listCloudAutosaveNames,
   loadCloudAutosave,
-  deleteCloud,
   getActiveUserId,
   getActiveAuthUserId,
   loadCloudCharacter,
   saveCloudCharacter,
   listCloudCharacters,
   deleteCloudCharacter,
+  getDeviceId,
 } from './storage.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
@@ -989,7 +987,7 @@ export function setCurrentCharacter(name) {
 }
 
 function resolveUpdatedAt(payload) {
-  const value = Number(payload?.updatedAt);
+  const value = Number(payload?.meta?.updatedAt ?? payload?.updatedAt);
   return Number.isFinite(value) ? value : 0;
 }
 
@@ -1020,18 +1018,13 @@ async function refreshCloudCharacter({ name, storageName, localPayload, uid }) {
 export async function listCharacters() {
   try {
     const uid = getActiveAuthUserId();
-    if (uid) {
-      const cloud = await listCloudCharacters(uid);
-      const names = cloud
-        .map(entry => entry?.payload?.meta?.name || '')
-        .map(displayCharacterName)
-        .filter(Boolean);
-      return names.sort((a, b) => a.localeCompare(b));
-    }
-    const cloud = (await listCloudSaves())
+    if (!uid) return [];
+    const cloud = await listCloudCharacters(uid);
+    const names = cloud
+      .map(entry => entry?.payload?.meta?.name || '')
       .map(displayCharacterName)
       .filter(Boolean);
-    return cloud.sort((a, b) => a.localeCompare(b));
+    return names.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list cloud saves', e);
     return [];
@@ -1151,8 +1144,11 @@ export async function loadCharacter(name, options = {}) {
             ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
             name: displayName || storageName || name,
             ownerUid: authUid,
+            uid: authUid,
+            deviceId: getDeviceId(),
+            updatedAt: Date.now(),
           };
-          payload.updatedAt = Date.now();
+          payload.updatedAt = payload.meta.updatedAt;
           await saveCloudCharacter(authUid, characterId, payload);
         } else {
           await saveCloud(storageName || name, payload);
@@ -1200,12 +1196,15 @@ export async function saveCharacter(data, name = currentCharacter()) {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid: ownerUid || localUid,
       name: displayCharacterName(name),
+      uid: localUid,
+      deviceId: getDeviceId(),
+      updatedAt: Date.now(),
     };
     if (payload.character && typeof payload.character === 'object') {
       payload.character.ownerUid = payload.meta.ownerUid;
       payload.character.characterId = characterId;
     }
-    payload.updatedAt = Date.now();
+    payload.updatedAt = payload.meta.updatedAt;
     try {
       await saveLocal(storageName, payload, { uid: localUid });
     } catch (err) {
@@ -1261,12 +1260,15 @@ export async function claimCharacterOwnership(name, ownerUid) {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid,
       name: displayCharacterName(name),
+      uid: ownerUid,
+      deviceId: getDeviceId(),
+      updatedAt: Date.now(),
     };
     if (payload.character && typeof payload.character === 'object') {
       payload.character.ownerUid = ownerUid;
       payload.character.characterId = characterId;
     }
-    payload.updatedAt = Date.now();
+    payload.updatedAt = payload.meta.updatedAt;
     await saveLocal(storageName, payload, { uid });
     try {
       if (authUid) {
@@ -1318,8 +1320,11 @@ export async function renameCharacter(oldName, newName, data) {
         payload.meta = {
           ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
           name: displayCharacterName(newName),
+          uid: authUid,
+          deviceId: getDeviceId(),
+          updatedAt: Date.now(),
         };
-        payload.updatedAt = Date.now();
+        payload.updatedAt = payload.meta.updatedAt;
         await saveCloudCharacter(authUid, characterId, payload);
         cloudStatus = 'saved';
       } else {

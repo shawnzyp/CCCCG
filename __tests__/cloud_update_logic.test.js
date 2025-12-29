@@ -18,7 +18,7 @@ describe('cloud update toast dedupe', () => {
 describe('cloud character paths', () => {
   test('builds uid + characterId paths', () => {
     const path = buildUserCharacterPath('user-123', 'char-456');
-    expect(path).toContain('/users/user-123/characters/char-456');
+    expect(path).toContain('/characters/user-123/char-456');
   });
 
   test('returns empty path with missing data', () => {

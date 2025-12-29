@@ -4905,6 +4905,7 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 }
 .claim-local-list,
 .claim-cloud-list,
+.claim-legacy-list,
 .claim-autosave-list{
   display:flex;
   flex-direction:column;
@@ -4968,6 +4969,8 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   filter:saturate(.7);
   cursor:not-allowed;
 }
+.modal--next-steps .next-steps-actions{display:flex;flex-direction:column;gap:10px}
+.modal--next-steps .next-steps-actions .cc-btn{justify-content:center}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
 #modal-help .feature-list li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 #modal-help .feature-list b{display:block}

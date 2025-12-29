@@ -10,7 +10,7 @@ describe('cloud autosave path encoding', () => {
     jest.restoreAllMocks();
   });
 
-  test('uses device and character ids in autosave paths', async () => {
+  test('uses uid and character ids in autosave paths', async () => {
     const calls = [];
     global.fetch = jest.fn((url) => {
       calls.push(url);
@@ -27,18 +27,18 @@ describe('cloud autosave path encoding', () => {
       });
     });
 
-    const { saveCloudAutosave } = await import('../scripts/storage.js');
+    const { saveCloudAutosave, setActiveAuthUserId } = await import('../scripts/storage.js');
 
-    localStorage.setItem('cc:device-id', 'device-123');
+    setActiveAuthUserId('user-123');
     await saveCloudAutosave('Al.ice.Bob', { foo: 'bar', character: { characterId: 'character-456' } });
+    setActiveAuthUserId('');
 
-    const encodedDevice = 'device-123';
+    const encodedUid = 'user-123';
     const encodedCharacter = 'character-456';
-    expect(calls.some((url) => url.includes(`/autosaves/${encodedDevice}/${encodedCharacter}/`))).toBe(true);
-    expect(calls.some((url) => url.includes('/autosaves/Al.ice.Bob/'))).toBe(false);
+    expect(calls.some((url) => url.includes(`/autosaves/${encodedUid}/${encodedCharacter}/`))).toBe(true);
   });
 
-  test('lists autosaves using encoded device and character ids', async () => {
+  test('lists autosaves using encoded uid and character ids', async () => {
     const calls = [];
     global.fetch = jest.fn((url) => {
       calls.push(url);
@@ -55,12 +55,14 @@ describe('cloud autosave path encoding', () => {
       });
     });
 
-    const { listCloudAutosavesByIds } = await import('../scripts/storage.js');
+    const { listCloudAutosaves, setActiveAuthUserId } = await import('../scripts/storage.js');
 
-    await listCloudAutosavesByIds('device.id', 'char.id');
+    setActiveAuthUserId('user.id');
+    await listCloudAutosaves('MyChar', { characterId: 'char.id' });
+    setActiveAuthUserId('');
 
-    const encodedDevice = 'device%2Eid';
+    const encodedUid = 'user%2Eid';
     const encodedCharacter = 'char%2Eid';
-    expect(calls.some((url) => url.includes(`/autosaves/${encodedDevice}/${encodedCharacter}.json`))).toBe(true);
+    expect(calls.some((url) => url.includes(`/autosaves/${encodedUid}/${encodedCharacter}.json`))).toBe(true);
   });
 });

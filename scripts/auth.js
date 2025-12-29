@@ -30,6 +30,17 @@ async function loadFirebaseCompat() {
   return window.firebase;
 }
 
+function normalizeUsername(username) {
+  if (typeof username !== 'string') return '';
+  return username.trim().toLowerCase();
+}
+
+export function usernameToEmail(username) {
+  const normalized = normalizeUsername(username);
+  if (!normalized) return '';
+  return `${normalized}@ccccg.local`;
+}
+
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const firebaseConfig = getFirebaseConfig();
@@ -45,7 +56,7 @@ async function initializeAuthInternal() {
     if (user && typeof user.getIdTokenResult === 'function') {
       try {
         const tokenResult = await user.getIdTokenResult(true);
-        isDm = !!(tokenResult?.claims?.token?.isDM || tokenResult?.claims?.isDM);
+        isDm = !!(tokenResult?.claims?.token?.dm === true || tokenResult?.claims?.dm === true);
       } catch (err) {
         console.warn('Failed to read auth claims', err);
       }
@@ -67,7 +78,7 @@ async function initializeAuthInternal() {
   return auth;
 }
 
-export function ensureAuth() {
+export function initFirebaseAuth() {
   if (!authInitPromise) {
     authInitPromise = initializeAuthInternal().catch(err => {
       console.error('Failed to initialize auth', err);
@@ -82,24 +93,32 @@ export function getAuthState() {
   return { ...authState };
 }
 
-export function subscribeAuthState(listener) {
+export function onAuthStateChanged(listener) {
   if (typeof listener === 'function') {
     authListeners.add(listener);
   }
   return () => authListeners.delete(listener);
 }
 
-export async function signInWithEmail(email, password) {
-  const auth = await ensureAuth();
+export async function signInWithUsernamePassword(username, password) {
+  const auth = await initFirebaseAuth();
+  const email = usernameToEmail(username);
+  if (!email) {
+    throw new Error('Username required');
+  }
   return auth.signInWithEmailAndPassword(email, password);
 }
 
-export async function createAccount(email, password) {
-  const auth = await ensureAuth();
+export async function createAccountWithUsernamePassword(username, password) {
+  const auth = await initFirebaseAuth();
+  const email = usernameToEmail(username);
+  if (!email) {
+    throw new Error('Username required');
+  }
   return auth.createUserWithEmailAndPassword(email, password);
 }
 
 export async function signOut() {
-  const auth = await ensureAuth();
+  const auth = await initFirebaseAuth();
   return auth.signOut();
 }

@@ -12,22 +12,17 @@ function loadDom() {
   document.documentElement.innerHTML = html;
 }
 
-describe('auth modal layout', () => {
+describe('welcome modal layout', () => {
   beforeEach(() => {
     loadDom();
   });
 
-  test('renders login and create account panels', () => {
-    const loginTab = document.getElementById('auth-tab-login');
-    const createTab = document.getElementById('auth-tab-create');
-    const loginPanel = document.getElementById('auth-panel-login');
-    const createPanel = document.getElementById('auth-panel-create');
-    const offlineButton = document.getElementById('auth-offline');
+  test('renders login and continue actions', () => {
+    const login = document.getElementById('welcome-login');
+    const cont = document.getElementById('welcome-continue');
 
-    expect(loginTab).not.toBeNull();
-    expect(createTab).not.toBeNull();
-    expect(loginPanel).not.toBeNull();
-    expect(createPanel).not.toBeNull();
-    expect(offlineButton).not.toBeNull();
+    expect(login).not.toBeNull();
+    expect(cont).not.toBeNull();
+    expect(cont.hasAttribute('disabled')).toBe(true);
   });
 });

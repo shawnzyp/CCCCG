@@ -2,10 +2,16 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "users": {
+    "characters": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.isDM === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.isDM === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+      }
+    },
+    "autosaves": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
       }
     }
   }

@@ -264,11 +264,11 @@ async function ensureLaunchVideoReset(videoUrl) {
   }
 }
 
-function resolveAutosaveKey({ deviceId, characterId }) {
-  const trimmedDevice = typeof deviceId === 'string' ? deviceId.trim() : '';
+function resolveAutosaveKey({ uid, characterId }) {
+  const trimmedUid = typeof uid === 'string' ? uid.trim() : '';
   const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
-  if (trimmedDevice && trimmedCharacter) {
-    return `${trimmedDevice}/${trimmedCharacter}`;
+  if (trimmedUid && trimmedCharacter) {
+    return `${trimmedUid}/${trimmedCharacter}`;
   }
   return '';
 }
@@ -286,30 +286,30 @@ function normalizeAutosaveEntry(entry) {
   if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
     characterId = payloadCharacterId.trim();
   }
-  const deviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
-    ? entry.deviceId.trim()
+  const uid = typeof entry.uid === 'string' && entry.uid.trim()
+    ? entry.uid.trim()
     : '';
-  if (!deviceId && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
+  if (!uid && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
     return { action: 'drop', reason: 'Legacy autosave entry missing identifiers' };
   }
   if (!characterId) {
     return { action: 'drop', reason: 'Missing characterId for autosave outbox entry' };
   }
-  if (!deviceId) {
-    return { action: 'drop', reason: 'Missing deviceId for autosave outbox entry' };
+  if (!uid) {
+    return { action: 'drop', reason: 'Missing uid for autosave outbox entry' };
   }
   return {
     action: 'keep',
     entry: {
       ...entry,
       name,
-      deviceId,
+      uid,
       characterId,
     },
   };
 }
 
-async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId, cloudUrls }) {
+async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloudUrls }) {
   const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -320,7 +320,7 @@ async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId, 
   }
 
   if (entryKind === 'autosave') {
-    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
+    const autosaveKey = resolveAutosaveKey({ uid, characterId });
     if (!autosaveKey) {
       throw new Error('Invalid autosave key');
     }
@@ -586,7 +586,7 @@ self.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'queue-cloud-save') {
-    const { name, payload, ts, deviceId = '', characterId = '', requestId = null } = data;
+    const { name, payload, ts, uid = '', characterId = '', requestId = null } = data;
     const port = Array.isArray(event.ports) && event.ports.length ? event.ports[0] : null;
     const respond = message => {
       if (!message || typeof message !== 'object') return;
@@ -635,7 +635,7 @@ self.addEventListener('message', event => {
         payload,
         ts,
         kind: data.kind === 'autosave' ? 'autosave' : 'manual',
-        deviceId,
+        uid,
         characterId,
         queuedAt: data.queuedAt,
       });
