@@ -149,11 +149,18 @@ const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
 
+function sanitizePathSegment(segment) {
+  if (typeof segment !== 'string') return '';
+  return segment
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[#$\[\]]/g, '_');
+}
+
 function encodePath(name) {
   if (typeof name !== 'string' || !name) return '';
   return name
     .split('/')
-    .map(segment => (typeof segment === 'string' ? segment : ''))
+    .map(segment => sanitizePathSegment(typeof segment === 'string' ? segment : ''))
     .filter(segment => segment.length > 0)
     .map(segment => encodeURIComponent(segment).replace(/\./g, '%2E'))
     .join('/');
