@@ -8277,9 +8277,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-inline-start: calc(0.5rem + env(safe-area-inset-left, 0px));
-  padding-inline-end: calc(0.5rem + env(safe-area-inset-right, 0px));
-  padding-block-end: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  padding-inline-start: env(safe-area-inset-left, 0px);
+  padding-inline-end: env(safe-area-inset-right, 0px);
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+  overflow: hidden;
   background: none;
   box-shadow: none;
   border-radius: 0;
@@ -8324,7 +8325,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow: none;
   border-radius: 46px;      /* match inner device radius */
   overflow: hidden;         /* clip tools to the phone screen shape */
-  transform: translate(-12px, -10px);
+  transform: translate(clamp(-14px, -2vw, -8px), clamp(-12px, -1.5vh, -6px));
 }
 
 .player-tools-shell-image {
