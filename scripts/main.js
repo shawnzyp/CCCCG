@@ -39,9 +39,11 @@ import {
   signInWithUsernamePassword,
   createAccountWithUsernamePassword,
   getAuthState,
+  getFirebaseDatabase,
 } from './auth.js';
+import { claimCharacterLock } from './claim-utils.js';
+import { hasBootableLocalState } from './welcome-utils.js';
 import {
-  listLocalSaves,
   loadLocal,
   saveLocal,
   saveCloud,
@@ -21976,6 +21978,9 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
+  'modal-auth',
+  'modal-post-auth-choice',
+  'modal-claim-characters',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -23838,21 +23843,23 @@ const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
+const authCreateConfirm = $('auth-create-confirm');
 const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
 const authError = $('auth-error');
 const authCancel = $('auth-cancel');
-const nextStepsModal = $('modal-next-steps');
-const nextStepClaim = $('next-step-claim');
-const nextStepCreate = $('next-step-create');
-const nextStepSkip = $('next-step-skip');
-const claimModal = $('modal-claim');
+const postAuthChoiceModal = $('modal-post-auth-choice');
+const postAuthImport = $('post-auth-import');
+const postAuthCreate = $('post-auth-create');
+const postAuthSkip = $('post-auth-skip');
+const claimModal = $('modal-claim-characters');
 const claimCloudList = $('claim-cloud-list');
+const claimDeviceList = $('claim-device-list');
 const claimLegacyList = $('claim-legacy-list');
 const claimFileInput = $('claim-file-input');
 const claimFileImport = $('claim-file-import');
 
-let pendingNextSteps = false;
+let pendingPostAuthChoice = false;
 
 function setAuthView(view) {
   const isLogin = view === 'login';
@@ -23894,14 +23901,12 @@ function setDmVisibility(isDm) {
   if (dmMenu) dmMenu.hidden = hidden;
 }
 
-function hasLocalCacheForUid(uid) {
-  return !!(uid && listLocalSaves({ uid }).length);
-}
-
 function updateWelcomeContinue() {
   if (!welcomeContinue) return;
   const { uid } = getAuthState();
-  const allowed = !!(uid && hasLocalCacheForUid(uid));
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const lastSave = readLastSaveName();
+  const allowed = !!(uid || hasBootableLocalState({ storage, lastSaveName: lastSave, uid }));
   welcomeContinue.disabled = !allowed;
   welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
@@ -23926,23 +23931,23 @@ function openAuthModal() {
   show('modal-auth');
 }
 
-function openNextSteps() {
-  if (!nextStepsModal) return;
-  show('modal-next-steps');
+function openPostAuthChoice() {
+  if (!postAuthChoiceModal) return;
+  show('modal-post-auth-choice');
 }
 
-function closeNextSteps() {
-  hide('modal-next-steps');
+function closePostAuthChoice() {
+  hide('modal-post-auth-choice');
 }
 
 function openClaimModal() {
   if (!claimModal) return;
-  show('modal-claim');
+  show('modal-claim-characters');
   refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
 }
 
 function closeClaimModal() {
-  hide('modal-claim');
+  hide('modal-claim-characters');
 }
 
 async function handleAuthSubmit(mode) {
@@ -23953,11 +23958,16 @@ async function handleAuthSubmit(mode) {
     if (mode === 'create') {
       const username = authCreateUsername?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
+      const confirm = authCreateConfirm?.value || '';
       if (!username || !password) {
         setAuthError('Enter a username and password to continue.');
         return;
       }
-      pendingNextSteps = true;
+      if (password !== confirm) {
+        setAuthError('Passwords do not match.');
+        return;
+      }
+      pendingPostAuthChoice = true;
       await createAccountWithUsernamePassword(username, password);
     } else {
       const username = authLoginUsername?.value?.trim() || '';
@@ -23966,7 +23976,7 @@ async function handleAuthSubmit(mode) {
         setAuthError('Enter your username and password to continue.');
         return;
       }
-      pendingNextSteps = true;
+      pendingPostAuthChoice = true;
       await signInWithUsernamePassword(username, password);
     }
     hide('modal-auth');
@@ -24019,17 +24029,31 @@ async function handleLegacyClaim({ name, source }) {
     return;
   }
   const characterId = ensureCharacterId(payload, name);
+  try {
+    const db = await getFirebaseDatabase();
+    await claimCharacterLock(db, characterId, uid);
+  } catch (err) {
+    console.error('Failed to claim character lock', err);
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
   payload.meta = {
     ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
     ownerUid: uid,
     uid,
     deviceId: getDeviceId(),
     name,
+    displayName: name,
+    legacyName: name,
     updatedAt: Date.now(),
   };
   payload.updatedAt = payload.meta.updatedAt;
   await saveCloudCharacter(uid, characterId, payload);
   await saveLocal(name, payload, { uid });
+  setCurrentCharacter(name);
+  syncMiniGamePlayerName();
+  applyAppSnapshot(payload);
+  setMode('edit');
   toast(`Claimed ${name}.`, 'success');
   await refreshClaimModal();
 }
@@ -24061,17 +24085,30 @@ async function handleFileImport() {
     return;
   }
   const characterId = ensureCharacterId(payload, name);
+  try {
+    const db = await getFirebaseDatabase();
+    await claimCharacterLock(db, characterId, uid);
+  } catch (err) {
+    console.error('Failed to claim character lock', err);
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
   payload.meta = {
     ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
     ownerUid: uid,
     uid,
     deviceId: getDeviceId(),
     name,
+    displayName: name,
     updatedAt: Date.now(),
   };
   payload.updatedAt = payload.meta.updatedAt;
   await saveCloudCharacter(uid, characterId, payload);
   await saveLocal(name, payload, { uid });
+  setCurrentCharacter(name);
+  syncMiniGamePlayerName();
+  applyAppSnapshot(payload);
+  setMode('edit');
   toast(`Imported ${name}.`, 'success');
   claimFileInput.value = '';
   await refreshClaimModal();
@@ -24105,34 +24142,53 @@ async function refreshClaimModal() {
     }
   }
 
+  if (claimDeviceList) {
+    claimDeviceList.textContent = '';
+    const legacyLocal = listLegacyLocalSaves();
+    if (!legacyLocal.length) {
+      renderEmptyRow(claimDeviceList, 'No legacy local saves found.');
+    } else {
+      legacyLocal.forEach(name => {
+        const claimBtn = document.createElement('button');
+        claimBtn.className = 'cc-btn cc-btn--primary';
+        claimBtn.type = 'button';
+        claimBtn.textContent = 'Claim';
+        claimBtn.addEventListener('click', () => handleLegacyClaim({ name, source: 'local' }).catch(err => {
+          console.error('Failed to claim legacy save', err);
+          toast('Failed to claim legacy save.', 'error');
+        }));
+        claimDeviceList.append(buildClaimRow({
+          name,
+          meta: 'Legacy local save',
+          actions: [claimBtn],
+        }));
+      });
+    }
+  }
+
   if (claimLegacyList) {
     claimLegacyList.textContent = '';
-    const legacyLocal = listLegacyLocalSaves();
     let legacyCloud = [];
     try {
       legacyCloud = await listCloudSaves();
     } catch (err) {
       console.warn('Failed to list legacy cloud saves', err);
     }
-    const combined = [
-      ...legacyLocal.map(name => ({ name, source: 'local' })),
-      ...legacyCloud.map(name => ({ name, source: 'cloud' })),
-    ];
-    if (!combined.length) {
-      renderEmptyRow(claimLegacyList, 'No legacy saves found.');
+    if (!legacyCloud.length) {
+      renderEmptyRow(claimLegacyList, 'No legacy cloud saves found.');
     } else {
-      combined.forEach(entry => {
+      legacyCloud.forEach(name => {
         const claimBtn = document.createElement('button');
         claimBtn.className = 'cc-btn cc-btn--primary';
         claimBtn.type = 'button';
         claimBtn.textContent = 'Claim';
-        claimBtn.addEventListener('click', () => handleLegacyClaim(entry).catch(err => {
+        claimBtn.addEventListener('click', () => handleLegacyClaim({ name, source: 'cloud' }).catch(err => {
           console.error('Failed to claim legacy save', err);
           toast('Failed to claim legacy save.', 'error');
         }));
         claimLegacyList.append(buildClaimRow({
-          name: entry.name,
-          meta: entry.source === 'local' ? 'Legacy local save' : 'Legacy cloud save',
+          name,
+          meta: 'Legacy cloud save',
           actions: [claimBtn],
         }));
       });
@@ -24169,9 +24225,9 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
       .then(() => {
-        if (pendingNextSteps) {
-          pendingNextSteps = false;
-          openNextSteps();
+        if (pendingPostAuthChoice) {
+          pendingPostAuthChoice = false;
+          openPostAuthChoice();
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
@@ -24193,6 +24249,9 @@ if (welcomeContinue) {
     updateWelcomeContinue();
     if (!welcomeContinue.disabled) {
       dismissWelcomeModal();
+      restoreLastLoadedCharacter().catch(err => {
+        console.error('Failed to restore last loaded character', err);
+      });
       return;
     }
     openAuthModal();
@@ -24218,21 +24277,21 @@ if (authCancel) {
     }
   });
 }
-if (nextStepClaim) {
-  nextStepClaim.addEventListener('click', () => {
-    closeNextSteps();
+if (postAuthImport) {
+  postAuthImport.addEventListener('click', () => {
+    closePostAuthChoice();
     openClaimModal();
   });
 }
-if (nextStepCreate) {
-  nextStepCreate.addEventListener('click', () => {
-    closeNextSteps();
+if (postAuthCreate) {
+  postAuthCreate.addEventListener('click', () => {
+    closePostAuthChoice();
     createNewCharacterFromModal();
   });
 }
-if (nextStepSkip) {
-  nextStepSkip.addEventListener('click', () => {
-    closeNextSteps();
+if (postAuthSkip) {
+  postAuthSkip.addEventListener('click', () => {
+    closePostAuthChoice();
   });
 }
 if (claimFileImport) {

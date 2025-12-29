@@ -4767,7 +4767,7 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
 #modal-welcome .modal,
-#modal-claim .modal{
+#modal-claim-characters .modal{
   font-size:.9rem;
   line-height:1.4;
   --welcome-modal-bg:color-mix(in srgb,var(--surface) 92%,rgba(5,8,22,.92));
@@ -4778,12 +4778,12 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   -webkit-backdrop-filter:blur(24px) saturate(140%);
 }
 .theme-light #modal-welcome .modal,
-.theme-light #modal-claim .modal{
+.theme-light #modal-claim-characters .modal{
   --welcome-modal-bg:color-mix(in srgb,#fff 94%,rgba(255,255,255,.88));
   border-color:color-mix(in srgb,var(--surface) 48%,rgba(0,0,0,.15));
 }
 #modal-welcome,
-#modal-claim{align-items:start;justify-content:center}
+#modal-claim-characters{align-items:start;justify-content:center}
 .modal--welcome{
   width:min(520px,92vw);
   max-height:calc(var(--cc-vh, 1vh) * 100 - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
@@ -4905,6 +4905,7 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 }
 .claim-local-list,
 .claim-cloud-list,
+.claim-device-list,
 .claim-legacy-list,
 .claim-autosave-list{
   display:flex;

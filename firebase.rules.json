@@ -8,6 +8,24 @@
         ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
       }
     },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+      }
+    },
+    "usernames": {
+      "$name": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "characterClaims": {
+      "$characterId": {
+        ".read": "auth != null && auth.token.dm === true",
+        ".write": "auth != null"
+      }
+    },
     "autosaves": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",

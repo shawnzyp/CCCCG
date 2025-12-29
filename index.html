@@ -1526,6 +1526,8 @@
         <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
         <label class="sr-only" for="auth-create-password">Password</label>
         <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
+        <label class="sr-only" for="auth-create-confirm">Confirm password</label>
+        <input id="auth-create-confirm" type="password" autocomplete="new-password" placeholder="Confirm password" required>
         <button id="auth-create-submit" class="cc-btn cc-btn--primary" type="button">Create Account</button>
       </div>
       <p id="auth-error" class="modal__hint" role="alert" hidden></p>
@@ -1536,10 +1538,10 @@
   </div>
 </div>
 
-<!-- NEXT STEP MODAL -->
-<div class="overlay hidden" id="modal-next-steps" role="dialog" aria-modal="true" aria-labelledby="next-steps-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
+<!-- POST-AUTH CHOICE MODAL -->
+<div class="overlay hidden" id="modal-post-auth-choice" role="dialog" aria-modal="true" aria-labelledby="post-auth-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
   <div class="modal modal--next-steps" role="document">
-    <button class="x" type="button" data-close="modal-next-steps" aria-label="Close">
+    <button class="x" type="button" data-close="modal-post-auth-choice" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
@@ -1547,24 +1549,24 @@
     <div class="modal__header">
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
-        <h2 id="next-steps-title">What would you like to do?</h2>
+        <h2 id="post-auth-title">What would you like to do?</h2>
         <p class="modal__subtitle">Import existing data or start a new hero.</p>
       </div>
     </div>
     <div class="modal__body">
       <div class="next-steps-actions">
-        <button id="next-step-claim" class="cc-btn cc-btn--primary" type="button">Import / Claim</button>
-        <button id="next-step-create" class="cc-btn cc-btn--ghost" type="button">Create New Character</button>
-        <button id="next-step-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
+        <button id="post-auth-import" class="cc-btn cc-btn--primary" type="button">Import / Claim</button>
+        <button id="post-auth-create" class="cc-btn cc-btn--ghost" type="button">Create New Character</button>
+        <button id="post-auth-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- CLAIM CHARACTERS MODAL -->
-<div class="overlay hidden" id="modal-claim" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
+<div class="overlay hidden" id="modal-claim-characters" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
   <div class="modal modal--claim" role="document">
-    <button class="x" type="button" data-close="modal-claim" aria-label="Close">
+    <button class="x" type="button" data-close="modal-claim-characters" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
@@ -1582,8 +1584,12 @@
         <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud characters"></div>
       </section>
       <section class="claim-section">
-        <h3 class="claim-section__title">Legacy Saves</h3>
-        <div class="claim-legacy-list" id="claim-legacy-list" role="list" aria-label="Legacy saves"></div>
+        <h3 class="claim-section__title">Found on This Device</h3>
+        <div class="claim-device-list" id="claim-device-list" role="list" aria-label="Local legacy saves"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Found in Old Cloud</h3>
+        <div class="claim-legacy-list" id="claim-legacy-list" role="list" aria-label="Legacy cloud saves"></div>
       </section>
       <section class="claim-section">
         <h3 class="claim-section__title">Import from File</h3>

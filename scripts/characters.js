@@ -991,15 +991,18 @@ function resolveUpdatedAt(payload) {
   return Number.isFinite(value) ? value : 0;
 }
 
+export function isCloudNewer(localPayload, cloudPayload) {
+  return resolveUpdatedAt(cloudPayload) > resolveUpdatedAt(localPayload);
+}
+
 async function refreshCloudCharacter({ name, storageName, localPayload, uid }) {
   if (!uid || !localPayload) return;
   const characterId = localPayload?.character?.characterId || localPayload?.characterId || '';
   if (!characterId) return;
   try {
     const cloudPayload = await loadCloudCharacter(uid, characterId);
+    if (!isCloudNewer(localPayload, cloudPayload)) return;
     const cloudUpdatedAt = resolveUpdatedAt(cloudPayload);
-    const localUpdatedAt = resolveUpdatedAt(localPayload);
-    if (cloudUpdatedAt <= localUpdatedAt) return;
     await saveLocal(storageName, cloudPayload, { uid });
     if (typeof document !== 'undefined') {
       document.dispatchEvent(new CustomEvent('character-cloud-update', {
@@ -1143,6 +1146,7 @@ export async function loadCharacter(name, options = {}) {
           payload.meta = {
             ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
             name: displayName || storageName || name,
+            displayName: displayName || storageName || name,
             ownerUid: authUid,
             uid: authUid,
             deviceId: getDeviceId(),
@@ -1196,6 +1200,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid: ownerUid || localUid,
       name: displayCharacterName(name),
+      displayName: displayCharacterName(name),
       uid: localUid,
       deviceId: getDeviceId(),
       updatedAt: Date.now(),
@@ -1260,6 +1265,7 @@ export async function claimCharacterOwnership(name, ownerUid) {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid,
       name: displayCharacterName(name),
+      displayName: displayCharacterName(name),
       uid: ownerUid,
       deviceId: getDeviceId(),
       updatedAt: Date.now(),
@@ -1320,6 +1326,7 @@ export async function renameCharacter(oldName, newName, data) {
         payload.meta = {
           ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
           name: displayCharacterName(newName),
+          displayName: displayCharacterName(newName),
           uid: authUid,
           deviceId: getDeviceId(),
           updatedAt: Date.now(),
