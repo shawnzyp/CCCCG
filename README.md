@@ -1,129 +1,234 @@
 # Catalyst Core Character Tracker
 
-Hosted version of the mobile-optimized character sheet for GitHub Pages.
+## Overview
 
-## Offline support
+Catalyst Core Character Tracker is a mobile friendly character sheet and campaign companion. The app stores each character on the device first and keeps a cloud copy for syncing across devices, recovery after local storage loss, and collaboration with DM tools.
 
-The service worker pre-caches every asset listed in `asset-manifest.json` so the
-app is fully available after a user's first visit. On load, the app now
-preloads the entire manifest into the Cache Storage API and surfaces a
-**Download offline assets** button inside the cloud sync panel so players can
-manually refresh their local bundle at any time. Run `npm run build` to
-regenerate the compiled assets before deploying. This pipeline will:
+## Core Design Principles
 
-1. Normalize the gear catalog CSV exports into `data/gear-catalog.json` via
-   `npm run build:catalog`.
-2. Bundle interactive headers and animated titles with esbuild.
-3. Transcode the launch animation into lightweight WebM/MP4 assets with
-   `npm run build:media` (requires `ffmpeg` on your PATH).
-4. Refresh the precache manifest with `npm run build:manifest`.
+- Local first. Your device always has the authoritative working copy.
+- Cloud first indexing. The cloud maintains indices for discovery, recovery, and multi device access.
+- No silent overwrites. The app never replaces a character without an explicit user decision.
+- Explicit conflict handling. Conflicts are surfaced and require user choices.
+- Offline continuity. The sheet remains usable without network access.
 
-If you only need to refresh the manifest, the legacy
-`npm run build:manifest` command is still available.
+## Authentication and Accounts
 
-## Storage
+- Authentication uses Firebase Auth with a username and password only.
+- Usernames are normalized to lowercase, spaces become underscores, and only letters, numbers, and underscores are allowed. Length is 3 to 20 characters.
+- The normalized username is mapped to a synthetic email address in the form `username@ccccg.local` for Firebase Auth.
+- Usernames are unique and cannot be changed after claim.
+- There is no email login and no password reset flow. Account recovery requires the correct credentials.
 
-Saved characters are stored locally in your browser using `localStorage` and synchronized through a Firebase Realtime Database.
+## User Roles and Permissions
 
-### Cloud saves
+- Player. Can read and write their own data and manage their own characters.
+- DM or Admin. Users with `auth.token.admin === true` can read and write across all user paths, generate claim tokens, and use administrative tools. This role does not grant silent ownership changes.
 
-The app requires a Firebase Realtime Database for real-time updates. To
-configure the database:
+## Local Storage System
 
-1. Create a Firebase project and enable the **Realtime Database**.
-2. Use the following database rules to allow read and write access (DM override via `auth.token.dm`):
+- Characters, UI state, autosave metadata, and last synced timestamps are stored in `localStorage`.
+- Local saves are used for immediate editing and offline play.
+- Clearing browser storage removes local copies only and does not delete cloud data.
+
+## Cloud Sync Architecture
+
+- Firebase Realtime Database stores the cloud copy of characters, autosaves, indices, and history.
+- The app uses the Firebase REST API, authenticated with the user token from Firebase Auth.
+- Cloud indices are used to list characters, autosaves, and ownership without scanning full payloads.
+- Local and cloud timestamps are compared using server timestamps for authoritative ordering.
+
+## Character Lifecycle
+
+1. Create a character locally or import a JSON file.
+2. Save locally and optionally push to the cloud when logged in.
+3. The cloud stores the full payload, plus index entries for listing.
+4. Autosaves and manual saves are tracked for recovery.
+5. When loading, the app compares local and cloud versions and prompts on conflicts.
+
+## Autosaves and History
+
+- Autosaves run while you edit and are stored in the cloud per character.
+- The autosaves index tracks the latest autosave timestamp and label for quick recovery.
+- Conflict backups are written to the history path before any overwrite decision.
+
+## Conflict Detection and Resolution
+
+- Each character tracks `meta.updatedAt` and `meta.updatedAtServer` in the payload.
+- The app stores a local `lastSyncedAt` value per character.
+- If both local and cloud timestamps are newer than `lastSyncedAt`, the app shows a conflict modal with choices: Keep Cloud, Keep Local, or Merge Later.
+- Before resolving, the app writes local conflict snapshots to `localStorage` and cloud conflict snapshots to `/history/{uid}/{characterId}/conflict/{timestamp}`.
+- There is no automatic merge.
+
+## Claiming and Migration
+
+- Pre account characters can be claimed through the claim modal after login.
+- Claiming links a character to the current account by setting the owner and writing cloud copies.
+- DMs can generate claim tokens for a specific character and target user id.
+- Tokens are one time, expire at a specified timestamp, and can only be consumed by the target user.
+
+## Import and Export JSON
+
+- Export JSON saves the current character payload to a file.
+- Import JSON accepts a file and validates the payload, then migrates it to the current schema.
+- Imported characters receive a new local copy and can be pushed to the cloud after login.
+
+## Offline Mode and Asset Caching
+
+- A service worker precaches every asset listed in `asset-manifest.json`.
+- On load, the app preloads the manifest into Cache Storage.
+- The cloud sync panel includes a Download offline assets button to refresh the cached bundle.
+- Run `npm run build` to regenerate compiled assets. The build pipeline performs:
+  1. Catalog normalization with `npm run build:catalog`.
+  2. Header and animated title bundling with esbuild.
+  3. Launch animation transcoding with `npm run build:media`.
+  4. Font packaging with `npm run build:fonts`.
+  5. Precache manifest refresh with `npm run build:manifest`.
+
+## DM and Admin Tools
+
+- DM tools require a shared PIN stored as a salted PBKDF2 hash in `scripts/dm-pin.js`.
+- Admin users can generate claim tokens, access notifications, and review roster data.
+- DM access does not change character ownership without an explicit claim or import.
+
+## Security Model
+
+- Firebase rules enforce ownership and role based overrides via `auth.token.admin`.
+- Usernames are locked to a single uid once claimed.
+- Character payloads include `meta.ownerUid` to support ownership checks and debugging.
+- No cross user writes are allowed without admin claims.
+
+## Data Model and Firebase Paths
+
+- `/users/{uid}/profile` contains `{ username, createdAt }`.
+- `/users/{uid}/charactersIndex/{characterId}` contains `{ name, updatedAt, updatedAtServer }`.
+- `/users/{uid}/autosaves/{characterId}` contains `{ latestTs, name, updatedAt, updatedAtServer }`.
+- `/characters/{uid}/{characterId}` contains the full character payload including `meta.updatedAt`, `meta.updatedAtServer`, `schemaVersion`, and `meta.ownerUid`.
+- `/history/{uid}/{characterId}/conflict/{timestamp}` stores conflict backups before overwrites.
+- `/claimTokens/{token}` stores `{ sourceUid, characterId, targetUid, expiresAt, createdAt, consumedAt, consumedBy }`.
+- `/usernames/{normalizedUsername}` stores the uid that owns the username.
+
+## Sync Guarantees and Limitations
+
+- Sync is best effort and relies on network availability.
+- No silent overwrites, no automatic conflict merges, and no hidden deletes.
+- The cloud copy is updated only on explicit saves, autosaves, and sync actions.
+- Local storage remains authoritative until a conflict decision is made.
+
+## Device and Browser Behavior
+
+- Each device keeps its own local cache and `lastSyncedAt` values.
+- Logging in from another device pulls cloud data but does not copy local state from other devices.
+- Clearing storage or using private browsing removes local data.
+
+## Intentional Constraints
+
+- No email login.
+- No password reset.
+- No automatic conflict merging.
+- No account recovery without valid credentials.
+
+## Troubleshooting
+
+- If cloud sync fails, keep working locally and retry once online.
+- If a character does not appear after login, use Import / Claim to scan cloud and legacy sources.
+- If a claim token fails, confirm it is unexpired and targeted to the current uid.
+- If local storage is cleared, log in and open the cloud list to recover.
+
+## Schema Versioning and Migration
+
+- Character payloads include `schemaVersion` and `meta` fields.
+- On load, the app migrates older payloads to the current schema using `scripts/characters.js`.
+- Migrations preserve data and update metadata such as `meta.updatedAt` and `meta.updatedAtServer`.
+
+## Firebase Rules Example
+
+Use the following database rules. These match `firebase.rules.json`.
 
 ```json
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "characters": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
+    "history": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "usernames": {
       "$name": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)"
       }
     },
     "characterClaims": {
       "$characterId": {
-        ".read": "auth != null && auth.token.dm === true",
+        ".read": "auth != null && auth.token.admin === true",
         ".write": "auth != null"
+      }
+    },
+    "claimTokens": {
+      "$token": {
+        ".read": "auth != null && (auth.token.admin === true || data.child('targetUid').val() === auth.uid)",
+        ".write": "auth != null && ((auth.token.admin === true && !data.exists() && !newData.child('consumedAt').exists() && newData.child('consumedBy').val() === null) || (auth.uid === data.child('targetUid').val() && !data.child('consumedAt').exists() && newData.child('consumedAt').exists() && newData.child('consumedBy').val() === auth.uid && newData.child('sourceUid').val() === data.child('sourceUid').val() && newData.child('characterId').val() === data.child('characterId').val() && newData.child('targetUid').val() === data.child('targetUid').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('createdAt').val() === data.child('createdAt').val()))"
       }
     },
     "autosaves": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
-    },
-    "dm-notifications": {
-      ".read": true,
-      ".write": true
     }
   }
 }
 ```
 
-The rules above are also provided in `firebase.rules.json` for quick copying.
+## Developer Notes
 
-The application communicates with the database using its public REST API.
+### DM tools access
 
-## DM tools access
+The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash in `scripts/dm-pin.js`.
 
-The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash
-in `scripts/dm-pin.js`.
+#### Rotating the DM PIN
 
-### Rotating the DM PIN
-
-1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash
-   configuration (optional second argument overrides the default 120000 PBKDF2
-   iterations).
+1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash configuration. The optional second argument overrides the default 120000 PBKDF2 iterations.
 2. Replace the `DM_PIN` export in `scripts/dm-pin.js` with the generated JSON.
 3. Commit the change and redeploy the site.
 
-## Audio cues
+### Audio cues
 
-Call `window.playTone(cueId)` to play lightweight feedback sounds across the
-app. The following cue identifiers are available for use in features:
+Call `window.playTone(cueId)` to play lightweight feedback sounds across the app. The following cue identifiers are available for use in features:
 
-* `success`/`info` — success toast chime.
-* `warn`/`warning` — warning tone.
-* `error`/`danger`/`failure` — error buzzer.
-* `dm-roll` — confirmation ping for DM dice rolls.
-* `coin-flip` — staccato flip result tone.
-* `campaign-log:add` — soft chime when appending to the campaign log.
+- `success` or `info` for success toast chime.
+- `warn` or `warning` for warning tone.
+- `error`, `danger`, or `failure` for error buzzer.
+- `dm-roll` for confirmation ping for DM dice rolls.
+- `coin-flip` for staccato flip result tone.
+- `campaign-log:add` for soft chime when appending to the campaign log.
 
 Each cue is preloaded on first use so subsequent calls are instant.
 
 ### Toast notifications
 
-Use the global `toast(message, options)` helper to surface inline notifications. Toasts
-are queued and shown sequentially: if one is already visible, the next call waits until
-the current toast is dismissed before rendering. The helper accepts either a numeric
-duration (in milliseconds) or an options object with the following properties:
+Use the global `toast(message, options)` helper to surface inline notifications. Toasts are queued and shown sequentially. If one is already visible, the next call waits until the current toast is dismissed before rendering. The helper accepts either a numeric duration in milliseconds or an options object with the following properties:
 
-* `type` – Applies the visual style and tone (`'info'`, `'success'`, `'error'`, etc.).
-* `duration` – Auto-dismiss timer in milliseconds. Set to `0` (or any non-positive or
-  non-finite value) to require manual dismissal.
-* `icon` – Optional icon name or CSS value. Provide a short name such as `'info'` or
-  `'success'` to map to the corresponding `--icon-*` token, `'none'` to hide the icon, or
-  any valid `url(...)`/`var(...)` string for custom artwork.
-* `html` – Custom markup for the toast body. When omitted, the provided message is
-  rendered as plain text.
-* `action` – Primary action descriptor. Supply an object with a `label` and `callback`
-  function (invoked with `{ message, options }`). Optional `ariaLabel` and
-  `dismissOnAction` (default `true`) keys are supported for accessibility and
-  persistence control.
+- `type` applies the visual style and tone such as `info`, `success`, or `error`.
+- `duration` is the auto dismiss timer in milliseconds. Set to `0` or any non positive or non finite value to require manual dismissal.
+- `icon` is an optional icon name or CSS value. Provide a short name such as `info` or `success` to map to the corresponding `--icon-*` token. Use `none` to hide the icon or any valid `url(...)` or `var(...)` string for custom artwork.
+- `html` is custom markup for the toast body. When omitted, the provided message is rendered as plain text.
+- `action` is a primary action descriptor. Supply an object with a `label` and `callback` function invoked with `{ message, options }`. Optional `ariaLabel` and `dismissOnAction` keys are supported for accessibility and persistence control.
 
-The convenience method `dismissToast()` immediately hides the active toast and advances
-the queue.
+The convenience method `dismissToast()` immediately hides the active toast and advances the queue.

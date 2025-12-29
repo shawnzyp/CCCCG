@@ -16,6 +16,8 @@ const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
 const LAST_USER_UID_KEY = 'cc:last-user-uid';
 const CHARACTER_ID_STORAGE_PREFIX = 'cc:character-id:';
 const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
+const LAST_SYNCED_PREFIX = 'cc:last-synced:';
+const CONFLICT_SNAPSHOT_PREFIX = 'cc:conflict:';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
 const FETCH_SUPPORTED = typeof fetch === 'function';
 const EVENTSOURCE_SUPPORTED = typeof EventSource === 'function';
@@ -1017,8 +1019,10 @@ function getUserUrls(uid) {
   return {
     charactersUrl: `${CLOUD_CHARACTERS_URL}/${encodedUid}`,
     autosavesUrl: `${CLOUD_AUTOSAVES_URL}/${encodedUid}`,
+    historyUrl: `${CLOUD_HISTORY_URL}/${encodedUid}`,
     profileUrl: `${CLOUD_USERS_URL}/${encodedUid}/profile`,
     charactersIndexUrl: `${CLOUD_USERS_URL}/${encodedUid}/charactersIndex`,
+    autosaveIndexUrl: `${CLOUD_USERS_URL}/${encodedUid}/autosaves`,
   };
 }
 
@@ -1036,6 +1040,53 @@ export function buildUserCharacterIndexPath(uid, characterId) {
   const encodedCharacterId = encodePath(characterId || '');
   if (!encodedCharacterId) return '';
   return `${urls.charactersIndexUrl}/${encodedCharacterId}`;
+}
+
+export function buildUserAutosaveIndexPath(uid, characterId) {
+  const urls = getUserUrls(uid);
+  if (!urls) return '';
+  const encodedCharacterId = encodePath(characterId || '');
+  if (!encodedCharacterId) return '';
+  return `${urls.autosaveIndexUrl}/${encodedCharacterId}`;
+}
+
+export function readLastSyncedAt(characterId) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return 0;
+  const key = typeof characterId === 'string' ? characterId.trim() : '';
+  if (!key) return 0;
+  try {
+    const raw = storage.getItem(`${LAST_SYNCED_PREFIX}${key}`);
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeLastSyncedAt(characterId, timestamp) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  const key = typeof characterId === 'string' ? characterId.trim() : '';
+  const value = Number(timestamp);
+  if (!key || !Number.isFinite(value)) return;
+  try {
+    storage.setItem(`${LAST_SYNCED_PREFIX}${key}`, String(value));
+  } catch {}
+}
+
+export function storeConflictSnapshot(characterId, payload, { label = '' } = {}) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !characterId || !payload) return '';
+  const ts = Date.now();
+  const safeLabel = typeof label === 'string' ? label.trim() : '';
+  const key = `${CONFLICT_SNAPSHOT_PREFIX}${characterId}:${ts}${safeLabel ? `:${safeLabel}` : ''}`;
+  try {
+    storage.setItem(key, JSON.stringify({ ts, label: safeLabel, payload }));
+    return key;
+  } catch {
+    return '';
+  }
 }
 
 function sanitizeForJson(value, seen = new WeakSet()) {
@@ -1604,6 +1655,23 @@ export async function saveCloudAutosave(name, payload) {
     }
     const autosaveBase = userUrls ? userUrls.autosavesUrl : urls.autosavesUrl;
     await saveHistoryEntry(autosaveBase, autosaveKey, payloadWithMeta, ts);
+    if (userUrls?.autosaveIndexUrl) {
+      const autosaveIndexPayload = {
+        latestTs: ts,
+        name: typeof name === 'string' ? name : '',
+        updatedAt: Date.now(),
+        updatedAtServer: { '.sv': 'timestamp' },
+      };
+      const autosaveIndexUrl = await withAuth(
+        `${userUrls.autosaveIndexUrl}/${encodePath(autosaveKey)}.json`
+      );
+      const indexRes = await cloudFetch(autosaveIndexUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(autosaveIndexPayload),
+      });
+      if (!indexRes.ok) throw new Error(`HTTP ${indexRes.status}`);
+    }
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
@@ -1637,7 +1705,15 @@ export async function saveCloudCharacter(uid, characterId, payload) {
   if (!urls) throw new Error('Missing user id');
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing character id');
-  const serialized = safeJsonStringify(payload);
+  const payloadWithServerTime = {
+    ...payload,
+    meta: {
+      ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      updatedAtServer: { '.sv': 'timestamp' },
+    },
+    updatedAtServer: { '.sv': 'timestamp' },
+  };
+  const serialized = safeJsonStringify(payloadWithServerTime);
   if (!serialized.ok) {
     const error = new Error('Invalid JSON payload for cloud save');
     error.name = 'InvalidPayloadError';
@@ -1716,6 +1792,7 @@ export async function saveCharacterIndexEntry(uid, characterId, entry) {
   const payload = {
     name: entry?.name || '',
     updatedAt: Number(entry?.updatedAt) || 0,
+    updatedAtServer: { '.sv': 'timestamp' },
   };
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -1731,6 +1808,24 @@ export async function saveCharacterIndexEntry(uid, characterId, entry) {
     body: serialized.json,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function saveCloudConflictBackup(uid, characterId, payload, { label = '' } = {}) {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const urls = getUserUrls(uid);
+  if (!urls) throw new Error('Missing user id');
+  const safeLabel = typeof label === 'string' ? label.trim() : '';
+  const entryPayload = {
+    ...payload,
+    meta: {
+      ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      conflictLabel: safeLabel,
+      conflictRecordedAt: Date.now(),
+    },
+  };
+  const ts = nextHistoryTimestamp();
+  await saveHistoryEntry(`${urls.historyUrl}/${encodePath(characterId)}`, 'conflict', entryPayload, ts);
+  return ts;
 }
 
 export async function deleteCharacterIndexEntry(uid, characterId) {
@@ -1756,6 +1851,7 @@ export async function listCharacterIndex(uid) {
       characterId,
       name: entry?.name || '',
       updatedAt: Number(entry?.updatedAt) || 0,
+      updatedAtServer: Number(entry?.updatedAtServer) || 0,
     }));
   } catch (err) {
     if (err && err.message === 'fetch not supported') {
@@ -1912,6 +2008,19 @@ export async function listCloudAutosaveNames() {
     const uid = activeAuthUserId;
     const userUrls = uid ? getUserUrls(uid) : null;
     if (!userUrls) return [];
+    const indexUrl = await withAuth(`${userUrls.autosaveIndexUrl}.json`);
+    const indexRes = await cloudFetch(indexUrl);
+    if (!indexRes.ok) throw new Error(`HTTP ${indexRes.status}`);
+    const indexVal = await indexRes.json();
+    if (indexVal && typeof indexVal === 'object') {
+      const names = Object.values(indexVal)
+        .map(entry => entry?.name)
+        .filter(name => typeof name === 'string' && name.trim())
+        .map(name => name.trim());
+      if (names.length) {
+        return names;
+      }
+    }
     const url = await withAuth(`${userUrls.autosavesUrl}.json`);
     const res = await cloudFetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

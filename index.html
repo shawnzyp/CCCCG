@@ -1408,6 +1408,10 @@
         <button id="btn-save" class="btn-sm" type="button">Save</button>
         <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
         <button id="create-character" class="btn-sm" type="button">Create New</button>
+        <button id="export-character" class="btn-sm" type="button">Export JSON</button>
+        <label class="sr-only" for="import-character-file">Import JSON</label>
+        <input id="import-character-file" type="file" accept="application/json" hidden>
+        <button id="import-character" class="btn-sm" type="button">Import JSON</button>
       </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
@@ -1507,7 +1511,7 @@
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
         <h2 id="auth-title">Account Login</h2>
-        <p class="modal__subtitle">Use your Codex username and password.</p>
+        <p class="modal__subtitle">Use your username and password.</p>
       </div>
     </div>
     <div class="modal__body">
@@ -1560,6 +1564,7 @@
         <button id="post-auth-import" class="cc-btn cc-btn--primary" type="button">Import / Claim</button>
         <button id="post-auth-create" class="cc-btn cc-btn--ghost" type="button">Create New Character</button>
         <button id="post-auth-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
+        <div class="claim-cloud-list" id="post-auth-cloud-list" role="list" aria-label="Cloud characters"></div>
       </div>
     </div>
   </div>
@@ -1586,6 +1591,32 @@
         <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud characters"></div>
       </section>
       <section class="claim-section">
+        <h3 class="claim-section__title">Claim with Token</h3>
+        <p class="claim-section__hint">Paste a one-time claim token to import a character.</p>
+        <div class="claim-recovery">
+          <label class="sr-only" for="claim-token-input">Claim token</label>
+          <input id="claim-token-input" type="text" placeholder="Enter claim token">
+          <button id="claim-token-submit" class="cc-btn cc-btn--primary" type="button">Claim Token</button>
+        </div>
+        <div class="claim-token-admin" id="claim-token-admin" hidden>
+          <p class="claim-section__hint">DMs can generate a token for a specific character and target UID.</p>
+          <div class="claim-recovery">
+            <label class="sr-only" for="claim-token-source-uid">Source UID</label>
+            <input id="claim-token-source-uid" type="text" placeholder="Source UID">
+            <label class="sr-only" for="claim-token-character-id">Character ID</label>
+            <input id="claim-token-character-id" type="text" placeholder="Character ID">
+            <label class="sr-only" for="claim-token-target-uid">Target UID</label>
+            <input id="claim-token-target-uid" type="text" placeholder="Target UID">
+          </div>
+          <div class="claim-recovery">
+            <label class="sr-only" for="claim-token-expiry">Expiry (hours)</label>
+            <input id="claim-token-expiry" type="number" min="1" max="168" value="24">
+            <button id="claim-token-generate" class="cc-btn cc-btn--ghost" type="button">Generate Token</button>
+          </div>
+          <p id="claim-token-output" class="modal__hint" role="status" hidden></p>
+        </div>
+      </section>
+      <section class="claim-section">
         <h3 class="claim-section__title">Found on This Device</h3>
         <div class="claim-device-list" id="claim-device-list" role="list" aria-label="Local legacy saves"></div>
       </section>
@@ -1599,6 +1630,28 @@
         <input id="claim-file-input" type="file" accept="application/json">
         <button id="claim-file-import" class="cc-btn cc-btn--ghost" type="button">Import File</button>
       </section>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-sync-conflict" role="dialog" aria-modal="true" aria-labelledby="conflict-title" data-modal-accent-hue="12deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--auth" role="document">
+    <button class="x" type="button" data-close="modal-sync-conflict" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">!</div>
+      <div class="modal__titles">
+        <h2 id="conflict-title">Sync conflict detected</h2>
+        <p id="conflict-description" class="modal__subtitle"></p>
+      </div>
+    </div>
+    <div class="modal__actions">
+      <button id="conflict-keep-cloud" class="cc-btn cc-btn--primary" type="button">Keep Cloud</button>
+      <button id="conflict-keep-local" class="cc-btn cc-btn--ghost" type="button">Keep Local</button>
+      <button id="conflict-merge-later" class="cc-btn cc-btn--ghost" type="button">Merge Later</button>
     </div>
   </div>
 </div>
@@ -1662,194 +1715,96 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-    <h3>Catalyst Core Help</h3>
-    <p>
-      Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
-      do.
-    </p>
-    <h4>Getting Started</h4>
+    <h3>Codex Help Guide</h3>
+    <h4>SECTION 1: Overview</h4>
+    <p>Codex is a character creation and tracking app designed to keep your characters safe, consistent, and under your control.</p>
+    <p>Your character always exists on your device first. When you are logged in, Codex also saves a copy to the cloud so you can move between devices or recover your character if your browser data is cleared.</p>
+    <p>Codex will never silently overwrite your work or delete a character without you choosing to do so.</p>
+    <h4>SECTION 2: How Codex Is Designed</h4>
+    <p>Codex follows a few important rules.</p>
     <ul class="feature-list">
-      <li>
-        <b>Launch &amp; Welcome</b>
-        The intro video now plays on every launch before the sheet unlocks. Tap <i>Skip</i> during the animation if you need to jump in
-        immediately, or let the eight-second clip finish while the welcome modal prepares in the background.
-      </li>
-      <li>
-        <b>Create or Load</b>
-        Start from the welcome modal or open <i>Load / Save</i> from the menu to create a new hero, switch between existing records,
-        or recover a backup.
-      </li>
-      <li>
-        <b>Offline Ready</b>
-        Once your character data loads, the tracker continues working without a connection. Changes sync the next time you come
-        back online.
-      </li>
+      <li>Your character is always yours.</li>
+      <li>Nothing is overwritten without your knowledge.</li>
+      <li>Conflicts are shown, not hidden.</li>
+      <li>Local saves always work, even offline.</li>
+      <li>Cloud saves are used to sync and recover, not to take control.</li>
     </ul>
-    <h4>Navigating the Sheet</h4>
+    <p>If something changes, Codex tells you.</p>
+    <h4>SECTION 3: Accounts and Login</h4>
+    <p>Codex uses username and password login.</p>
     <ul class="feature-list">
-      <li>
-        <b>Tabs</b>
-        Use the tab bar to swap between Combat, Abilities, Powers, Gear, and Story. Combat handles HP, SP, status tracking, dice
-        tools, and Resonance Points. Abilities keeps ability scores, saves, and skills linked to your proficiency bonus. Powers
-        stores reusable cards and Signature Moves. Gear tracks loadouts, credits, and catalog imports. Story captures identity
-        details, classifications, reputation, and notes.
-      </li>
-      <li>
-        <b>Main Menu</b>
-        The header menu button opens overlays for Load / Save, Encounter / Initiative, Action Log, Campaign Log, Rules,
-        and this Help screen. Each modal floats above the sheet so you never lose context, and you can close any of them with Esc
-        or by tapping outside.
-      </li>
-      <li>
-        <b>Themes &amp; Visibility</b>
-        Click the Catalyst Core logo to cycle through every available theme. Your selection is stored locally, and certain
-        Story-tab classifications apply their matching palette automatically.
-      </li>
+      <li>You choose a username when you create an account.</li>
+      <li>Usernames are unique and cannot be changed later.</li>
+      <li>There is no email login.</li>
+      <li>There is no password reset system.</li>
     </ul>
-    <h4>Managing Characters</h4>
+    <p>If you forget your username or password, the account itself cannot be recovered. Your characters can still be recovered if they exist in the cloud and you can log into the correct account.</p>
+    <h4>SECTION 4: Player and DM Access</h4>
+    <p>Players can create, edit, import, export, and sync their own characters. Players cannot edit characters owned by other players.</p>
+    <p>DMs have additional tools for campaign management and character assistance. DMs cannot silently take control of player characters.</p>
+    <h4>SECTION 5: Local Storage</h4>
+    <p>Every character is saved locally on your device.</p>
+    <p>Local storage allows:</p>
     <ul class="feature-list">
-      <li>
-        <b>Autosave &amp; Manual Saves</b>
-        Character changes write to local storage automatically while you edit. Use the <i>Save</i> button in Load / Save to create a
-        manual snapshot before big scenes.
-      </li>
-      <li>
-        <b>Recover Backups</b>
-        <i>Recover Save</i> lists recent autosaves and manual backups with timestamps. Restoring one replaces the sheet only after
-        you confirm, giving you a safe way to undo mistakes.
-      </li>
-      <li>
-        <b>PIN Protection</b>
-        Assign a numeric PIN to any character from the Load / Save manager. The sheet will request that code before loading or
-        editing that record on shared devices.
-      </li>
+      <li>Offline play</li>
+      <li>Immediate updates</li>
+      <li>Protection from temporary cloud failures</li>
     </ul>
-    <h4>Session Tools</h4>
+    <p>Clearing browser storage removes local copies only.</p>
+    <h4>SECTION 6: Cloud Saving and Sync</h4>
+    <p>When logged in, Codex saves characters to the cloud.</p>
+    <p>Cloud saving allows:</p>
     <ul class="feature-list">
-      <li>
-        <b>Card Editing</b>
-        Use the edit buttons on the Ability Scores and Character and Story cards to unlock those sections for updates. Toggle the
-        button again to relock the cards and avoid accidental changes during play.
-      </li>
-      <li>
-        <b>Encounter / Initiative</b>
-        Add combatants with their initiative values, then step through turns with <i>Prev Turn</i> and <i>Next Turn</i>. Use <i>Reset</i>
-        when a fight ends.
-      </li>
-      <li>
-        <b>Action Log</b>
-        Automated events such as damage, healing, rests, and resource adjustments appear here. Open the full log for a
-        chronological history.
-      </li>
-      <li>
-        <b>Status Effects</b>
-        Use the <i>Info</i> button beside any status checkbox to expand or collapse its mechanics inline. The toggle stays handy
-        on mobile layouts and works with screen readers and keyboards alike.
-      </li>
-      <li>
-        <b>Campaign Log</b>
-        Capture session highlights as short entries. Each note stays tied to the active character and saves automatically.
-      </li>
-      <li>
-        <b>Rules Reference</b>
-        The Rules modal provides quick summaries of key mechanics while keeping the character sheet visible behind it.
-      </li>
+      <li>Multi device access</li>
+      <li>Recovery after clearing local storage</li>
+      <li>Automatic updates between devices</li>
     </ul>
-    <h4>DM Tools Suite</h4>
+    <p>Cloud does not replace local saves.</p>
+    <h4>SECTION 7: Creating and Loading Characters</h4>
+    <p>You can create new characters, load local characters, load cloud characters, or import characters from files.</p>
+    <p>Each character has a permanent unique ID.</p>
+    <h4>SECTION 8: Autosaves</h4>
+    <p>Codex creates autosaves automatically while you play.</p>
+    <p>Autosaves:</p>
     <ul class="feature-list">
-      <li>
-        <b>Log In</b>
-        The <a href="#dm-login">DM Tools button</a> unlocks a secure dashboard for managing characters, notifications, and
-        session resources.
-      </li>
-      <li>
-        <b>Notifications Center</b>
-        Open the floating <a href="#dm-tools-toggle">DM Tools menu</a> and choose <a href="#dm-tools-notifications">Notifications</a>
-        to filter, export, or mark table alerts as resolved. Badges update automatically when new events arrive.
-      </li>
-      <li>
-        <b>Mini-Games &amp; Rewards</b>
-        The same menu gives quick access to <a href="#dm-tools-mini-games">Mini-Games</a> plus <a href="#dm-tools-rewards">Rewards &amp;
-        Catalog</a> so you can launch table activities or distribute digital loot without leaving the character sheet.
-      </li>
+      <li>Do not replace manual saves</li>
+      <li>Are stored in the cloud</li>
+      <li>Can be used for recovery</li>
     </ul>
-    <h4>Player Credits &amp; Deposits</h4>
+    <h4>SECTION 9: Updates and Conflicts</h4>
+    <p>When Codex detects different versions of the same character, it compares timestamps.</p>
+    <p>If one version is newer, it updates and notifies you. If both versions changed, Codex asks you what to do.</p>
+    <p>Nothing is overwritten automatically.</p>
+    <h4>SECTION 10: Claiming and Migrating Characters</h4>
+    <p>After logging in, you can claim or migrate characters created before accounts existed.</p>
+    <p>Claiming permanently links a character to your account. Only the owner can edit a claimed character.</p>
+    <h4>SECTION 11: Importing and Exporting</h4>
+    <p>You can export characters as JSON files. You can import characters from JSON files.</p>
+    <p>Imported characters are validated and updated to the current format.</p>
+    <h4>SECTION 12: Playing Offline</h4>
+    <p>Codex works offline after it loads.</p>
+    <p>You can edit characters, track stats, and create new characters. When reconnecting, Codex syncs with the cloud if needed.</p>
+    <h4>SECTION 13: DM Tools</h4>
+    <p>DM tools include campaign utilities and claim token generation. DM access does not bypass character ownership.</p>
+    <h4>SECTION 14: Security and Ownership</h4>
+    <p>Every character belongs to exactly one account. Ownership is enforced and cannot be bypassed silently.</p>
+    <h4>SECTION 15: Where Your Data Lives</h4>
+    <p>Your data exists locally and in the cloud. Nothing is shared unless you choose to share it.</p>
+    <h4>SECTION 16: Guarantees</h4>
+    <p>Codex guarantees:</p>
     <ul class="feature-list">
-      <li>
-        <b>Send Funds</b>
-        Inside Rewards &amp; Catalog, the DM credit card lets you select an account, enter an amount in <a href="#dm-credit-amount">₡</a>,
-        add a memo, and submit the transfer with <a href="#dm-credit-submit">Submit</a>. Balance previews show the impact before the
-        deposit is finalized.
-      </li>
-      <li>
-        <b>Review History</b>
-        Use the built-in filters to audit recent payouts or export the ledger, making it easy to track deposits and debits across
-        the whole roster.
-      </li>
-      <li>
-        <b>Player Follow-Up</b>
-        Players can confirm new credits from the Gear tab with <a href="#btn-credits-ledger">Credits Ledger</a> or open the
-        <a href="#player-tools-tab">Player Tools tab</a> when a badge appears to read the deposit card right away.
-      </li>
+      <li>No silent overwrites</li>
+      <li>No automatic merges</li>
+      <li>No surprise deletions</li>
     </ul>
-    <h4>Player Tools Drawer</h4>
-    <ul class="feature-list">
-      <li>
-        <b>Quick Access Hub</b>
-        Tap or focus the glass tab anchored to the right edge of the sheet (<a href="#player-tools-tab">Player Tools tab</a>) to
-        slide out the <a href="#player-tools-drawer">drawer</a>. Keyboard and assistive tech users can reach it with the global
-        focus order, and the drawer traps focus while open for easy navigation.
-      </li>
-      <li>
-        <b>Live Updates</b>
-        The drawer mirrors the in-game phone UI, surfacing reminders, mini-app shortcuts, and credit alerts in one place. The
-        clock, battery indicator, and badges update in real time during play.
-      </li>
-      <li>
-        <b>Dismiss or Close</b>
-        Tap the Player Tools tab again, the frosted scrim, or press Esc to tuck it away without losing your spot on the
-        underlying sheet.
-      </li>
-    </ul>
-    <h4>Frequently Asked Questions</h4>
-    <ul class="feature-list">
-      <li>
-        <b>How often does the sheet save?</b>
-        Autosave runs in the background while you edit. Use <i>Save</i> in the Load / Save modal any time you want to capture an
-        explicit checkpoint.
-      </li>
-      <li>
-        <b>How do I change the theme?</b>
-        Tap the Catalyst Core logo. Each press advances to the next palette, and Story classifications with theme tie-ins can set
-        their own look automatically.
-      </li>
-      <li>
-        <b>Where do I track Resonance Points?</b>
-        The Combat tab includes the Resonance Point track and Heroic Surge callouts so you can see current and aftermath states at
-        a glance.
-      </li>
-      <li>
-        <b>Can I work offline?</b>
-        Yes. After the app loads once, it functions offline. Any edits you make sync the next time you reconnect.
-      </li>
-      <li>
-        <b>How do I restore an earlier state?</b>
-        Use <i>Recover Save</i> to browse timestamps for autosaves and manual backups, then confirm the one you need.
-      </li>
-      <li>
-        <b>Where can I find gear options?</b>
-        Open the Gear tab and tap the catalog button to browse equipment from the bundled data files or add custom entries.
-      </li>
-      <li>
-        <b>How do I keep narrative notes?</b>
-        Pair the Story tab’s questions and freeform notes with the Campaign Log’s timestamped entries for a complete journal of the
-        character and the campaign.
-      </li>
-      <li>
-        <b>How do I secure my character on a shared device?</b>
-        Set a PIN in Load / Save. The sheet asks for that code before someone can open or edit the character.
-      </li>
-    </ul>
+    <h4>SECTION 17: Devices and Browsers</h4>
+    <p>Multiple devices per account are supported. Each device keeps its own local cache.</p>
+    <h4>SECTION 18: Intentional Limits</h4>
+    <p>No email login. No password reset. No automatic conflict merging.</p>
+    <h4>SECTION 19: Troubleshooting</h4>
+    <p>If cloud sync fails, local play continues. If conflicts appear, you choose the resolution. If local storage is cleared, log in to restore from cloud.</p>
+    <h4>SECTION 20: Updates and Compatibility</h4>
+    <p>Older characters are migrated safely when loaded. No data is discarded during updates.</p>
   </div>
   <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -2281,69 +2236,31 @@
         </svg>
       </button>
       <div class="dm-login__content">
-        <div class="dm-login__view" data-login-view="login">
-          <h3 id="dm-login-title">DM Login</h3>
-          <p class="dm-login__description">Enter your DM username and 4-digit PIN to access the tools.</p>
+        <div class="dm-login__view" data-login-view="setup">
+          <h3 id="dm-login-title">DM Setup</h3>
+          <p class="dm-login__description">Create a DM password to unlock the tools. Minimum length is 8 characters.</p>
           <label class="sr-only" for="dm-login-username">DM Username</label>
-          <input id="dm-login-username" data-view-allow type="text" autocomplete="username">
-          <label class="sr-only" for="dm-login-pin">DM PIN</label>
-          <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="4">
+          <input id="dm-login-username" data-view-allow type="text" autocomplete="username" readonly>
+          <label class="sr-only" for="dm-login-password">DM Password</label>
+          <input id="dm-login-password" data-view-allow type="password" autocomplete="new-password" minlength="8">
+          <label class="sr-only" for="dm-login-confirm">Confirm DM Password</label>
+          <input id="dm-login-confirm" data-view-allow type="password" autocomplete="new-password" minlength="8">
           <div class="actions">
-            <button type="button" class="somf-btn somf-ghost" data-login-action="start-create">Create Login</button>
-            <button id="dm-login-submit" class="somf-btn" type="button">Enter</button>
-          </div>
-          <div class="dm-login__links">
-            <button type="button" class="dm-login__link" data-login-action="start-reset">Reset profile</button>
-            <button type="button" class="dm-login__link" data-login-action="forgot">Forgot PIN?</button>
+            <button id="dm-login-submit" class="somf-btn" type="button">Save Password</button>
           </div>
         </div>
-        <div class="dm-login__view" data-login-view="create" hidden aria-hidden="true">
-          <h3>Create DM Profile</h3>
-          <p class="dm-login__description">Set a username and choose a new PIN. You'll confirm it next.</p>
-          <label class="sr-only" for="dm-login-new-username">DM Username</label>
-          <input id="dm-login-new-username" type="text" autocomplete="username">
-          <label class="sr-only" for="dm-login-new-pin">DM PIN</label>
-          <input id="dm-login-new-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="4">
+        <div class="dm-login__view" data-login-view="login" hidden aria-hidden="true">
+          <h3>DM Login</h3>
+          <p class="dm-login__description">Enter the DM password to access the tools.</p>
+          <label class="sr-only" for="dm-login-username-login">DM Username</label>
+          <input id="dm-login-username-login" data-view-allow type="text" autocomplete="username" readonly>
+          <label class="sr-only" for="dm-login-password-login">DM Password</label>
+          <input id="dm-login-password-login" data-view-allow type="password" autocomplete="current-password" minlength="8">
           <div class="actions">
-            <button id="dm-login-create-submit" class="somf-btn" type="button">Continue</button>
-          </div>
-          <button type="button" class="dm-login__link" data-login-action="back-to-login">Back to login</button>
-        </div>
-        <div class="dm-login__view" data-login-view="reset" hidden aria-hidden="true">
-          <h3>Reset DM Profile</h3>
-          <p class="dm-login__description">Update the DM username or set a new PIN.</p>
-          <label class="sr-only" for="dm-login-reset-username">DM Username</label>
-          <input id="dm-login-reset-username" type="text" autocomplete="username">
-          <label class="sr-only" for="dm-login-reset-pin">New DM PIN</label>
-          <input id="dm-login-reset-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="4">
-          <div class="actions">
-            <button id="dm-login-reset-submit" class="somf-btn" type="button">Continue</button>
-          </div>
-          <button type="button" class="dm-login__link" data-login-action="back-to-login">Back to login</button>
-        </div>
-        <div class="dm-login__view" data-login-view="confirm" hidden aria-hidden="true">
-          <h3>Confirm DM PIN</h3>
-          <p class="dm-login__description" data-login-confirm-description>Re-enter the PIN to confirm.</p>
-          <p class="dm-login__summary" data-login-confirm-summary hidden></p>
-          <label class="sr-only" for="dm-login-confirm-pin">Confirm DM PIN</label>
-          <input id="dm-login-confirm-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="4">
-          <div class="actions">
-            <button id="dm-login-confirm-submit" class="somf-btn" type="button">Save Profile</button>
-          </div>
-          <div class="dm-login__links dm-login__links--back">
-            <button type="button" class="dm-login__link" data-login-action="back-to-create" hidden aria-hidden="true">Back</button>
-            <button type="button" class="dm-login__link" data-login-action="back-to-reset" hidden aria-hidden="true">Back</button>
-          </div>
-        </div>
-        <div class="dm-login__view" data-login-view="recovery" hidden aria-hidden="true">
-          <h3>Recover DM PIN</h3>
-          <p class="dm-login__description">If you've lost the DM PIN, reach out to the campaign owner to reset it.</p>
-          <div class="actions">
-            <button type="button" class="somf-btn" data-login-action="back-to-login">Back to login</button>
+            <button id="dm-login-submit-login" class="somf-btn" type="button">Enter</button>
           </div>
         </div>
         <p class="dm-login__error" data-login-error hidden role="alert"></p>
-        <p class="dm-login__wait" data-login-wait hidden></p>
       </div>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>

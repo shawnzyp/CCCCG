@@ -19,6 +19,28 @@ function getFirebaseConfig() {
 }
 
 async function loadFirebaseCompat() {
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    const authFn = () => ({
+      currentUser: null,
+      onAuthStateChanged: () => {},
+      setPersistence: async () => {},
+      signInWithEmailAndPassword: async () => ({ user: null }),
+      createUserWithEmailAndPassword: async () => ({ user: null }),
+      signOut: async () => {},
+    });
+    authFn.Auth = { Persistence: { LOCAL: 'LOCAL' } };
+    return {
+      apps: [],
+      app: () => ({}),
+      initializeApp: () => ({}),
+      auth: authFn,
+      database: () => ({
+        ref: () => ({
+          transaction: async () => ({ committed: false }),
+        }),
+      }),
+    };
+  }
   if (window.firebase?.auth) {
     return window.firebase;
   }
@@ -171,7 +193,7 @@ async function ensureUserProfile(db, uid, username) {
 export async function signInWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
-  const email = usernameToEmail(username);
+  const email = usernameToEmail(normalized);
   if (!email) {
     throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }
@@ -197,7 +219,7 @@ export async function signInWithUsernamePassword(username, password) {
 export async function createAccountWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
-  const email = usernameToEmail(username);
+  const email = usernameToEmail(normalized);
   if (!email) {
     throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }

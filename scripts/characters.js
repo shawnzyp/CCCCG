@@ -20,6 +20,7 @@ import {
   deleteCharacterIndexEntry,
   listCharacterIndex,
   getDeviceId,
+  writeLastSyncedAt,
 } from './storage.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
@@ -989,7 +990,12 @@ export function setCurrentCharacter(name) {
 }
 
 function resolveUpdatedAt(payload) {
-  const value = Number(payload?.meta?.updatedAt ?? payload?.updatedAt);
+  const value = Number(
+    payload?.meta?.updatedAtServer ??
+    payload?.updatedAtServer ??
+    payload?.meta?.updatedAt ??
+    payload?.updatedAt
+  );
   return Number.isFinite(value) ? value : 0;
 }
 
@@ -1161,6 +1167,7 @@ export async function loadCharacter(name, options = {}) {
             name: displayName || storageName || name,
             updatedAt: payload.meta.updatedAt,
           });
+          writeLastSyncedAt(characterId, payload.meta.updatedAt);
         } else {
           await saveCloud(storageName || name, payload);
         }
@@ -1235,6 +1242,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
           name: displayCharacterName(name),
           updatedAt: payload.meta.updatedAt,
         });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
       }
     } catch (err) {
       console.error('Cloud save failed', err);
@@ -1269,8 +1277,8 @@ export async function claimCharacterOwnership(name, ownerUid) {
   try {
     const uid = getActiveUserId();
     const authUid = getActiveAuthUserId();
-    const characterId = readCharacterIdForName(storageName);
-    const data = await loadLocal(storageName, { characterId });
+    const storedCharacterId = readCharacterIdForName(storageName);
+    const data = await loadLocal(storageName, { characterId: storedCharacterId });
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
     const characterId = ensureCharacterId(payload, storageName);
@@ -1296,6 +1304,7 @@ export async function claimCharacterOwnership(name, ownerUid) {
           name: displayCharacterName(name),
           updatedAt: payload.meta.updatedAt,
         });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
       } else {
         await saveCloud(storageName, payload);
       }
@@ -1354,6 +1363,7 @@ export async function renameCharacter(oldName, newName, data) {
           name: displayCharacterName(newName),
           updatedAt: payload.meta.updatedAt,
         });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
         cloudStatus = 'saved';
       } else {
         const result = await saveCloud(storageNewName, payload);

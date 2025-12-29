@@ -33,6 +33,7 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
+import { buildImportedCopyName } from './import-utils.js';
 import {
   initFirebaseAuth,
   onAuthStateChanged,
@@ -43,8 +44,10 @@ import {
   getFirebaseDatabase,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
+import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
 import { hasBootableLocalState } from './welcome-utils.js';
-import { shouldPullCloudCopy } from './sync-utils.js';
+import { shouldPullCloudCopy, detectSyncConflict } from './sync-utils.js';
+import { buildClaimRow, renderEmptyRow, renderCloudCharacterList } from './cloud-list-renderer.js';
 import {
   PASSWORD_POLICY,
   applyPasswordPolicyError,
@@ -57,10 +60,14 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
-  listCloudCharacters,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
+  readLastSyncedAt,
+  writeLastSyncedAt,
+  listLocalSaves,
+  storeConflictSnapshot,
+  saveCloudConflictBackup,
   getDeviceId,
   getActiveUserId,
   setActiveUserId,
@@ -120,7 +127,7 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
-import { readLastSaveName } from './last-save.js';
+import { readLastSaveName, writeLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -13289,6 +13296,114 @@ if(recoverBtn){
   });
 }
 
+const exportCharacterBtn = $('export-character');
+const importCharacterBtn = $('import-character');
+const importCharacterFile = $('import-character-file');
+
+function resolveImportName(name) {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed) return { decision: 'cancel', name: '' };
+  const existing = listLocalSaves();
+  const normalized = canonicalCharacterKey(trimmed) || trimmed;
+  const exists = existing.some(entry => {
+    const entryKey = canonicalCharacterKey(entry) || entry;
+    return entryKey.toLowerCase() === normalized.toLowerCase();
+  });
+  if (!exists) {
+    return { decision: 'new', name: trimmed };
+  }
+  const replace = confirm(`"${trimmed}" already exists. Replace the existing local save?`);
+  if (replace) {
+    return { decision: 'replace', name: trimmed };
+  }
+  const saveCopy = confirm('Save as a copy instead?');
+  if (!saveCopy) {
+    return { decision: 'cancel', name: '' };
+  }
+  const copyName = buildImportedCopyName(trimmed, existing);
+  return { decision: 'copy', name: copyName };
+}
+
+if (exportCharacterBtn) {
+  exportCharacterBtn.addEventListener('click', async () => {
+    try {
+      const name = currentCharacter() || readLastSaveName();
+      if (!name) {
+        toast('Select a character to export.', 'info');
+        return;
+      }
+      const payload = await loadLocal(name);
+      const migrated = migrateSavePayload(payload);
+      const { payload: canonical } = buildCanonicalPayload(migrated);
+      const serialized = JSON.stringify(canonical, null, 2);
+      const blob = new Blob([serialized], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${canonicalCharacterKey(name) || 'character'}-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast('Exported character JSON.', 'success');
+    } catch (err) {
+      console.error('Failed to export character', err);
+      toast('Failed to export character.', 'error');
+    }
+  });
+}
+
+if (importCharacterBtn && importCharacterFile) {
+  importCharacterBtn.addEventListener('click', () => {
+    importCharacterFile.click();
+  });
+  importCharacterFile.addEventListener('change', async () => {
+    const file = importCharacterFile.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const migrated = migrateSavePayload(parsed);
+      const { payload } = buildCanonicalPayload(migrated);
+      const name = payload?.meta?.name || payload?.character?.name || '';
+      if (!name) {
+        toast('Imported file missing character name.', 'error');
+        return;
+      }
+      const resolution = resolveImportName(name);
+      if (resolution.decision === 'cancel') {
+        toast('Import cancelled.', 'info');
+        return;
+      }
+      const resolvedName = resolution.name || name;
+      const payloadWithName = {
+        ...payload,
+        meta: {
+          ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          name: resolvedName,
+        },
+        character: {
+          ...(payload?.character && typeof payload.character === 'object' ? payload.character : {}),
+          name: resolvedName,
+        },
+      };
+      const characterId = ensureCharacterId(payloadWithName, resolvedName);
+      await saveLocal(resolvedName, payloadWithName, { characterId });
+      setCurrentCharacter(resolvedName);
+      syncMiniGamePlayerName();
+      applyAppSnapshot(payloadWithName);
+      setMode('edit');
+      const suffix = resolution.decision === 'copy' ? ` as ${resolvedName}` : '';
+      toast(`Imported ${name}${suffix}.`, 'success');
+    } catch (err) {
+      console.error('Failed to import character JSON', err);
+      toast('Failed to import character JSON.', 'error');
+    } finally {
+      importCharacterFile.value = '';
+    }
+  });
+}
+
 const newCharBtn = $('create-character');
 if(newCharBtn){
   newCharBtn.addEventListener('click', ()=>{
@@ -23866,15 +23981,32 @@ const postAuthChoiceModal = $('modal-post-auth-choice');
 const postAuthImport = $('post-auth-import');
 const postAuthCreate = $('post-auth-create');
 const postAuthSkip = $('post-auth-skip');
+const postAuthCloudList = $('post-auth-cloud-list');
 const claimModal = $('modal-claim-characters');
 const claimCloudList = $('claim-cloud-list');
 const claimDeviceList = $('claim-device-list');
 const claimLegacyList = $('claim-legacy-list');
 const claimFileInput = $('claim-file-input');
 const claimFileImport = $('claim-file-import');
+const claimTokenInput = $('claim-token-input');
+const claimTokenSubmit = $('claim-token-submit');
+const claimTokenAdmin = $('claim-token-admin');
+const claimTokenSourceUid = $('claim-token-source-uid');
+const claimTokenCharacterId = $('claim-token-character-id');
+const claimTokenTargetUid = $('claim-token-target-uid');
+const claimTokenExpiry = $('claim-token-expiry');
+const claimTokenGenerate = $('claim-token-generate');
+const claimTokenOutput = $('claim-token-output');
+const conflictModal = $('modal-sync-conflict');
+const conflictDescription = $('conflict-description');
+const conflictKeepCloud = $('conflict-keep-cloud');
+const conflictKeepLocal = $('conflict-keep-local');
+const conflictMergeLater = $('conflict-merge-later');
 
 let pendingPostAuthChoice = false;
 const passwordPolicy = { ...PASSWORD_POLICY };
+const syncConflictQueue = [];
+let activeSyncConflict = null;
 
 function setAuthView(view) {
   const isLogin = view === 'login';
@@ -23913,7 +24045,7 @@ function getFriendlySignupError(error) {
   const code = error?.code || '';
   switch (code) {
     case 'auth/email-already-in-use':
-      return 'That username is already in use.';
+      return 'That username is already taken.';
     case 'auth/invalid-email':
       return 'Enter a valid username.';
     case 'auth/network-request-failed':
@@ -23949,14 +24081,26 @@ function updateWelcomeContinue() {
   const { uid } = getAuthState();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const lastSave = readLastSaveName();
-  const allowed = !!(uid || hasBootableLocalState({ storage, lastSaveName: lastSave, uid }));
+  const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: lastSave, uid });
+  const allowed = !!(uid || hasLocalSave);
+  welcomeContinue.hidden = !hasLocalSave && !uid;
   welcomeContinue.disabled = !allowed;
   welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
 
 async function rehydrateLocalCache(uid) {
   const entries = await listCharacterIndex(uid);
-  const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const hadLocal = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+  let restoredCount = 0;
+  let updatedCount = 0;
+  let firstRestoredName = '';
+  const localUpdatedAt = payload => Number(
+    payload?.meta?.updatedAtServer ??
+    payload?.updatedAtServer ??
+    payload?.meta?.updatedAt ??
+    payload?.updatedAt
+  ) || 0;
   for (const entry of entries) {
     const characterId = entry?.characterId || '';
     if (!characterId) continue;
@@ -23966,19 +24110,143 @@ async function rehydrateLocalCache(uid) {
       localPayload = await loadLocal(name, { characterId });
     } catch {}
     const localUpdated = localPayload ? localUpdatedAt(localPayload) : 0;
-    const cloudUpdated = Number(entry?.updatedAt) || 0;
+    const cloudUpdated = Number(entry?.updatedAtServer || entry?.updatedAt) || 0;
+    const lastSyncedAt = readLastSyncedAt(characterId);
+    if (!lastSyncedAt && cloudUpdated > 0 && localUpdated === cloudUpdated) {
+      writeLastSyncedAt(characterId, cloudUpdated);
+    }
+    if (lastSyncedAt > 0 && detectSyncConflict({ localUpdatedAt: localUpdated, cloudUpdatedAt: cloudUpdated, lastSyncedAt })) {
+      try {
+        const cloudPayload = await loadCloudCharacter(uid, characterId);
+        queueSyncConflict({
+          uid,
+          name,
+          characterId,
+          localPayload,
+          cloudPayload,
+          localUpdatedAt: localUpdated,
+          cloudUpdatedAt: cloudUpdated,
+        });
+      } catch (err) {
+        console.error('Failed to load cloud data for conflict detection', err);
+      }
+      continue;
+    }
     const shouldPull = !localPayload || shouldPullCloudCopy(localUpdated, cloudUpdated);
     if (!shouldPull) continue;
     try {
       const cloudPayload = await loadCloudCharacter(uid, characterId);
       ensureCharacterId(cloudPayload, name);
       await saveLocal(name, cloudPayload, { characterId });
-      if (localPayload && cloudUpdated > localUpdated) {
-        toast('Updated from cloud', 'info', { duration: 3000 });
+      writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAtServer ?? cloudPayload?.updatedAtServer ?? cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || cloudUpdated);
+      if (!localPayload) {
+        restoredCount += 1;
+        if (!firstRestoredName) {
+          firstRestoredName = name;
+        }
+      } else if (cloudUpdated > localUpdated) {
+        updatedCount += 1;
       }
     } catch (err) {
       console.error('Failed to refresh local cache from cloud', err);
     }
+  }
+  if (!readLastSaveName() && firstRestoredName) {
+    writeLastSaveName(firstRestoredName);
+  }
+  return {
+    hadLocal,
+    restoredCount,
+    updatedCount,
+    totalCloud: entries.length,
+  };
+}
+
+function queueSyncConflict(conflict) {
+  syncConflictQueue.push(conflict);
+  if (!activeSyncConflict) {
+    openNextSyncConflict();
+  }
+}
+
+function openNextSyncConflict() {
+  if (activeSyncConflict || !syncConflictQueue.length || !conflictModal) return;
+  activeSyncConflict = syncConflictQueue.shift();
+  const name = activeSyncConflict?.name || 'This character';
+  if (conflictDescription) {
+    conflictDescription.textContent = `${name} was edited locally and in the cloud since the last sync. Choose which version to keep.`;
+  }
+  show('modal-sync-conflict');
+}
+
+async function recordConflictBackups(conflict) {
+  const { uid, characterId, localPayload, cloudPayload } = conflict || {};
+  if (!characterId) return;
+  try {
+    if (localPayload) {
+      storeConflictSnapshot(characterId, localPayload, { label: 'local' });
+      if (uid) {
+        await saveCloudConflictBackup(uid, characterId, localPayload, { label: 'local' });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to store local conflict backup', err);
+  }
+  try {
+    if (cloudPayload) {
+      storeConflictSnapshot(characterId, cloudPayload, { label: 'cloud' });
+      if (uid) {
+        await saveCloudConflictBackup(uid, characterId, cloudPayload, { label: 'cloud' });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to store cloud conflict backup', err);
+  }
+}
+
+async function resolveSyncConflict(action) {
+  if (!activeSyncConflict) return;
+  const conflict = activeSyncConflict;
+  activeSyncConflict = null;
+  hide('modal-sync-conflict');
+  await recordConflictBackups(conflict);
+  const { uid, name, characterId, localPayload, cloudPayload, localUpdatedAt, cloudUpdatedAt } = conflict;
+  try {
+    if (action === 'keep-cloud' && cloudPayload) {
+      await saveLocal(name, cloudPayload, { characterId });
+      writeLastSyncedAt(characterId, cloudUpdatedAt);
+      toast('Kept cloud version.', 'info');
+    } else if (action === 'keep-local' && localPayload && uid) {
+      const updatedAt = Date.now();
+      const nextPayload = {
+        ...localPayload,
+        meta: {
+          ...(localPayload?.meta && typeof localPayload.meta === 'object' ? localPayload.meta : {}),
+          updatedAt,
+        },
+      };
+      if (nextPayload.meta && Object.prototype.hasOwnProperty.call(nextPayload.meta, 'updatedAtServer')) {
+        delete nextPayload.meta.updatedAtServer;
+      }
+      await saveCloudCharacter(uid, characterId, nextPayload);
+      await saveCharacterIndexEntry(uid, characterId, {
+        name: nextPayload?.meta?.name || name,
+        updatedAt,
+      });
+      writeLastSyncedAt(characterId, updatedAt);
+      toast('Kept local version.', 'info');
+    } else {
+      const resolved = Math.max(localUpdatedAt || 0, cloudUpdatedAt || 0);
+      if (resolved) {
+        writeLastSyncedAt(characterId, resolved);
+      }
+      toast('Saved both versions for later merge.', 'info');
+    }
+  } catch (err) {
+    console.error('Failed to resolve sync conflict', err);
+    toast('Failed to resolve conflict.', 'error');
+  } finally {
+    openNextSyncConflict();
   }
 }
 
@@ -23993,6 +24261,9 @@ function openAuthModal(view = 'login') {
 function openPostAuthChoice() {
   if (!postAuthChoiceModal) return;
   show('modal-post-auth-choice');
+  refreshPostAuthCloudList().catch(err => {
+    console.error('Failed to refresh post-auth cloud list', err);
+  });
 }
 
 function closePostAuthChoice() {
@@ -24002,6 +24273,10 @@ function closePostAuthChoice() {
 function openClaimModal() {
   if (!claimModal) return;
   show('modal-claim-characters');
+  if (claimTokenOutput) {
+    claimTokenOutput.textContent = '';
+    claimTokenOutput.hidden = true;
+  }
   refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
 }
 
@@ -24078,31 +24353,115 @@ async function handleAuthSubmit(mode) {
   }
 }
 
-function buildClaimRow({ name, meta, actions = [] } = {}) {
-  const row = document.createElement('div');
-  row.className = 'claim-row';
-  row.setAttribute('role', 'listitem');
-  const main = document.createElement('div');
-  main.className = 'claim-row__main';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'claim-row__name';
-  nameEl.textContent = name;
-  const metaEl = document.createElement('div');
-  metaEl.className = 'claim-row__meta';
-  metaEl.textContent = meta;
-  main.append(nameEl, metaEl);
-  const actionsEl = document.createElement('div');
-  actionsEl.className = 'claim-row__actions';
-  actions.forEach(btn => actionsEl.append(btn));
-  row.append(main, actionsEl);
-  return row;
+
+function setClaimTokenAdminVisibility(isDm) {
+  if (!claimTokenAdmin) return;
+  claimTokenAdmin.hidden = !isDm;
 }
 
-function renderEmptyRow(container, message) {
-  if (!container) return;
-  const row = buildClaimRow({ name: message, meta: '' });
-  row.classList.add('claim-row--empty');
-  container.append(row);
+async function handleClaimTokenSubmit() {
+  const token = claimTokenInput?.value?.trim() || '';
+  if (!token) {
+    toast('Enter a claim token.', 'info');
+    return;
+  }
+  const { uid } = getAuthState();
+  if (!uid) {
+    toast('Login required to claim a token.', 'error');
+    return;
+  }
+  try {
+    const db = await getFirebaseDatabase();
+    const tokenData = await consumeClaimToken(db, token, uid);
+    const sourceUid = tokenData?.sourceUid || '';
+    const characterId = tokenData?.characterId || '';
+    if (!sourceUid || !characterId) {
+      throw new Error('Invalid claim token payload.');
+    }
+    const cloudPayload = await loadCloudCharacter(sourceUid, characterId);
+    const migrated = migrateSavePayload(cloudPayload);
+    const { payload } = buildCanonicalPayload(migrated);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid: uid,
+      uid,
+      deviceId: getDeviceId(),
+      updatedAt: Date.now(),
+    };
+    payload.updatedAt = payload.meta.updatedAt;
+    await saveCloudCharacter(uid, characterId, payload);
+    await saveCharacterIndexEntry(uid, characterId, {
+      name: payload?.meta?.name || payload?.character?.name || characterId,
+      updatedAt: payload.meta.updatedAt,
+    });
+    writeLastSyncedAt(characterId, payload.meta.updatedAt);
+    await saveLocal(payload?.meta?.name || characterId, payload, { characterId });
+    toast('Character claimed from token.', 'success');
+    claimTokenInput.value = '';
+    await refreshClaimModal();
+  } catch (err) {
+    console.error('Failed to claim token', err);
+    toast(err?.message || 'Failed to claim token.', 'error');
+  }
+}
+
+async function handleClaimTokenGenerate() {
+  const sourceUid = claimTokenSourceUid?.value?.trim() || '';
+  const characterId = claimTokenCharacterId?.value?.trim() || '';
+  const targetUid = claimTokenTargetUid?.value?.trim() || '';
+  const expiryHours = Number(claimTokenExpiry?.value) || 24;
+  if (!sourceUid || !characterId || !targetUid) {
+    toast('Enter source UID, character ID, and target UID.', 'info');
+    return;
+  }
+  try {
+    const db = await getFirebaseDatabase();
+    const expiresAt = Date.now() + Math.max(1, expiryHours) * 60 * 60 * 1000;
+    const token = await createClaimToken(db, {
+      sourceUid,
+      characterId,
+      targetUid,
+      expiresAt,
+    });
+    if (claimTokenOutput) {
+      claimTokenOutput.textContent = `Token: ${token}`;
+      claimTokenOutput.hidden = false;
+    }
+    toast('Claim token generated.', 'success');
+  } catch (err) {
+    console.error('Failed to generate claim token', err);
+    toast(err?.message || 'Failed to generate token.', 'error');
+  }
+}
+
+async function refreshPostAuthCloudList() {
+  if (!postAuthCloudList) return;
+  const { uid } = getAuthState();
+  if (!uid) {
+    renderEmptyRow(postAuthCloudList, 'Sign in to view cloud characters.');
+    return;
+  }
+  const entries = await listCharacterIndex(uid);
+  renderCloudCharacterList(postAuthCloudList, entries, {
+    actionLabel: 'Open',
+    emptyMessage: 'No cloud characters found.',
+    onOpen: async (entry) => {
+      const characterId = entry?.characterId || '';
+      if (!characterId) return;
+      const name = entry?.name || characterId;
+      try {
+        const cloudPayload = await loadCloudCharacter(uid, characterId);
+        ensureCharacterId(cloudPayload, name);
+        await saveLocal(name, cloudPayload, { characterId });
+        writeLastSaveName(name);
+        closePostAuthChoice();
+        toast(`Loaded ${name}.`, 'success');
+      } catch (err) {
+        console.error('Failed to open cloud character', err);
+        toast('Failed to open cloud character.', 'error');
+      }
+    },
+  });
 }
 
 async function handleLegacyClaim({ name, source }) {
@@ -24217,27 +24576,17 @@ async function refreshClaimModal() {
   if (!uid) return;
   if (claimCloudList) {
     claimCloudList.textContent = '';
-    const entries = await listCloudCharacters(uid);
-    if (!entries.length) {
-      renderEmptyRow(claimCloudList, 'No cloud characters found.');
-    } else {
-      entries.forEach(entry => {
-        const name = entry?.payload?.meta?.name || entry?.payload?.character?.name || entry.characterId;
-        const btn = document.createElement('button');
-        btn.className = 'cc-btn cc-btn--ghost';
-        btn.type = 'button';
-        btn.textContent = 'Load';
-        btn.addEventListener('click', () => {
-          openCharacterModalByName(name);
-          closeClaimModal();
-        });
-        claimCloudList.append(buildClaimRow({
-          name,
-          meta: 'Already in your cloud roster.',
-          actions: [btn],
-        }));
-      });
-    }
+    const entries = await listCharacterIndex(uid);
+    renderCloudCharacterList(claimCloudList, entries, {
+      actionLabel: 'Open',
+      emptyMessage: 'No cloud characters found.',
+      onOpen: (entry) => {
+        const name = entry?.name || entry?.characterId;
+        if (!name) return;
+        openCharacterModalByName(name);
+        closeClaimModal();
+      },
+    });
   }
 
   if (claimDeviceList) {
@@ -24314,6 +24663,7 @@ function createNewCharacterFromModal() {
 
 function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
+  setClaimTokenAdminVisibility(!!isDm);
   if (uid) {
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
@@ -24322,13 +24672,23 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     dismissWelcomeModal();
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
-      .then(() => {
+      .then(({ hadLocal, restoredCount, updatedCount, totalCloud } = {}) => {
         restoreLastLoadedCharacter().catch(err => {
           console.error('Failed to restore last loaded character', err);
         });
-        if (pendingPostAuthChoice) {
+        if (!hadLocal && totalCloud === 1 && restoredCount === 1) {
           pendingPostAuthChoice = false;
-          openPostAuthChoice();
+          toast('Restored from cloud', 'info', { duration: 3000 });
+        } else {
+          if (!hadLocal && restoredCount > 0) {
+            toast(`Restored ${restoredCount} character(s) from cloud`, 'info', { duration: 3000 });
+          } else if (hadLocal && updatedCount > 0) {
+            toast(`Updated ${updatedCount} character(s) from cloud`, 'info', { duration: 3000 });
+          }
+          if (pendingPostAuthChoice) {
+            pendingPostAuthChoice = false;
+            openPostAuthChoice();
+          }
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
@@ -24405,6 +24765,42 @@ if (claimFileImport) {
       toast('Failed to import file.', 'error');
     });
   });
+}
+if (claimTokenSubmit) {
+  claimTokenSubmit.addEventListener('click', () => {
+    handleClaimTokenSubmit();
+  });
+}
+if (claimTokenGenerate) {
+  claimTokenGenerate.addEventListener('click', () => {
+    handleClaimTokenGenerate();
+  });
+}
+if (conflictKeepCloud) {
+  conflictKeepCloud.addEventListener('click', () => {
+    resolveSyncConflict('keep-cloud');
+  });
+}
+if (conflictKeepLocal) {
+  conflictKeepLocal.addEventListener('click', () => {
+    resolveSyncConflict('keep-local');
+  });
+}
+if (conflictMergeLater) {
+  conflictMergeLater.addEventListener('click', () => {
+    resolveSyncConflict('merge-later');
+  });
+}
+if (conflictModal) {
+  const handleConflictDismiss = event => {
+    const isOverlay = event.target === conflictModal;
+    const closeButton = event.target?.closest?.('[data-close]');
+    if (!isOverlay && !closeButton) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resolveSyncConflict('merge-later');
+  };
+  conflictModal.addEventListener('click', handleConflictDismiss, true);
 }
 
 setAuthView('login');
