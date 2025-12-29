@@ -1111,6 +1111,7 @@ export async function claimCharacterOwnership(name, ownerUid) {
     const data = await loadLocal(storageName);
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    ensureCharacterId(payload, storageName);
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid,

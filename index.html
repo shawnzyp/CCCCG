@@ -1479,19 +1479,27 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
-  <div class="modal-frame">
-    <div class="modal modal--welcome" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="welcome-modal__layout">
-        <h3 class="welcome-modal__title">Welcome to Catalyst Core</h3>
-        <p class="welcome-modal__subtitle">Your characters are saved on this device. Log in to sync them across devices.</p>
-        <div class="actions welcome-modal__actions">
-          <button id="welcome-login" type="button">Login</button>
-          <button id="welcome-continue" type="button">Continue</button>
-        </div>
+<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+  <div class="modal modal--welcome" role="document">
+    <button class="x" type="button" data-close="modal-welcome" aria-label="Close" hidden></button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="welcome-title">Welcome to Codex</h2>
+        <p class="modal__subtitle">Fast local play. Optional cloud sync.</p>
       </div>
     </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal__body">
+      <p class="modal__lead">Your characters are saved on this device.</p>
+      <p class="modal__lead">Log in to sync across devices and claim your roster.</p>
+    </div>
+    <div class="modal__actions modal__actions--two">
+      <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Login</button>
+      <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button">Continue</button>
+    </div>
+    <div class="modal__footer">
+      <span class="modal__hint">You can log in later from Settings.</span>
+    </div>
   </div>
 </div>
 
@@ -1528,24 +1536,29 @@
 </div>
 
 <!-- CLAIM CHARACTERS MODAL -->
-<div class="overlay hidden" id="modal-claim-characters" aria-hidden="true" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45" data-modal-static>
-  <div class="modal-frame">
-    <div class="modal modal--claim" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="claim-modal__layout">
-        <header class="claim-modal__header">
-          <h3 class="claim-modal__title">Claim Characters</h3>
-          <p class="claim-modal__subtitle">These characters are stored on this device. Claim them to sync with your account.</p>
-        </header>
-        <div class="claim-modal__body">
-          <div id="claim-characters-list" class="claim-modal__list" role="list"></div>
-        </div>
-        <div class="actions claim-modal__actions">
-          <button id="claim-characters-skip" type="button">Skip</button>
-          <button id="claim-characters-confirm" type="button">Claim Selected</button>
-        </div>
+<div class="overlay hidden" id="modal-claim" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45" data-modal-static>
+  <div class="modal modal--claim" role="document">
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">ID</div>
+      <div class="modal__titles">
+        <h2 id="claim-title">Claim Characters</h2>
+        <p class="modal__subtitle">Link local characters to your account for cloud sync.</p>
       </div>
     </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal__body">
+      <p class="modal__lead">
+        We found characters on this device that are not linked to your account. Claiming links them to your login so they sync across devices. Nothing is deleted.
+      </p>
+      <div class="claim-tools">
+        <button type="button" class="cc-btn cc-btn--sm" id="claim-select-all">Select all</button>
+        <button type="button" class="cc-btn cc-btn--sm" id="claim-select-none">Select none</button>
+      </div>
+      <div class="claim-list" role="list" aria-label="Unclaimed characters"></div>
+    </div>
+    <div class="modal__actions modal__actions--stack">
+      <button id="claim-confirm" class="cc-btn cc-btn--primary" type="button" disabled>Claim Selected</button>
+      <button id="claim-skip" class="cc-btn cc-btn--ghost" type="button">Skip for now</button>
+    </div>
   </div>
 </div>
 

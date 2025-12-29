@@ -35,7 +35,7 @@ import {
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import { initializeAuth, onAuthStateChanged, signInWithEmail, signInWithGoogle, getCurrentUserUid } from './auth.js';
-import { listLocalSaves, saveLocal, saveCloud, listCloudSaves, loadCloud } from './storage.js';
+import { listLocalSaves, loadLocal, saveLocal, saveCloud, listCloudSaves, loadCloud } from './storage.js';
 import {
   activateTab,
   getActiveTab,
@@ -2126,11 +2126,13 @@ const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
+const WELCOME_SEEN_KEY_PREFIX = 'cc:welcome-seen:';
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
 let welcomeModalQueued = false;
 let welcomeModalPrepared = false;
+let welcomeModalDeferred = false;
 let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 let launchSequenceComplete = false;
@@ -2257,6 +2259,19 @@ function setPlayerToolsTabHidden(hidden) {
   }
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
 }
+
+function getWelcomeSeenKey() {
+  const storage = getLocalStorageSafe();
+  const build = storage ? storage.getItem('cc:sw-build') : '';
+  return `${WELCOME_SEEN_KEY_PREFIX}${build || 'default'}`;
+}
+
+try {
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    welcomeModalDismissed = storage.getItem(getWelcomeSeenKey()) === 'true';
+  }
+} catch {}
 
 welcomeSequenceComplete = welcomeModalDismissed;
 
@@ -2391,6 +2406,12 @@ function dismissWelcomeModal() {
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    try {
+      storage.setItem(getWelcomeSeenKey(), 'true');
+    } catch {}
+  }
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
@@ -21912,7 +21933,7 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
   'modal-auth',
-  'modal-claim-characters',
+  'modal-claim',
   'modal-import-characters',
   'modal-pin',
   'modal-character-confirmation',
@@ -23774,7 +23795,7 @@ const authCancel = $('auth-cancel');
 const authEmailInput = $('auth-email');
 const authPasswordInput = $('auth-password');
 const authError = $('auth-error');
-const claimModal = $('modal-claim-characters');
+const claimModal = $('modal-claim');
 const importModal = $('modal-import-characters');
 
 function setAuthError(message) {
@@ -23806,12 +23827,52 @@ function closeAuthModal() {
   hide('modal-auth');
   setAuthControlsDisabled(false);
   setAuthError('');
+  if (welcomeModalDeferred && !welcomeModalDismissed) {
+    welcomeModalDeferred = false;
+    show(WELCOME_MODAL_ID);
+  }
+}
+
+const CLAIM_SKIP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function getClaimSkipKey(uid) {
+  return uid ? `cc:claim-skip:${uid}` : '';
+}
+
+function readClaimSkipState(uid) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(getClaimSkipKey(uid));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeClaimSkipState(uid, payload) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !uid) return;
+  try {
+    storage.setItem(getClaimSkipKey(uid), JSON.stringify(payload));
+  } catch {}
+}
+
+function shouldSkipClaimPrompt(uid, names) {
+  const state = readClaimSkipState(uid);
+  if (!state) return false;
+  const ts = Number(state.ts);
+  if (!Number.isFinite(ts) || Date.now() - ts > CLAIM_SKIP_WINDOW_MS) return false;
+  const prev = Array.isArray(state.names) ? state.names : [];
+  const signature = names.join('|');
+  return signature === prev.join('|');
 }
 
 async function handleClaimCharacters(uid) {
   if (!uid) return;
   if (!claimModal) return;
-  const list = document.getElementById('claim-characters-list');
+  const list = claimModal.querySelector('.claim-list');
   if (!list) return;
   const localNames = listLocalSaves();
   const entries = [];
@@ -23822,41 +23883,89 @@ async function handleClaimCharacters(uid) {
     }
   }
   if (!entries.length) return;
+  const entryNames = entries.map(entry => entry.name);
+  if (shouldSkipClaimPrompt(uid, entryNames)) return;
 
   list.textContent = '';
-  entries.forEach(entry => {
-    const label = document.createElement('label');
-    label.className = 'claim-modal__item';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = true;
-    checkbox.dataset.claimName = entry.name;
-    const text = document.createElement('span');
-    text.textContent = entry.name;
-    const detail = document.createElement('small');
-    detail.textContent = entry.ownerUid ? 'Owned by another account' : 'Unclaimed';
-    const stack = document.createElement('span');
-    stack.style.display = 'flex';
-    stack.style.flexDirection = 'column';
-    stack.style.gap = '2px';
-    stack.append(text, detail);
-    label.append(checkbox, stack);
-    list.append(label);
-  });
+  const shouldPreselect = entries.length < 10;
+  for (const entry of entries) {
+    let lastModified = 'Unknown';
+    try {
+      const data = await loadLocal(entry.name);
+      const migrated = migrateSavePayload(data);
+      const savedAt = migrated?.meta?.savedAt;
+      if (Number.isFinite(savedAt)) {
+        lastModified = new Date(savedAt).toLocaleDateString();
+      }
+    } catch {}
+    const row = document.createElement('div');
+    row.className = 'claim-row';
+    row.setAttribute('role', 'listitem');
+    const checkLabel = document.createElement('label');
+    checkLabel.className = 'claim-row__check';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = shouldPreselect;
+    input.dataset.claimName = entry.name;
+    const box = document.createElement('span');
+    box.className = 'claim-row__box';
+    checkLabel.append(input, box);
+    const main = document.createElement('div');
+    main.className = 'claim-row__main';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'claim-row__name';
+    nameEl.textContent = entry.name;
+    const meta = document.createElement('div');
+    meta.className = 'claim-row__meta';
+    meta.textContent = `Last modified: ${lastModified}`;
+    main.append(nameEl, meta);
+    const tag = document.createElement('div');
+    tag.className = 'claim-row__tag';
+    tag.textContent = entry.ownerUid ? 'Unlinked' : 'Local';
+    row.append(checkLabel, main, tag);
+    list.append(row);
+  }
 
-  const confirm = document.getElementById('claim-characters-confirm');
-  const skip = document.getElementById('claim-characters-skip');
-  if (!confirm || !skip) return;
+  const confirm = document.getElementById('claim-confirm');
+  const skip = document.getElementById('claim-skip');
+  const selectAll = document.getElementById('claim-select-all');
+  const selectNone = document.getElementById('claim-select-none');
+  if (!confirm || !skip || !selectAll || !selectNone) return;
+
+  const updateConfirmState = () => {
+    const selected = Array.from(list.querySelectorAll('input[type="checkbox"]')).some(input => input.checked);
+    confirm.disabled = !selected;
+  };
+  updateConfirmState();
 
   await new Promise(resolve => {
     const cleanup = () => {
       confirm.removeEventListener('click', onConfirm);
       skip.removeEventListener('click', onSkip);
+      selectAll.removeEventListener('click', onSelectAll);
+      selectNone.removeEventListener('click', onSelectNone);
+      list.removeEventListener('change', onListChange);
     };
     const onSkip = () => {
+      writeClaimSkipState(uid, { ts: Date.now(), names: entryNames });
       cleanup();
-      hide('modal-claim-characters');
+      hide('modal-claim');
       resolve();
+    };
+    const onSelectAll = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.checked = true;
+      });
+      updateConfirmState();
+    };
+    const onSelectNone = () => {
+      list.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.checked = false;
+      });
+      updateConfirmState();
+    };
+    const onListChange = () => {
+      updateConfirmState();
     };
     const onConfirm = async () => {
       confirm.disabled = true;
@@ -23870,6 +23979,7 @@ async function handleClaimCharacters(uid) {
         }
         if (selected.length) {
           toast('Characters claimed for your account.', 'success');
+          writeClaimSkipState(uid, { ts: Date.now(), names: entryNames });
         }
       } catch (err) {
         console.error('Failed to claim characters', err);
@@ -23877,13 +23987,16 @@ async function handleClaimCharacters(uid) {
       } finally {
         confirm.disabled = false;
         cleanup();
-        hide('modal-claim-characters');
+        hide('modal-claim');
         resolve();
       }
     };
     confirm.addEventListener('click', onConfirm);
     skip.addEventListener('click', onSkip);
-    show('modal-claim-characters');
+    selectAll.addEventListener('click', onSelectAll);
+    selectNone.addEventListener('click', onSelectNone);
+    list.addEventListener('change', onListChange);
+    show('modal-claim');
   });
 }
 
@@ -23996,6 +24109,10 @@ async function handleAuthFlow(user) {
   if (authModal && !authModal.classList.contains('hidden') && uid && !anonymous) {
     closeAuthModal();
   }
+  if (uid && !anonymous && !welcomeModalDismissed) {
+    welcomeModalDeferred = false;
+    dismissWelcomeModal();
+  }
   if (uid && !anonymous && (uid !== lastAuthUid || lastAuthAnonymous)) {
     if (!postLoginInFlight) {
       postLoginInFlight = (async () => {
@@ -24012,12 +24129,14 @@ async function handleAuthFlow(user) {
 
 if (welcomeLogin) {
   welcomeLogin.addEventListener('click', () => {
-    dismissWelcomeModal();
+    welcomeModalDeferred = true;
+    hide(WELCOME_MODAL_ID);
     openAuthModal();
   });
 }
 if (welcomeContinue) {
   welcomeContinue.addEventListener('click', () => {
+    initializeAuth().catch(err => console.error('Auth initialization failed', err));
     dismissWelcomeModal();
   });
 }
