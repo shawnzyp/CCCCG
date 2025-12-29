@@ -22,6 +22,8 @@ import {
   APP_VERSION,
   calculateSnapshotChecksum,
   persistLocalAutosaveSnapshot,
+  ensureCharacterId,
+  readCharacterIdForName,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -32,6 +34,52 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
+import {
+  initFirebaseAuth,
+  onAuthStateChanged,
+  signInWithUsernamePassword,
+  createAccountWithUsernamePassword,
+  generateRecoveryCodes,
+  storeRecoveryCodes,
+  sendPasswordReset,
+  normalizeUsername,
+  getAuthState,
+  getFirebaseDatabase,
+} from './auth.js';
+import { claimCharacterLock } from './claim-utils.js';
+import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
+import { hasBootableLocalState } from './welcome-utils.js';
+import { hasSyncConflict, readLastSyncedAt, shouldPullCloudCopy, writeLastSyncedAt } from './sync-utils.js';
+import {
+  PASSWORD_POLICY,
+  applyPasswordPolicyError,
+  getPasswordLengthError,
+  renderPasswordPolicyChecklist,
+  updatePasswordPolicyChecklist,
+} from './password-policy.js';
+import {
+  loadLocal,
+  saveLocal,
+  saveCloud,
+  saveCloudCharacter,
+  listCloudCharacters,
+  listCharacterIndex,
+  loadCloudCharacter,
+  saveCharacterIndexEntry,
+  saveConflictBackup,
+  getDeviceId,
+  getActiveUserId,
+  setActiveUserId,
+  setActiveAuthUserId,
+  writeLastUserUid,
+  listLegacyLocalSaves,
+  loadLegacyLocal,
+  listCloudSaves,
+  listCloudBackupNames,
+  listCloudBackups,
+  loadCloud,
+  loadCloudBackup,
+} from './storage.js';
 import {
   activateTab,
   getActiveTab,
@@ -2122,7 +2170,7 @@ const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
-const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
+const WELCOME_SEEN_KEY_PREFIX = 'cc:welcome-seen:';
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
@@ -2255,10 +2303,16 @@ function setPlayerToolsTabHidden(hidden) {
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
 }
 
+function getWelcomeSeenKey() {
+  const storage = getLocalStorageSafe();
+  const build = storage ? storage.getItem('cc:sw-build') : '';
+  return `${WELCOME_SEEN_KEY_PREFIX}${build || 'default'}`;
+}
+
 try {
   const storage = getLocalStorageSafe();
   if (storage) {
-    welcomeModalDismissed = storage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
+    welcomeModalDismissed = storage.getItem(getWelcomeSeenKey()) === 'true';
   }
 } catch {}
 
@@ -2395,6 +2449,12 @@ function dismissWelcomeModal() {
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    try {
+      storage.setItem(getWelcomeSeenKey(), 'true');
+    } catch {}
+  }
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
@@ -13083,6 +13143,22 @@ async function renderCharacterList(){
 
 document.addEventListener('character-saved', renderCharacterList);
 document.addEventListener('character-deleted', renderCharacterList);
+document.addEventListener('character-cloud-update', event => {
+  const detail = event?.detail || {};
+  const name = detail.name;
+  const payload = detail.payload;
+  if (!name || !payload) return;
+  const current = currentCharacter();
+  if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
+  try {
+    const applied = applyAppSnapshot(payload);
+    if (applied) {
+      applyViewLockState();
+    }
+  } catch (err) {
+    console.error('Failed to apply cloud-updated character', err);
+  }
+});
 window.addEventListener('storage', renderCharacterList);
 
 async function renderRecoverCharList(){
@@ -21872,6 +21948,11 @@ function serialize(){
 }
 const DEFAULT_STATE = serialize();
 
+function getCurrentUserUid() {
+  const { uid } = getAuthState();
+  return uid || getActiveUserId();
+}
+
 function createDefaultSnapshot() {
   let character;
   try {
@@ -21879,12 +21960,17 @@ function createDefaultSnapshot() {
   } catch {
     character = DEFAULT_STATE;
   }
+  const ownerUid = getCurrentUserUid();
+  if (ownerUid && character && typeof character === 'object') {
+    character.ownerUid = ownerUid;
+  }
   const ui = null;
   const meta = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     uiVersion: UI_STATE_VERSION,
     appVersion: APP_VERSION,
     savedAt: Date.now(),
+    ...(ownerUid ? { ownerUid } : {}),
   };
   const checksum = calculateSnapshotChecksum({ character, ui });
   return {
@@ -21910,6 +21996,9 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
+  'modal-auth',
+  'modal-post-auth-choice',
+  'modal-claim-characters',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -22062,12 +22151,14 @@ function createUiSnapshot() {
 
 function createAppSnapshot() {
   const character = serialize();
+  const ownerUid = typeof character?.ownerUid === 'string' && character.ownerUid ? character.ownerUid : '';
   const ui = createUiSnapshot();
   const meta = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     uiVersion: UI_STATE_VERSION,
     appVersion: APP_VERSION,
     savedAt: Date.now(),
+    ...(ownerUid ? { ownerUid } : {}),
   };
   const checksum = calculateSnapshotChecksum({ character, ui });
   meta.checksum = checksum;
@@ -23758,47 +23849,830 @@ if (btnRules) {
   });
 }
 
-/* ========= Close + click-outside ========= */
-qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-const welcomeHideToggle = $('welcome-hide-toggle');
-if (welcomeHideToggle) {
-  welcomeHideToggle.checked = welcomeModalDismissed;
-  welcomeHideToggle.addEventListener('change', () => {
-    const shouldHide = welcomeHideToggle.checked;
-    welcomeModalDismissed = shouldHide;
-    const storage = getLocalStorageSafe();
-    if (storage) {
+/* ========= Auth ========= */
+const welcomeLogin = $('welcome-login');
+const welcomeContinue = $('welcome-continue');
+const welcomeCreate = $('welcome-create');
+const authModal = $('modal-auth');
+const authTabLogin = $('auth-tab-login');
+const authTabCreate = $('auth-tab-create');
+const authPanelLogin = $('auth-panel-login');
+const authPanelCreate = $('auth-panel-create');
+const authLoginUsername = $('auth-login-username');
+const authLoginPassword = $('auth-login-password');
+const authCreateUsername = $('auth-create-username');
+const authCreatePassword = $('auth-create-password');
+const authCreateConfirm = $('auth-create-confirm');
+const authPasswordPolicy = $('auth-password-policy');
+const authLoginSubmit = $('auth-login-submit');
+const authCreateSubmit = $('auth-create-submit');
+const authResetPassword = $('auth-reset-password');
+const authError = $('auth-error');
+const authCancel = $('auth-cancel');
+const postAuthChoiceModal = $('modal-post-auth-choice');
+const postAuthImport = $('post-auth-import');
+const postAuthCreate = $('post-auth-create');
+const postAuthSkip = $('post-auth-skip');
+const claimModal = $('modal-claim-characters');
+const claimCloudList = $('claim-cloud-list');
+const claimDeviceList = $('claim-device-list');
+const claimLegacyList = $('claim-legacy-list');
+const claimFileInput = $('claim-file-input');
+const claimFileImport = $('claim-file-import');
+const claimTokenInput = $('claim-token-input');
+const claimTokenSubmit = $('claim-token-submit');
+const claimExportCurrent = $('claim-export-current');
+const recoveryCodesModal = $('modal-recovery-codes');
+const recoveryCodesList = $('recovery-codes-list');
+const recoveryCodesCopy = $('recovery-codes-copy');
+const conflictModal = $('modal-cloud-conflict');
+const conflictMessage = $('cloud-conflict-message');
+const conflictKeepCloud = $('cloud-conflict-keep-cloud');
+const conflictKeepLocal = $('cloud-conflict-keep-local');
+const conflictMergeLater = $('cloud-conflict-merge-later');
+
+let pendingPostAuthChoice = false;
+const passwordPolicy = { ...PASSWORD_POLICY };
+let pendingConflict = null;
+
+function setAuthView(view) {
+  const isLogin = view === 'login';
+  if (authTabLogin) authTabLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+  if (authTabCreate) authTabCreate.setAttribute('aria-selected', isLogin ? 'false' : 'true');
+  if (authPanelLogin) {
+    authPanelLogin.hidden = !isLogin;
+    authPanelLogin.setAttribute('aria-hidden', isLogin ? 'false' : 'true');
+  }
+  if (authPanelCreate) {
+    authPanelCreate.hidden = isLogin;
+    authPanelCreate.setAttribute('aria-hidden', isLogin ? 'true' : 'false');
+  }
+  if (!isLogin) {
+    updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
+  }
+}
+
+function setAuthError(message) {
+  if (!authError) return;
+  const text = typeof message === 'string' ? message.trim() : '';
+  authError.textContent = text;
+  authError.hidden = !text;
+}
+
+function setAuthBusy(busy) {
+  const disabled = !!busy;
+  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
+
+function getFriendlySignupError(error) {
+  const code = error?.code || '';
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'That username is already in use.';
+    case 'auth/invalid-email':
+      return 'Enter a valid username.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please try again.';
+    default:
+      return 'Unable to create account. Please try again.';
+  }
+}
+
+function showRecoveryCodes(codes = []) {
+  if (!recoveryCodesModal || !recoveryCodesList) return;
+  recoveryCodesList.textContent = '';
+  codes.forEach(code => {
+    const item = document.createElement('li');
+    item.textContent = code;
+    recoveryCodesList.appendChild(item);
+  });
+  show('modal-recovery-codes');
+}
+
+function showConflictModal({ name } = {}) {
+  if (!conflictModal) return;
+  if (conflictMessage) {
+    conflictMessage.textContent = name
+      ? `Conflicting updates detected for ${name}. Choose a resolution.`
+      : 'Conflicting updates detected. Choose a resolution.';
+  }
+  show('modal-cloud-conflict');
+}
+
+function nextRevisionForPayload(payload) {
+  const current = Number(payload?.meta?.revision);
+  if (Number.isFinite(current) && current > 0) {
+    return current + 1;
+  }
+  return 1;
+}
+
+async function resolveConflict(action) {
+  if (!pendingConflict) return;
+  const { name, characterId, localPayload, cloudPayload, uid } = pendingConflict;
+  try {
+    if (action === 'cloud' && cloudPayload) {
+      await saveLocal(name, cloudPayload, { characterId });
+      writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || Date.now());
+      toast('Kept cloud version.', 'info');
+    } else if (action === 'local' && localPayload) {
+      const payload = {
+        ...localPayload,
+        meta: {
+          ...(localPayload.meta && typeof localPayload.meta === 'object' ? localPayload.meta : {}),
+          updatedAt: Date.now(),
+          updatedAtServer: { '.sv': 'timestamp' },
+        },
+        updatedAt: Date.now(),
+      };
+      await saveCloudCharacter(uid, characterId, payload);
+      await saveCharacterIndexEntry(uid, characterId, {
+        name,
+        updatedAt: payload.updatedAt,
+      });
+      writeLastSyncedAt(characterId, payload.updatedAt);
+      toast('Kept local version.', 'info');
+    } else {
+      toast('Conflict saved for later.', 'info');
+    }
+  } catch (err) {
+    console.error('Failed to resolve conflict', err);
+    toast('Failed to resolve conflict.', 'error');
+  } finally {
+    pendingConflict = null;
+    hide('modal-cloud-conflict');
+    restoreLastLoadedCharacter().catch(err => {
+      console.error('Failed to restore last loaded character after conflict', err);
+    });
+  }
+}
+
+if (authPasswordPolicy) {
+  renderPasswordPolicyChecklist(authPasswordPolicy, passwordPolicy);
+  updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
+}
+
+if (authCreatePassword) {
+  authCreatePassword.addEventListener('input', () => {
+    updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword.value || '', passwordPolicy);
+  });
+}
+
+function setDmVisibility(isDm) {
+  const dmLogin = $('dm-login');
+  const dmToggle = $('dm-tools-toggle');
+  const dmMenu = $('dm-tools-menu');
+  const hidden = !isDm;
+  if (dmLogin) dmLogin.hidden = hidden;
+  if (dmToggle) dmToggle.hidden = hidden;
+  if (dmMenu) dmMenu.hidden = hidden;
+}
+
+function updateWelcomeContinue() {
+  if (!welcomeContinue) return;
+  const { uid } = getAuthState();
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const lastSave = readLastSaveName();
+  const allowed = !!(uid || hasBootableLocalState({ storage, lastSaveName: lastSave, uid }));
+  welcomeContinue.disabled = !allowed;
+  welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+}
+
+async function rehydrateLocalCache(uid) {
+  const entries = await listCharacterIndex(uid);
+  const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
+  for (const entry of entries) {
+    const characterId = entry?.characterId || '';
+    if (!characterId) continue;
+    const name = entry?.name || characterId;
+    let localPayload = null;
+    try {
+      localPayload = await loadLocal(name, { characterId });
+    } catch {}
+    const localUpdated = localPayload ? localUpdatedAt(localPayload) : 0;
+    const cloudUpdated = Number(entry?.updatedAt) || 0;
+    const lastSyncedAt = readLastSyncedAt(characterId);
+    if (localPayload && hasSyncConflict({ localUpdatedAt: localUpdated, cloudUpdatedAt: cloudUpdated, lastSyncedAt })) {
       try {
-        if (shouldHide) {
-          storage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
-        } else {
-          storage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
+        await saveConflictBackup(uid, characterId, localPayload);
+        const cloudPayload = await loadCloudCharacter(uid, characterId);
+        await saveConflictBackup(uid, characterId, cloudPayload);
+        try {
+          const ts = Date.now();
+          localStorage?.setItem(`conflict:${characterId}:${ts}:local`, JSON.stringify(localPayload));
+          localStorage?.setItem(`conflict:${characterId}:${ts}:cloud`, JSON.stringify(cloudPayload));
+        } catch {}
+        pendingConflict = { name, characterId, localPayload, cloudPayload, uid };
+        showConflictModal({ name });
+      } catch (err) {
+        console.error('Failed to stage conflict backup', err);
+      }
+      return true;
+    }
+    const shouldPull = !localPayload || shouldPullCloudCopy(localUpdated, cloudUpdated);
+    if (!shouldPull) continue;
+    try {
+      const cloudPayload = await loadCloudCharacter(uid, characterId);
+      ensureCharacterId(cloudPayload, name);
+      await saveLocal(name, cloudPayload, { characterId });
+      writeLastSyncedAt(characterId, cloudUpdated || Date.now());
+      if (localPayload && cloudUpdated > localUpdated) {
+        toast('Updated from cloud', 'info', { duration: 3000 });
+      }
+    } catch (err) {
+      console.error('Failed to refresh local cache from cloud', err);
+    }
+  }
+  return false;
+}
+
+function openAuthModal(view = 'login') {
+  if (!authModal) return;
+  setAuthError('');
+  setAuthView(view);
+  hide(WELCOME_MODAL_ID);
+  show('modal-auth');
+}
+
+function openPostAuthChoice() {
+  if (!postAuthChoiceModal) return;
+  show('modal-post-auth-choice');
+}
+
+function closePostAuthChoice() {
+  hide('modal-post-auth-choice');
+}
+
+function openClaimModal() {
+  if (!claimModal) return;
+  show('modal-claim-characters');
+  refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
+}
+
+function closeClaimModal() {
+  hide('modal-claim-characters');
+}
+
+async function handleAuthSubmit(mode) {
+  try {
+    setAuthError('');
+    setAuthBusy(true);
+    await initFirebaseAuth();
+    if (mode === 'create') {
+      const username = authCreateUsername?.value?.trim() || '';
+      const password = authCreatePassword?.value || '';
+      const confirm = authCreateConfirm?.value || '';
+      const normalized = normalizeUsername(username);
+      if (!username || !password) {
+        setAuthError('Enter a username and password to continue.');
+        return;
+      }
+      if (!normalized) {
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
+        return;
+      }
+      if (password !== confirm) {
+        setAuthError('Passwords do not match.');
+        return;
+      }
+      const lengthError = getPasswordLengthError(password, passwordPolicy);
+      if (lengthError) {
+        updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+        setAuthError(lengthError);
+        return;
+      }
+      pendingPostAuthChoice = true;
+      const credential = await createAccountWithUsernamePassword(username, password);
+      const uid = credential?.user?.uid || '';
+      if (uid) {
+        try {
+          const codes = generateRecoveryCodes();
+          const db = await getFirebaseDatabase();
+          await storeRecoveryCodes(db, uid, codes);
+          showRecoveryCodes(codes);
+        } catch (err) {
+          console.error('Failed to store recovery codes', err);
         }
-      } catch {}
+      }
+    } else {
+      const username = authLoginUsername?.value?.trim() || '';
+      const password = authLoginPassword?.value || '';
+      const normalized = normalizeUsername(username);
+      if (!username || !password) {
+        setAuthError('Enter your username and password to continue.');
+        return;
+      }
+      if (!normalized) {
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
+        return;
+      }
+      pendingPostAuthChoice = true;
+      await signInWithUsernamePassword(username, password);
+    }
+    hide('modal-auth');
+  } catch (err) {
+    console.error('Auth failed', err);
+    if (mode === 'create') {
+      const password = authCreatePassword?.value || '';
+      const policyFeedback = applyPasswordPolicyError({
+        container: authPasswordPolicy,
+        password,
+        policy: passwordPolicy,
+        error: err,
+      });
+      if (policyFeedback) {
+        setAuthError(policyFeedback.message);
+      } else {
+        setAuthError(getFriendlySignupError(err));
+      }
+    } else {
+      setAuthError(err?.message || 'Unable to sign in.');
+    }
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
+function buildClaimRow({ name, meta, actions = [] } = {}) {
+  const row = document.createElement('div');
+  row.className = 'claim-row';
+  row.setAttribute('role', 'listitem');
+  const main = document.createElement('div');
+  main.className = 'claim-row__main';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'claim-row__name';
+  nameEl.textContent = name;
+  const metaEl = document.createElement('div');
+  metaEl.className = 'claim-row__meta';
+  metaEl.textContent = meta;
+  main.append(nameEl, metaEl);
+  const actionsEl = document.createElement('div');
+  actionsEl.className = 'claim-row__actions';
+  actions.forEach(btn => actionsEl.append(btn));
+  row.append(main, actionsEl);
+  return row;
+}
+
+function renderEmptyRow(container, message) {
+  if (!container) return;
+  const row = buildClaimRow({ name: message, meta: '' });
+  row.classList.add('claim-row--empty');
+  container.append(row);
+}
+
+async function handleLegacyClaim({ name, source }) {
+  const { uid } = getAuthState();
+  if (!uid) return;
+  const data = source === 'cloud'
+    ? await loadCloud(name)
+    : await loadLegacyLocal(name);
+  const migrated = migrateSavePayload(data);
+  const { payload } = buildCanonicalPayload(migrated);
+  const ownerUid = payload?.meta?.ownerUid || payload?.meta?.uid || '';
+  if (ownerUid && ownerUid !== uid) {
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
+  const characterId = ensureCharacterId(payload, name);
+  try {
+    const db = await getFirebaseDatabase();
+    await claimCharacterLock(db, characterId, uid);
+  } catch (err) {
+    console.error('Failed to claim character lock', err);
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
+  payload.meta = {
+    ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+    ownerUid: uid,
+    uid,
+    deviceId: getDeviceId(),
+    name,
+    displayName: name,
+    legacyName: name,
+    revision: nextRevisionForPayload(payload),
+    updatedAt: Date.now(),
+  };
+  payload.updatedAt = payload.meta.updatedAt;
+  await saveCloudCharacter(uid, characterId, payload);
+  await saveCharacterIndexEntry(uid, characterId, {
+    name,
+    updatedAt: payload.meta.updatedAt,
+  });
+  writeLastSyncedAt(characterId, payload.meta.updatedAt);
+  await saveLocal(name, payload, { characterId });
+  setCurrentCharacter(name);
+  syncMiniGamePlayerName();
+  applyAppSnapshot(payload);
+  setMode('edit');
+  toast(`Claimed ${name}.`, 'success');
+  await refreshClaimModal();
+}
+
+async function handleFileImport() {
+  if (!claimFileInput?.files?.length) {
+    toast('Choose a JSON file to import.', 'info');
+    return;
+  }
+  const file = claimFileInput.files[0];
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  const migrated = migrateSavePayload(parsed);
+  const { payload } = buildCanonicalPayload(migrated);
+  if (!payload || typeof payload !== 'object' || !payload.character) {
+    toast('Invalid character file.', 'error');
+    return;
+  }
+  let name = payload?.meta?.name || payload?.character?.name || '';
+  if (!name && typeof prompt === 'function') {
+    name = prompt('Enter a character name for this import:') || '';
+  }
+  name = name.trim();
+  if (!name) {
+    toast('Character name required to import.', 'error');
+    return;
+  }
+  const { uid } = getAuthState();
+  if (!uid) return;
+  const existingOwner = payload?.meta?.ownerUid || payload?.meta?.uid || '';
+  if (existingOwner && existingOwner !== uid) {
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
+  const characterId = ensureCharacterId(payload, name);
+  try {
+    const db = await getFirebaseDatabase();
+    await claimCharacterLock(db, characterId, uid);
+  } catch (err) {
+    console.error('Failed to claim character lock', err);
+    toast('This character is already claimed by another account.', 'error');
+    return;
+  }
+  payload.meta = {
+    ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+    ownerUid: uid,
+    uid,
+    deviceId: getDeviceId(),
+    name,
+    displayName: name,
+    revision: nextRevisionForPayload(payload),
+    updatedAt: Date.now(),
+  };
+  payload.updatedAt = payload.meta.updatedAt;
+  await saveCloudCharacter(uid, characterId, payload);
+  await saveCharacterIndexEntry(uid, characterId, {
+    name,
+    updatedAt: payload.meta.updatedAt,
+  });
+  writeLastSyncedAt(characterId, payload.meta.updatedAt);
+  await saveLocal(name, payload, { characterId });
+  setCurrentCharacter(name);
+  syncMiniGamePlayerName();
+  applyAppSnapshot(payload);
+  setMode('edit');
+  toast(`Imported ${name}.`, 'success');
+  claimFileInput.value = '';
+  await refreshClaimModal();
+}
+
+async function handleClaimToken() {
+  const token = claimTokenInput?.value?.trim() || '';
+  if (!token) {
+    toast('Enter a claim token.', 'info');
+    return;
+  }
+  const { uid } = getAuthState();
+  if (!uid) return;
+  try {
+    const db = await getFirebaseDatabase();
+    const claim = await consumeClaimToken(db, token, uid);
+    const sourceUid = claim?.sourceUid;
+    const characterId = claim?.characterId;
+    if (!sourceUid || !characterId) {
+      throw new Error('Invalid claim token.');
+    }
+    const payload = claim?.payload && typeof claim.payload === 'object'
+      ? claim.payload
+      : await loadCloudCharacter(sourceUid, characterId);
+    const name = payload?.meta?.name || payload?.character?.name || characterId;
+    ensureCharacterId(payload, name);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid: uid,
+      uid,
+      deviceId: getDeviceId(),
+      revision: nextRevisionForPayload(payload),
+      updatedAt: Date.now(),
+    };
+    payload.updatedAt = payload.meta.updatedAt;
+    await saveCloudCharacter(uid, characterId, payload);
+    await saveCharacterIndexEntry(uid, characterId, {
+      name,
+      updatedAt: payload.meta.updatedAt,
+    });
+    writeLastSyncedAt(characterId, payload.meta.updatedAt);
+    await saveLocal(name, payload, { characterId });
+    toast('Character claimed.', 'success');
+    claimTokenInput.value = '';
+    await refreshClaimModal();
+  } catch (err) {
+    console.error('Failed to claim token', err);
+    toast('Claim token invalid or expired.', 'error');
+  }
+}
+
+async function handleExportCurrent() {
+  const name = currentCharacter();
+  if (!name) {
+    toast('No character selected.', 'info');
+    return;
+  }
+  try {
+    const characterId = readCharacterIdForName(name);
+    const payload = await loadLocal(name, { characterId });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${name}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Failed to export character', err);
+    toast('Failed to export character.', 'error');
+  }
+}
+
+async function refreshClaimModal() {
+  const { uid } = getAuthState();
+  if (!uid) return;
+  if (claimCloudList) {
+    claimCloudList.textContent = '';
+    const entries = await listCloudCharacters(uid);
+    if (!entries.length) {
+      renderEmptyRow(claimCloudList, 'No cloud characters found.');
+    } else {
+      entries.forEach(entry => {
+        const name = entry?.payload?.meta?.name || entry?.payload?.character?.name || entry.characterId;
+        const btn = document.createElement('button');
+        btn.className = 'cc-btn cc-btn--ghost';
+        btn.type = 'button';
+        btn.textContent = 'Load';
+        btn.addEventListener('click', () => {
+          openCharacterModalByName(name);
+          closeClaimModal();
+        });
+        claimCloudList.append(buildClaimRow({
+          name,
+          meta: 'Already in your cloud roster.',
+          actions: [btn],
+        }));
+      });
+    }
+  }
+
+  if (claimDeviceList) {
+    claimDeviceList.textContent = '';
+    const legacyLocal = listLegacyLocalSaves();
+    if (!legacyLocal.length) {
+      renderEmptyRow(claimDeviceList, 'No legacy local saves found.');
+    } else {
+      legacyLocal.forEach(name => {
+        const claimBtn = document.createElement('button');
+        claimBtn.className = 'cc-btn cc-btn--primary';
+        claimBtn.type = 'button';
+        claimBtn.textContent = 'Claim';
+        claimBtn.addEventListener('click', () => handleLegacyClaim({ name, source: 'local' }).catch(err => {
+          console.error('Failed to claim legacy save', err);
+          toast('Failed to claim legacy save.', 'error');
+        }));
+        claimDeviceList.append(buildClaimRow({
+          name,
+          meta: 'Legacy local save',
+          actions: [claimBtn],
+        }));
+      });
+    }
+  }
+
+  if (claimLegacyList) {
+    claimLegacyList.textContent = '';
+    let legacyCloud = [];
+    try {
+      legacyCloud = await listCloudSaves();
+    } catch (err) {
+      console.warn('Failed to list legacy cloud saves', err);
+    }
+    if (!legacyCloud.length) {
+      renderEmptyRow(claimLegacyList, 'No legacy cloud saves found.');
+    } else {
+      legacyCloud.forEach(name => {
+        const claimBtn = document.createElement('button');
+        claimBtn.className = 'cc-btn cc-btn--primary';
+        claimBtn.type = 'button';
+        claimBtn.textContent = 'Claim';
+        claimBtn.addEventListener('click', () => handleLegacyClaim({ name, source: 'cloud' }).catch(err => {
+          console.error('Failed to claim legacy save', err);
+          toast('Failed to claim legacy save.', 'error');
+        }));
+        claimLegacyList.append(buildClaimRow({
+          name,
+          meta: 'Legacy cloud save',
+          actions: [claimBtn],
+        }));
+      });
+    }
+  }
+}
+
+function createNewCharacterFromModal() {
+  if (!getAuthState().uid) {
+    openAuthModal();
+    return;
+  }
+  const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';
+  if (!name) return;
+  const clean = name.trim();
+  if (!clean) return;
+  setCurrentCharacter(clean);
+  syncMiniGamePlayerName();
+  setPinInteractionGuard('', { locked: false });
+  applyAppSnapshot(createDefaultSnapshot());
+  setMode('edit');
+  queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
+  toast(`Switched to ${clean}`, 'success');
+}
+
+function handleAuthStateChange({ uid, isDm } = {}) {
+  setDmVisibility(!!isDm);
+  if (uid) {
+    setActiveUserId(uid);
+    setActiveAuthUserId(uid);
+    writeLastUserUid(uid);
+    welcomeModalDismissed = true;
+    dismissWelcomeModal();
+    updateWelcomeContinue();
+    rehydrateLocalCache(uid)
+      .then(hasConflict => {
+        if (!hasConflict) {
+          restoreLastLoadedCharacter().catch(err => {
+            console.error('Failed to restore last loaded character', err);
+          });
+        }
+        if (pendingPostAuthChoice) {
+          pendingPostAuthChoice = false;
+          openPostAuthChoice();
+        }
+      })
+      .catch(err => console.error('Failed to rehydrate local cache', err));
+    return;
+  }
+  setActiveUserId('');
+  setActiveAuthUserId('');
+  welcomeModalDismissed = false;
+  welcomeSequenceComplete = false;
+  updateWelcomeContinue();
+  queueWelcomeModal({ immediate: true });
+}
+
+if (welcomeLogin) {
+  welcomeLogin.addEventListener('click', () => openAuthModal('login'));
+}
+if (welcomeCreate) {
+  welcomeCreate.addEventListener('click', () => openAuthModal('create'));
+}
+if (welcomeContinue) {
+  welcomeContinue.addEventListener('click', () => {
+    updateWelcomeContinue();
+    if (!welcomeContinue.disabled) {
+      dismissWelcomeModal();
+      restoreLastLoadedCharacter().catch(err => {
+        console.error('Failed to restore last loaded character', err);
+      });
+      return;
+    }
+    openAuthModal();
+  });
+}
+if (authTabLogin) {
+  authTabLogin.addEventListener('click', () => setAuthView('login'));
+}
+if (authTabCreate) {
+  authTabCreate.addEventListener('click', () => setAuthView('create'));
+}
+if (authLoginSubmit) {
+  authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
+}
+if (authCreateSubmit) {
+  authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+}
+if (authResetPassword) {
+  authResetPassword.addEventListener('click', () => {
+    const username = authLoginUsername?.value?.trim() || '';
+    if (!username) {
+      setAuthError('Enter your username to send a reset email.');
+      return;
+    }
+    setAuthError('');
+    setAuthBusy(true);
+    sendPasswordReset(username)
+      .then(() => {
+        toast('Password reset email sent if the account exists.', 'info');
+      })
+      .catch(err => {
+        console.error('Password reset failed', err);
+        setAuthError('Unable to send password reset email.');
+      })
+      .finally(() => setAuthBusy(false));
+  });
+}
+if (authCancel) {
+  authCancel.addEventListener('click', () => {
+    hide('modal-auth');
+    if (!getAuthState().uid) {
+      queueWelcomeModal({ immediate: true });
     }
   });
 }
-const welcomeCreate = $('welcome-create-character');
-if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => {
-    dismissWelcomeModal();
-    const newCharBtn = $('create-character');
-    if (newCharBtn) newCharBtn.click();
+if (postAuthImport) {
+  postAuthImport.addEventListener('click', () => {
+    closePostAuthChoice();
+    openClaimModal();
   });
 }
-const welcomeLoad = $('welcome-load-character');
-if (welcomeLoad) {
-  welcomeLoad.addEventListener('click', () => {
-    dismissWelcomeModal();
-    window.requestAnimationFrame(() => {
-      openCharacterList().catch(err => console.error('Failed to open load list from welcome', err));
+if (postAuthCreate) {
+  postAuthCreate.addEventListener('click', () => {
+    closePostAuthChoice();
+    createNewCharacterFromModal();
+  });
+}
+if (postAuthSkip) {
+  postAuthSkip.addEventListener('click', () => {
+    closePostAuthChoice();
+  });
+}
+if (claimFileImport) {
+  claimFileImport.addEventListener('click', () => {
+    handleFileImport().catch(err => {
+      console.error('Failed to import file', err);
+      toast('Failed to import file.', 'error');
     });
   });
 }
-const welcomeSkip = $('welcome-skip');
-if (welcomeSkip) {
-  welcomeSkip.addEventListener('click', () => { dismissWelcomeModal(); });
+if (claimTokenSubmit) {
+  claimTokenSubmit.addEventListener('click', () => {
+    handleClaimToken().catch(err => {
+      console.error('Failed to claim token', err);
+      toast('Failed to claim token.', 'error');
+    });
+  });
 }
+if (claimExportCurrent) {
+  claimExportCurrent.addEventListener('click', () => {
+    handleExportCurrent().catch(err => {
+      console.error('Failed to export character', err);
+      toast('Failed to export character.', 'error');
+    });
+  });
+}
+if (recoveryCodesCopy) {
+  recoveryCodesCopy.addEventListener('click', () => {
+    if (!recoveryCodesList) return;
+    const codes = Array.from(recoveryCodesList.querySelectorAll('li'))
+      .map(node => node.textContent || '')
+      .filter(Boolean);
+    if (!codes.length) return;
+    const text = codes.join('\n');
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast('Recovery codes copied.', 'success');
+      }).catch(() => {
+        toast('Failed to copy recovery codes.', 'error');
+      });
+    } else {
+      toast('Clipboard unavailable.', 'warning');
+    }
+  });
+}
+if (conflictKeepCloud) {
+  conflictKeepCloud.addEventListener('click', () => resolveConflict('cloud'));
+}
+if (conflictKeepLocal) {
+  conflictKeepLocal.addEventListener('click', () => resolveConflict('local'));
+}
+if (conflictMergeLater) {
+  conflictMergeLater.addEventListener('click', () => resolveConflict('later'));
+}
+
+setAuthView('login');
+initFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
+onAuthStateChanged(handleAuthStateChange);
+handleAuthStateChange(getAuthState());
+
 const welcomeOverlay = getWelcomeModal();
 const welcomeOverlayIsElement = Boolean(
   welcomeOverlay &&
@@ -23808,16 +24682,6 @@ const welcomeOverlayIsElement = Boolean(
   typeof welcomeOverlay.nodeType === 'number'
 );
 if (welcomeOverlayIsElement) {
-  welcomeOverlay.addEventListener('click', event => {
-    if (event.target === welcomeOverlay) {
-      dismissWelcomeModal();
-    }
-  }, { capture: true });
-  qsa('#modal-welcome [data-close]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      dismissWelcomeModal();
-    }, { capture: true });
-  });
   const updatePlayerToolsTabForWelcome = () => {
     const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
     setPlayerToolsTabHidden(shouldHideTab);
@@ -23874,17 +24738,6 @@ document.addEventListener('keydown', event => {
     dismissCharacterConfirmation();
   }
 });
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
-    const modal = getWelcomeModal();
-    if (modal && !modal.classList.contains('hidden')) {
-      dismissWelcomeModal();
-    }
-  }
-});
-if (!document.body?.classList?.contains('launching')) {
-  queueWelcomeModal({ immediate: true });
-}
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
@@ -23898,6 +24751,7 @@ applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   let swUrl = 'sw.js';
+  const SW_BUILD_STORAGE_KEY = 'cc:sw-build';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
       swUrl = new URL('sw.js', document.baseURI).href;
@@ -23909,6 +24763,34 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   }
   navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
   let hadController = Boolean(navigator.serviceWorker.controller);
+  const getLocalStorageSafe = () => {
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  };
+  const handleSwBuild = payload => {
+    const build = typeof payload?.build === 'string' ? payload.build : '';
+    if (!build) return;
+    const storage = getLocalStorageSafe();
+    const previous = storage ? storage.getItem(SW_BUILD_STORAGE_KEY) : '';
+    if (previous && previous !== build) {
+      navigator.serviceWorker.ready
+        .then(reg => reg.update())
+        .catch(() => {});
+      announceContentUpdate({
+        message: 'New Codex content is available.',
+        updatedAt: Date.now(),
+        source: 'sw-build',
+      });
+    }
+    if (storage) {
+      try {
+        storage.setItem(SW_BUILD_STORAGE_KEY, build);
+      } catch {}
+    }
+  };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
@@ -23947,6 +24829,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     if (type === 'sw-updated') {
       announceContentUpdate(payload);
       scheduleOfflinePrefetch(1500);
+      return;
+    }
+    if (type === 'sw-build') {
+      handleSwBuild(payload);
       return;
     }
   });
@@ -24379,4 +25265,3 @@ CC.RP = (function () {
   }
   return api;
 })();
-

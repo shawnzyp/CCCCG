@@ -31,14 +31,54 @@ The app requires a Firebase Realtime Database for real-time updates. To
 configure the database:
 
 1. Create a Firebase project and enable the **Realtime Database**.
-2. Use the following database rules to allow read and write access:
+2. Use the following database rules to allow read and write access (DM override via `auth.token.admin`):
 
 ```json
 {
   "rules": {
-    "saves": {
-      ".read": true,
-      ".write": true
+    "characters": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
+    "history": {
+      "$bucket": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+          ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
+    "usernames": {
+      "$name": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "characterClaims": {
+      "$characterId": {
+        ".read": "auth != null && auth.token.admin === true",
+        ".write": "auth != null"
+      }
+    },
+    "claimTokens": {
+      "$token": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.token.admin === true || newData.child('usedBy').val() === auth.uid)"
+      }
+    },
+    "autosaves": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
     },
     "dm-notifications": {
       ".read": true,
@@ -48,7 +88,18 @@ configure the database:
 }
 ```
 
+The rules above are also provided in `firebase.rules.json` for quick copying.
+
 The application communicates with the database using its public REST API.
+
+### Data model notes
+
+- `/users/{uid}/profile`: `{ username, createdAt }`
+- `/users/{uid}/charactersIndex/{characterId}`: `{ name, updatedAt }`
+- `/users/{uid}/autosaves/{characterId}`: `{ latestTs }`
+- `/characters/{uid}/{characterId}`: full character payload (includes `updatedAt`, `schemaVersion`, and `meta`)
+- `/history/conflicts/{uid}/{characterId}/{ts}`: conflict backups
+- `/claimTokens/{token}`: one-time claim tokens created by admins
 
 ## DM tools access
 
@@ -99,4 +150,3 @@ duration (in milliseconds) or an options object with the following properties:
 
 The convenience method `dismissToast()` immediately hides the active toast and advances
 the queue.
-

@@ -2,6 +2,7 @@ const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
 const ANON_NAMESPACE_KEY = 'cc:last-save:anon-id';
 const LAST_SAVE_LEGACY_KEY = 'last-save';
 const LAST_SAVE_DEVICE_KEY = 'cc:last-save:device';
+const LAST_USER_UID_KEY = 'cc:last-user-uid';
 
 function getLocalStorageSafe() {
   if (typeof localStorage === 'undefined') return null;
@@ -62,6 +63,10 @@ function generateAnonId() {
 
 function resolveNamespace(storage) {
   if (!storage) return '';
+  try {
+    const uid = readStoredNamespace(storage, LAST_USER_UID_KEY);
+    if (uid) return `user:${uid}`;
+  } catch {}
   try {
     const raw = storage.getItem(DM_PERSISTENT_SESSION_KEY);
     if (typeof raw === 'string' && raw) {

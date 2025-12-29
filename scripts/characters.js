@@ -4,8 +4,6 @@ import {
   listLocalSaves,
   deleteSave,
   saveCloud,
-  loadCloud,
-  listCloudSaves,
   listCloudBackups,
   listCloudBackupNames,
   loadCloudBackup,
@@ -13,12 +11,22 @@ import {
   listCloudAutosaves,
   listCloudAutosaveNames,
   loadCloudAutosave,
-  deleteCloud,
+  getActiveUserId,
+  getActiveAuthUserId,
+  loadCloudCharacter,
+  saveCloudCharacter,
+  deleteCloudCharacter,
+  saveCharacterIndexEntry,
+  deleteCharacterIndexEntry,
+  listCharacterIndex,
+  getDeviceId,
 } from './storage.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
+import { getAuthState } from './auth.js';
+import { writeLastSyncedAt } from './sync-utils.js';
 
 function safeToast(message, type = 'error', options = {}) {
   if (!message) return;
@@ -37,14 +45,95 @@ function safeToast(message, type = 'error', options = {}) {
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
+const CHARACTER_ID_STORAGE_PREFIX = 'cc:character-id:';
 export const SAVE_SCHEMA_VERSION = 2;
 export const UI_STATE_VERSION = 2;
 export const APP_VERSION = '1.0.0';
+
+function getLocalStorageSafe() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
 
 function normalizedCharacterName(name) {
   const canonical = canonicalCharacterKey(name);
   if (canonical) return canonical;
   return typeof name === 'string' ? name.trim() : '';
+}
+
+function getCharacterIdStorageKey(name) {
+  const normalized = normalizedCharacterName(name) || name;
+  return `${CHARACTER_ID_STORAGE_PREFIX}${normalized}`;
+}
+
+export function readCharacterIdForName(name) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return '';
+  try {
+    const stored = storage.getItem(getCharacterIdStorageKey(name));
+    return typeof stored === 'string' && stored.trim() ? stored.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function writeCharacterIdForName(name, id) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !id || !name) return;
+  try {
+    storage.setItem(getCharacterIdStorageKey(name), id);
+  } catch {}
+}
+
+function removeCharacterIdForName(name) {
+  const storage = getLocalStorageSafe();
+  if (!storage || !name) return;
+  try {
+    storage.removeItem(getCharacterIdStorageKey(name));
+  } catch {}
+}
+
+function generateCharacterId() {
+  try {
+    if (typeof crypto === 'object' && crypto && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 20; i++) {
+    token += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+  }
+  return token;
+}
+
+export function ensureCharacterId(payload, name) {
+  if (!payload || typeof payload !== 'object') return '';
+  const character = payload.character && typeof payload.character === 'object' ? payload.character : null;
+  const existing = character?.characterId;
+  const stored = readCharacterIdForName(name);
+  const resolved = typeof existing === 'string' && existing.trim()
+    ? existing.trim()
+    : stored;
+  const characterId = resolved || generateCharacterId();
+  if (character) {
+    character.characterId = characterId;
+  }
+  if (name && characterId) {
+    writeCharacterIdForName(name, characterId);
+  }
+  return characterId;
+}
+
+function migrateCharacterIdKey(oldName, newName, characterId) {
+  if (!oldName || !newName || oldName === newName) return;
+  if (!characterId) return;
+  removeCharacterIdForName(oldName);
+  writeCharacterIdForName(newName, characterId);
 }
 
 function displayCharacterName(name) {
@@ -631,16 +720,23 @@ function normalizeSnapshotMeta(meta = {}, character = {}, ui = null, fallback = 
   const uiVersion = typeof meta.uiVersion === 'number' ? meta.uiVersion : fallback.uiVersion;
   const savedAt = Number.isFinite(meta.savedAt) ? meta.savedAt : Date.now();
   const appVersion = typeof meta.appVersion === 'string' && meta.appVersion ? meta.appVersion : APP_VERSION;
+  const ownerUid = typeof meta.ownerUid === 'string' && meta.ownerUid
+    ? meta.ownerUid
+    : (typeof character?.ownerUid === 'string' ? character.ownerUid : '');
   const checksum = typeof meta.checksum === 'string' && meta.checksum
     ? meta.checksum
     : calculateSnapshotChecksum({ character, ui }) || fallback.checksum || null;
-  return {
+  const normalized = {
     schemaVersion: typeof schemaVersion === 'number' ? schemaVersion : SAVE_SCHEMA_VERSION,
     uiVersion: typeof uiVersion === 'number' ? uiVersion : UI_STATE_VERSION,
     savedAt,
     appVersion,
     checksum,
   };
+  if (ownerUid) {
+    normalized.ownerUid = ownerUid;
+  }
+  return normalized;
 }
 
 export function isSnapshotChecksumValid(snapshot = {}) {
@@ -770,6 +866,9 @@ export function buildCanonicalPayload(migrated) {
     appVersion: migrated.appVersion ?? APP_VERSION,
     checksum: migrated.checksum,
   });
+  if (meta?.ownerUid && cleanedCharacter && typeof cleanedCharacter === 'object' && !cleanedCharacter.ownerUid) {
+    cleanedCharacter.ownerUid = meta.ownerUid;
+  }
   const checksum = meta.checksum || calculateSnapshotChecksum({ character: cleanedCharacter, ui: workingUi });
   const payload = {
     meta: { ...meta, checksum },
@@ -834,6 +933,44 @@ async function verifyPin(name) {
 }
 
 let currentName = null;
+const CLOUD_TOAST_PREFIX = 'cc:cloud-update-toast:';
+const cloudToastCache = new Map();
+
+function getCloudToastStorageKey(characterId) {
+  if (!characterId) return '';
+  return `${CLOUD_TOAST_PREFIX}${characterId}`;
+}
+
+function readLastCloudToast(characterId) {
+  if (!characterId || typeof localStorage === 'undefined') return 0;
+  if (cloudToastCache.has(characterId)) {
+    return cloudToastCache.get(characterId) || 0;
+  }
+  try {
+    const raw = localStorage.getItem(getCloudToastStorageKey(characterId));
+    const parsed = Number(raw);
+    const normalized = Number.isFinite(parsed) ? parsed : 0;
+    cloudToastCache.set(characterId, normalized);
+    return normalized;
+  } catch {
+    return 0;
+  }
+}
+
+function writeLastCloudToast(characterId, updatedAt) {
+  if (!characterId || typeof localStorage === 'undefined') return;
+  const normalized = Number.isFinite(updatedAt) ? updatedAt : 0;
+  cloudToastCache.set(characterId, normalized);
+  try {
+    localStorage.setItem(getCloudToastStorageKey(characterId), String(normalized));
+  } catch {}
+}
+
+export function shouldToastCloudUpdate(characterId, updatedAt) {
+  if (!characterId || !Number.isFinite(updatedAt)) return false;
+  const last = readLastCloudToast(characterId);
+  return updatedAt > last;
+}
 
 export function currentCharacter() {
   return currentName;
@@ -852,12 +989,57 @@ export function setCurrentCharacter(name) {
   } catch {}
 }
 
+function resolveUpdatedAt(payload) {
+  const value = Number(payload?.meta?.updatedAt ?? payload?.updatedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function nextRevision(payload) {
+  const current = Number(payload?.meta?.revision);
+  if (Number.isFinite(current) && current > 0) {
+    return current + 1;
+  }
+  return 1;
+}
+
+export function isCloudNewer(localPayload, cloudPayload) {
+  return resolveUpdatedAt(cloudPayload) > resolveUpdatedAt(localPayload);
+}
+
+async function refreshCloudCharacter({ name, storageName, localPayload, uid }) {
+  if (!uid || !localPayload) return;
+  const characterId = localPayload?.character?.characterId || localPayload?.characterId || '';
+  if (!characterId) return;
+  try {
+    const cloudPayload = await loadCloudCharacter(uid, characterId);
+    if (!isCloudNewer(localPayload, cloudPayload)) return;
+    const cloudUpdatedAt = resolveUpdatedAt(cloudPayload);
+    await saveLocal(storageName, cloudPayload, { characterId });
+    writeLastSyncedAt(characterId, cloudUpdatedAt);
+    if (typeof document !== 'undefined') {
+      document.dispatchEvent(new CustomEvent('character-cloud-update', {
+        detail: { name, payload: cloudPayload },
+      }));
+    }
+    if (shouldToastCloudUpdate(characterId, cloudUpdatedAt)) {
+      writeLastCloudToast(characterId, cloudUpdatedAt);
+      safeToast('Character updated from cloud.', 'info', { duration: 4000 });
+    }
+  } catch (err) {
+    console.error('Failed to refresh character from cloud', err);
+  }
+}
+
 export async function listCharacters() {
   try {
-    const cloud = (await listCloudSaves())
+    const uid = getActiveAuthUserId();
+    if (!uid) return [];
+    const cloud = await listCharacterIndex(uid);
+    const names = cloud
+      .map(entry => entry?.name || '')
       .map(displayCharacterName)
       .filter(Boolean);
-    return cloud.sort((a, b) => a.localeCompare(b));
+    return names.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list cloud saves', e);
     return [];
@@ -880,17 +1062,22 @@ export async function listRecoverableCharacters() {
 export async function loadCharacter(name, options = {}) {
   const { bypassPin = false } = options || {};
   try {
+    const uid = getActiveUserId();
+    const authUid = getActiveAuthUserId();
     const storageName = normalizedCharacterName(name);
     const displayName = displayCharacterName(name || storageName);
     const lookupNames = Array.from(new Set([storageName, typeof name === 'string' ? name.trim() : '']))
       .filter(Boolean);
     let data = null;
     let loadedFrom = null;
+    let localPayload = null;
     try {
       for (const candidate of lookupNames) {
         try {
-          data = await loadLocal(candidate);
+          const candidateId = readCharacterIdForName(candidate);
+          data = await loadLocal(candidate, { characterId: candidateId });
           loadedFrom = candidate;
+          localPayload = data;
           break;
         } catch (err) {
           console.error(`Failed to load local data for ${candidate}`, err);
@@ -902,13 +1089,13 @@ export async function loadCharacter(name, options = {}) {
 
     if (!data) {
       try {
-        for (const candidate of lookupNames) {
-          try {
-            data = await loadCloud(candidate);
-            loadedFrom = candidate;
-            if (data) break;
-          } catch (err) {
-            console.error(`Failed to load cloud data for ${candidate}`, err);
+        if (authUid) {
+          const targetKey = normalizedCharacterName(name || storageName);
+          const cloudIndex = await listCharacterIndex(authUid);
+          const match = cloudIndex.find(entry => normalizedCharacterName(entry?.name || '') === targetKey);
+          if (match?.characterId) {
+            data = await loadCloudCharacter(authUid, match.characterId);
+            loadedFrom = match.name || storageName || name;
           }
         }
       } catch (err) {
@@ -916,8 +1103,22 @@ export async function loadCharacter(name, options = {}) {
         throw err;
       }
       if (data) {
+        if (authUid) {
+          const resolvedName = storageName || loadedFrom || name;
+          const characterId = ensureCharacterId(data, resolvedName);
+          data.meta = {
+            ...(data.meta && typeof data.meta === 'object' ? data.meta : {}),
+            name: displayName || resolvedName,
+            ownerUid: data?.meta?.ownerUid || authUid,
+          };
+          if (data.character && typeof data.character === 'object') {
+            data.character.characterId = characterId;
+          }
+        }
         try {
-          await saveLocal(storageName || loadedFrom || name, data);
+          const resolvedName = storageName || loadedFrom || name;
+          const characterId = ensureCharacterId(data, resolvedName);
+          await saveLocal(resolvedName, data, { characterId });
         } catch (err) {
           console.error(`Failed to persist cloud data locally for ${storageName || name}`, err);
         }
@@ -947,15 +1148,46 @@ export async function loadCharacter(name, options = {}) {
       !isSnapshotChecksumValid(payload);
     if (needsSchemaUpdate) {
       try {
-        await saveLocal(storageName || name, payload);
+        const characterId = ensureCharacterId(payload, storageName || name);
+        await saveLocal(storageName || name, payload, { characterId });
       } catch (err) {
         console.error(`Failed to normalize local data for ${storageName || name}`, err);
       }
       try {
-        await saveCloud(storageName || name, payload);
+        if (authUid) {
+          const characterId = ensureCharacterId(payload, storageName || name);
+          payload.meta = {
+            ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+            name: displayName || storageName || name,
+            displayName: displayName || storageName || name,
+            ownerUid: authUid,
+            uid: authUid,
+            deviceId: getDeviceId(),
+            revision: nextRevision(payload),
+            updatedAt: Date.now(),
+          };
+          payload.updatedAt = payload.meta.updatedAt;
+          await saveCloudCharacter(authUid, characterId, payload);
+          await saveCharacterIndexEntry(authUid, characterId, {
+            name: displayName || storageName || name,
+            updatedAt: payload.meta.updatedAt,
+          });
+          writeLastSyncedAt(characterId, payload.meta.updatedAt);
+        } else {
+          await saveCloud(storageName || name, payload);
+        }
       } catch (err) {
         console.error('Cloud save failed', err);
       }
+    }
+
+    if (localPayload && authUid) {
+      refreshCloudCharacter({
+        name: displayName || storageName || name,
+        storageName: storageName || name,
+        localPayload,
+        uid: authUid,
+      });
     }
 
     return payload;
@@ -970,11 +1202,36 @@ export async function saveCharacter(data, name = currentCharacter()) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    const { uid: authUid, isDm } = getAuthState();
+    const localUid = authUid || getActiveUserId();
+    if (!localUid) {
+      throw new Error('Login required to save characters.');
+    }
+    const characterId = ensureCharacterId(payload, storageName);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     await verifyPin(displayCharacterName(name));
+    const ownerUid = payload?.meta?.ownerUid || payload?.character?.ownerUid || '';
+    if (ownerUid && ownerUid !== localUid && !isDm) {
+      throw new Error('You do not have permission to edit this character.');
+    }
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid: ownerUid || localUid,
+      name: displayCharacterName(name),
+      displayName: displayCharacterName(name),
+      uid: localUid,
+      deviceId: getDeviceId(),
+      revision: nextRevision(payload),
+      updatedAt: Date.now(),
+    };
+    if (payload.character && typeof payload.character === 'object') {
+      payload.character.ownerUid = payload.meta.ownerUid;
+      payload.character.characterId = characterId;
+    }
+    payload.updatedAt = payload.meta.updatedAt;
     try {
-      await saveLocal(storageName, payload);
+      await saveLocal(storageName, payload, { characterId });
     } catch (err) {
       console.error(`Failed to persist local save for ${storageName}`, err);
       throw normalizeLocalSaveError(err);
@@ -985,7 +1242,14 @@ export async function saveCharacter(data, name = currentCharacter()) {
       console.error('Failed to update local recovery snapshot', err);
     }
     try {
-      await saveCloud(storageName, payload);
+      if (authUid) {
+        await saveCloudCharacter(authUid, characterId, payload);
+        await saveCharacterIndexEntry(authUid, characterId, {
+          name: displayCharacterName(name),
+          updatedAt: payload.meta.updatedAt,
+        });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
+      }
     } catch (err) {
       console.error('Cloud save failed', err);
     }
@@ -1000,12 +1264,76 @@ export async function saveCharacter(data, name = currentCharacter()) {
   }
 }
 
+export async function getLocalCharacterOwnerUid(name) {
+  if (!name) return '';
+  try {
+    const characterId = readCharacterIdForName(name);
+    const data = await loadLocal(name, { characterId });
+    const migrated = migrateSavePayload(data);
+    return typeof migrated?.meta?.ownerUid === 'string' ? migrated.meta.ownerUid : '';
+  } catch {
+    return '';
+  }
+}
+
+export async function claimCharacterOwnership(name, ownerUid) {
+  if (!name) throw new Error('No character selected');
+  if (!ownerUid) throw new Error('Missing owner uid');
+  const storageName = normalizedCharacterName(name) || name;
+  try {
+    const uid = getActiveUserId();
+    const authUid = getActiveAuthUserId();
+    const characterId = readCharacterIdForName(storageName);
+    const data = await loadLocal(storageName, { characterId });
+    const migrated = migrateSavePayload(data);
+    const { payload } = buildCanonicalPayload(migrated);
+    const characterId = ensureCharacterId(payload, storageName);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid,
+      name: displayCharacterName(name),
+      displayName: displayCharacterName(name),
+      uid: ownerUid,
+      deviceId: getDeviceId(),
+      revision: nextRevision(payload),
+      updatedAt: Date.now(),
+    };
+    if (payload.character && typeof payload.character === 'object') {
+      payload.character.ownerUid = ownerUid;
+      payload.character.characterId = characterId;
+    }
+    payload.updatedAt = payload.meta.updatedAt;
+    await saveLocal(storageName, payload, { characterId });
+    try {
+      if (authUid) {
+        await saveCloudCharacter(authUid, characterId, payload);
+        await saveCharacterIndexEntry(authUid, characterId, {
+          name: displayCharacterName(name),
+          updatedAt: payload.meta.updatedAt,
+        });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
+      } else {
+        await saveCloud(storageName, payload);
+      }
+    } catch (err) {
+      console.error('Cloud save failed while claiming character', err);
+    }
+    return payload;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to claim character "${name}"`);
+  }
+}
+
 export async function renameCharacter(oldName, newName, data) {
   try {
+    const uid = getActiveUserId();
+    const authUid = getActiveAuthUserId();
     const storageOldName = normalizedCharacterName(oldName) || oldName;
     const storageNewName = normalizedCharacterName(newName) || newName;
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    const characterId = ensureCharacterId(payload, storageOldName);
+    migrateCharacterIdKey(storageOldName, storageNewName, characterId);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     if (!storageOldName || storageOldName === storageNewName) {
@@ -1015,7 +1343,7 @@ export async function renameCharacter(oldName, newName, data) {
     }
     await verifyPin(displayCharacterName(oldName));
     try {
-      await saveLocal(storageNewName, payload);
+      await saveLocal(storageNewName, payload, { characterId });
     } catch (err) {
       console.error(`Failed to persist renamed character ${storageNewName} locally`, err);
       throw err;
@@ -1027,15 +1355,35 @@ export async function renameCharacter(oldName, newName, data) {
     }
     let cloudStatus;
     try {
-      const result = await saveCloud(storageNewName, payload);
-      if (result !== 'saved' && result !== 'queued' && result !== 'disabled') {
-        throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
+      if (authUid) {
+        payload.meta = {
+          ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          name: displayCharacterName(newName),
+          displayName: displayCharacterName(newName),
+          uid: authUid,
+          deviceId: getDeviceId(),
+          revision: nextRevision(payload),
+          updatedAt: Date.now(),
+        };
+        payload.updatedAt = payload.meta.updatedAt;
+        await saveCloudCharacter(authUid, characterId, payload);
+        await saveCharacterIndexEntry(authUid, characterId, {
+          name: displayCharacterName(newName),
+          updatedAt: payload.meta.updatedAt,
+        });
+        writeLastSyncedAt(characterId, payload.meta.updatedAt);
+        cloudStatus = 'saved';
+      } else {
+        const result = await saveCloud(storageNewName, payload);
+        if (result !== 'saved' && result !== 'queued' && result !== 'disabled') {
+          throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
+        }
+        cloudStatus = result;
       }
-      cloudStatus = result;
     } catch (err) {
       console.error('Cloud save failed', err);
       try {
-        await deleteSave(newName);
+        await deleteSave(newName, { characterId });
       } catch (rollbackErr) {
         console.error('Failed to roll back local rename after cloud save failure', rollbackErr);
       }
@@ -1053,8 +1401,8 @@ export async function renameCharacter(oldName, newName, data) {
       if (!moved) {
         console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
       }
-      await deleteSave(storageOldName);
-      if (cloudStatus === 'saved' || cloudStatus === 'queued') {
+      await deleteSave(storageOldName, { characterId });
+      if (!authUid && (cloudStatus === 'saved' || cloudStatus === 'queued')) {
         try {
           await deleteCloud(storageOldName);
         } catch (err) {
@@ -1080,37 +1428,45 @@ export async function deleteCharacter(name) {
     throw new Error('Cannot delete The DM');
   }
   try {
+    const uid = getActiveUserId();
+    const authUid = getActiveAuthUserId();
     const storageName = canonical;
     await verifyPin(displayCharacterName(name));
     let data = null;
+    let characterId = '';
     try {
-      data = await loadLocal(storageName);
+      const mappedId = readCharacterIdForName(storageName);
+      data = await loadLocal(storageName, { characterId: mappedId });
+      characterId = data?.character?.characterId || data?.characterId || mappedId || '';
     } catch (err) {
       console.error(`Failed to read local data before deleting ${storageName}`, err);
     }
-    if (data === null) {
+    if (!data && authUid) {
       try {
-        data = await loadCloud(storageName);
+        const cloudIndex = await listCharacterIndex(authUid);
+        const match = cloudIndex.find(entry =>
+          normalizedCharacterName(entry?.name || '') === normalizedCharacterName(storageName)
+        );
+        if (match?.characterId) {
+          characterId = match.characterId;
+        }
       } catch (err) {
         console.error(`Failed to read cloud data before deleting ${storageName}`, err);
       }
     }
-    if (data !== null) {
-      try {
-        await saveCloud(storageName, data);
-      } catch (err) {
-        console.error('Cloud backup failed', err);
-      }
-    }
-    await deleteSave(storageName);
+    await deleteSave(storageName, { characterId });
+    removeCharacterIdForName(storageName);
     const cleared = await clearPin(storageName);
     if (!cleared) {
       console.warn(`PIN clear skipped for ${storageName}`);
     }
-    try {
-      await deleteCloud(storageName);
-    } catch (err) {
-      console.error('Cloud delete failed', err);
+    if (authUid && characterId) {
+      try {
+        await deleteCloudCharacter(authUid, characterId);
+        await deleteCharacterIndexEntry(authUid, characterId);
+      } catch (err) {
+        console.error('Cloud delete failed', err);
+      }
     }
     try {
       document.dispatchEvent(new CustomEvent('character-deleted', { detail: storageName }));
@@ -1125,6 +1481,7 @@ export async function deleteCharacter(name) {
 
 export async function listBackups(name) {
   const storageName = normalizedCharacterName(name) || name;
+  const characterId = readCharacterIdForName(storageName);
   let manual = [];
   let autos = [];
   try {
@@ -1133,7 +1490,7 @@ export async function listBackups(name) {
     console.error('Failed to list backups', e);
   }
   try {
-    autos = await listCloudAutosaves(storageName);
+    autos = await listCloudAutosaves(storageName, { characterId });
   } catch (e) {
     console.error('Failed to list autosaves', e);
   }
@@ -1148,14 +1505,17 @@ export async function loadBackup(name, ts, type = 'manual', options = {}) {
   try {
     const storageName = normalizedCharacterName(name) || name;
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
-    const data = await loader(storageName, ts);
+    const data = type === 'auto'
+      ? await loader(storageName, ts, { characterId: readCharacterIdForName(storageName) })
+      : await loader(storageName, ts);
     const { payload, recovered, changed } = preflightSnapshotForLoad(storageName, data, { showRecoveryToast: false });
     if (!bypassPin) {
       await verifyPin(displayCharacterName(name));
     }
     const needsSchemaUpdate = recovered || changed || payload.schemaVersion !== SAVE_SCHEMA_VERSION || payload.character?.uiState || !isSnapshotChecksumValid(payload);
     try {
-      await saveLocal(storageName, payload);
+      const characterId = ensureCharacterId(payload, storageName);
+      await saveLocal(storageName, payload, { characterId });
     } catch (err) {
       console.error(`Failed to persist recovered data for ${storageName}`, err);
     }
@@ -1200,6 +1560,7 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    ensureCharacterId(payload, storageName);
     const ts = await saveCloudAutosave(storageName, payload);
     lastAutosaveErrorKey = null;
     lastAutosaveErrorTime = 0;

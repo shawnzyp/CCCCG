@@ -17,8 +17,10 @@ import {
   getStatusLabel,
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
-import { saveCloud } from './storage.js';
+import { saveCloud, loadCloudCharacter } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
+import { createClaimToken } from './claim-tokens.js';
+import { getAuthState, getFirebaseDatabase } from './auth.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
 import {
@@ -1750,6 +1752,7 @@ function initDMLogin(){
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
   const charSearch = document.getElementById('dm-characters-search');
+  const charClaimTokenBtn = document.getElementById('dm-characters-claim-token');
   const charSortButtons = charModal ? Array.from(charModal.querySelectorAll('[data-char-sort]')) : [];
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
@@ -9181,6 +9184,36 @@ function initDMLogin(){
     hide('dm-characters-modal');
   }
 
+  async function handleCreateClaimToken(){
+    const { isDm } = getAuthState();
+    if (!isDm) {
+      toast('DM access required to create claim tokens.', 'error');
+      return;
+    }
+    const sourceUid = prompt('Enter source UID for the character:') || '';
+    if (!sourceUid.trim()) return;
+    const characterId = prompt('Enter characterId to claim:') || '';
+    if (!characterId.trim()) return;
+    try {
+      const db = await getFirebaseDatabase();
+      const payload = await loadCloudCharacter(sourceUid.trim(), characterId.trim());
+      const { token } = await createClaimToken(db, {
+        sourceUid: sourceUid.trim(),
+        characterId: characterId.trim(),
+        payload,
+      });
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(token);
+        toast('Claim token copied to clipboard.', 'success');
+      } else {
+        toast(`Claim token: ${token}`, 'info');
+      }
+    } catch (err) {
+      console.error('Failed to create claim token', err);
+      toast('Failed to create claim token.', 'error');
+    }
+  }
+
   function openCharacterView(){
     if(!charViewModal) return;
     show('dm-character-modal');
@@ -10973,6 +11006,7 @@ function initDMLogin(){
   }
   charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
   charClose?.addEventListener('click', closeCharacters);
+  charClaimTokenBtn?.addEventListener('click', handleCreateClaimToken);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
   charViewClose?.addEventListener('click', closeCharacterView);
   rewardsModal?.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeRewards(); } });
