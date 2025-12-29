@@ -1,4 +1,5 @@
-const DM_USERNAME = 'SPeiris';
+const DM_USERNAME_FALLBACK = 'SPeiris';
+const DM_USERNAME_DEFAULT = 'DM';
 const DM_SALT_KEY = 'cccg:dm:salt';
 const DM_HASH_KEY = 'cccg:dm:hash';
 const DM_ITER_KEY = 'cccg:dm:iter';
@@ -69,7 +70,13 @@ async function deriveHash(password, saltBytes, iterations) {
 }
 
 export function getDmUsername() {
-  return DM_USERNAME;
+  const configured = typeof window !== 'undefined'
+    ? window.CCCG_DM_USERNAME
+    : '';
+  if (typeof configured === 'string' && configured.trim()) {
+    return configured.trim();
+  }
+  return DM_USERNAME_FALLBACK || DM_USERNAME_DEFAULT;
 }
 
 export function dmHasPasswordSet() {

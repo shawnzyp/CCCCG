@@ -33,6 +33,7 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
+import { buildImportedCopyName } from './import-utils.js';
 import {
   initFirebaseAuth,
   onAuthStateChanged,
@@ -64,6 +65,7 @@ import {
   saveCharacterIndexEntry,
   readLastSyncedAt,
   writeLastSyncedAt,
+  listLocalSaves,
   storeConflictSnapshot,
   saveCloudConflictBackup,
   getDeviceId,
@@ -13298,6 +13300,30 @@ const exportCharacterBtn = $('export-character');
 const importCharacterBtn = $('import-character');
 const importCharacterFile = $('import-character-file');
 
+function resolveImportName(name) {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed) return { decision: 'cancel', name: '' };
+  const existing = listLocalSaves();
+  const normalized = canonicalCharacterKey(trimmed) || trimmed;
+  const exists = existing.some(entry => {
+    const entryKey = canonicalCharacterKey(entry) || entry;
+    return entryKey.toLowerCase() === normalized.toLowerCase();
+  });
+  if (!exists) {
+    return { decision: 'new', name: trimmed };
+  }
+  const replace = confirm(`"${trimmed}" already exists. Replace the existing local save?`);
+  if (replace) {
+    return { decision: 'replace', name: trimmed };
+  }
+  const saveCopy = confirm('Save as a copy instead?');
+  if (!saveCopy) {
+    return { decision: 'cancel', name: '' };
+  }
+  const copyName = buildImportedCopyName(trimmed, existing);
+  return { decision: 'copy', name: copyName };
+}
+
 if (exportCharacterBtn) {
   exportCharacterBtn.addEventListener('click', async () => {
     try {
@@ -13344,13 +13370,31 @@ if (importCharacterBtn && importCharacterFile) {
         toast('Imported file missing character name.', 'error');
         return;
       }
-      const characterId = ensureCharacterId(payload, name);
-      await saveLocal(name, payload, { characterId });
-      setCurrentCharacter(name);
+      const resolution = resolveImportName(name);
+      if (resolution.decision === 'cancel') {
+        toast('Import cancelled.', 'info');
+        return;
+      }
+      const resolvedName = resolution.name || name;
+      const payloadWithName = {
+        ...payload,
+        meta: {
+          ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          name: resolvedName,
+        },
+        character: {
+          ...(payload?.character && typeof payload.character === 'object' ? payload.character : {}),
+          name: resolvedName,
+        },
+      };
+      const characterId = ensureCharacterId(payloadWithName, resolvedName);
+      await saveLocal(resolvedName, payloadWithName, { characterId });
+      setCurrentCharacter(resolvedName);
       syncMiniGamePlayerName();
-      applyAppSnapshot(payload);
+      applyAppSnapshot(payloadWithName);
       setMode('edit');
-      toast(`Imported ${name}.`, 'success');
+      const suffix = resolution.decision === 'copy' ? ` as ${resolvedName}` : '';
+      toast(`Imported ${name}${suffix}.`, 'success');
     } catch (err) {
       console.error('Failed to import character JSON', err);
       toast('Failed to import character JSON.', 'error');
@@ -24173,12 +24217,23 @@ async function resolveSyncConflict(action) {
       writeLastSyncedAt(characterId, cloudUpdatedAt);
       toast('Kept cloud version.', 'info');
     } else if (action === 'keep-local' && localPayload && uid) {
-      await saveCloudCharacter(uid, characterId, localPayload);
+      const updatedAt = Date.now();
+      const nextPayload = {
+        ...localPayload,
+        meta: {
+          ...(localPayload?.meta && typeof localPayload.meta === 'object' ? localPayload.meta : {}),
+          updatedAt,
+        },
+      };
+      if (nextPayload.meta && Object.prototype.hasOwnProperty.call(nextPayload.meta, 'updatedAtServer')) {
+        delete nextPayload.meta.updatedAtServer;
+      }
+      await saveCloudCharacter(uid, characterId, nextPayload);
       await saveCharacterIndexEntry(uid, characterId, {
-        name: localPayload?.meta?.name || name,
-        updatedAt: localUpdatedAt,
+        name: nextPayload?.meta?.name || name,
+        updatedAt,
       });
-      writeLastSyncedAt(characterId, localUpdatedAt);
+      writeLastSyncedAt(characterId, updatedAt);
       toast('Kept local version.', 'info');
     } else {
       const resolved = Math.max(localUpdatedAt || 0, cloudUpdatedAt || 0);
@@ -24735,6 +24790,17 @@ if (conflictMergeLater) {
   conflictMergeLater.addEventListener('click', () => {
     resolveSyncConflict('merge-later');
   });
+}
+if (conflictModal) {
+  const handleConflictDismiss = event => {
+    const isOverlay = event.target === conflictModal;
+    const closeButton = event.target?.closest?.('[data-close]');
+    if (!isOverlay && !closeButton) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resolveSyncConflict('merge-later');
+  };
+  conflictModal.addEventListener('click', handleConflictDismiss, true);
 }
 
 setAuthView('login');
