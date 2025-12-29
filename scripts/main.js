@@ -22,8 +22,7 @@ import {
   APP_VERSION,
   calculateSnapshotChecksum,
   persistLocalAutosaveSnapshot,
-  claimCharacterOwnership,
-  getLocalCharacterOwnerUid,
+  ensureCharacterId,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -34,8 +33,20 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
-import { initializeAuth, onAuthStateChanged, signInWithEmail, signInWithGoogle, getCurrentUserUid } from './auth.js';
-import { listLocalSaves, loadLocal, saveLocal, saveCloud, listCloudSaves, loadCloud } from './storage.js';
+import { bindWelcomeModalHandlers, parseRecoveryCode } from './claim-utils.js';
+import {
+  listLocalSaves,
+  loadLocal,
+  saveLocal,
+  saveCloud,
+  listCloudSaves,
+  listCloudBackupNames,
+  listCloudBackups,
+  loadCloud,
+  loadCloudBackup,
+  listCloudAutosavesByIds,
+  loadCloudAutosaveByIds,
+} from './storage.js';
 import {
   activateTab,
   getActiveTab,
@@ -2132,7 +2143,6 @@ const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
 let welcomeModalQueued = false;
 let welcomeModalPrepared = false;
-let welcomeModalDeferred = false;
 let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 let launchSequenceComplete = false;
@@ -21932,9 +21942,7 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
-  'modal-auth',
   'modal-claim',
-  'modal-import-characters',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -23785,396 +23793,304 @@ if (btnRules) {
   });
 }
 
-/* ========= Welcome + Auth ========= */
-const welcomeLogin = $('welcome-login');
-const welcomeContinue = $('welcome-continue');
-const authModal = $('modal-auth');
-const authGoogle = $('auth-google');
-const authEmail = $('auth-email-submit');
-const authCancel = $('auth-cancel');
-const authEmailInput = $('auth-email');
-const authPasswordInput = $('auth-password');
-const authError = $('auth-error');
+/* ========= Welcome + Claim ========= */
 const claimModal = $('modal-claim');
-const importModal = $('modal-import-characters');
+const claimLocalList = $('claim-local-list');
+const claimCloudList = $('claim-cloud-list');
+const claimAutosaveList = $('claim-autosave-list');
+const claimRecoveryInput = $('claim-recovery-code');
+const claimRecoveryFetch = $('claim-recovery-fetch');
+const claimClose = $('claim-close');
 
-function setAuthError(message) {
-  if (!authError) return;
-  if (message) {
-    authError.textContent = message;
-    authError.hidden = false;
-  } else {
-    authError.textContent = '';
-    authError.hidden = true;
-  }
-}
-
-function setAuthControlsDisabled(disabled) {
-  [authGoogle, authEmail, authCancel, authEmailInput, authPasswordInput].forEach(el => {
-    if (el && 'disabled' in el) {
-      el.disabled = disabled;
-    }
-  });
-}
-
-function openAuthModal() {
-  setAuthError('');
-  setAuthControlsDisabled(false);
-  show('modal-auth');
-}
-
-function closeAuthModal() {
-  hide('modal-auth');
-  setAuthControlsDisabled(false);
-  setAuthError('');
-  if (welcomeModalDeferred && !welcomeModalDismissed) {
-    welcomeModalDeferred = false;
-    show(WELCOME_MODAL_ID);
-  }
-}
-
-const CLAIM_SKIP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
-function getClaimSkipKey(uid) {
-  return uid ? `cc:claim-skip:${uid}` : '';
-}
-
-function readClaimSkipState(uid) {
-  const storage = getLocalStorageSafe();
-  if (!storage) return null;
-  try {
-    const raw = storage.getItem(getClaimSkipKey(uid));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function writeClaimSkipState(uid, payload) {
-  const storage = getLocalStorageSafe();
-  if (!storage || !uid) return;
-  try {
-    storage.setItem(getClaimSkipKey(uid), JSON.stringify(payload));
-  } catch {}
-}
-
-function shouldSkipClaimPrompt(uid, names) {
-  const state = readClaimSkipState(uid);
-  if (!state) return false;
-  const ts = Number(state.ts);
-  if (!Number.isFinite(ts) || Date.now() - ts > CLAIM_SKIP_WINDOW_MS) return false;
-  const prev = Array.isArray(state.names) ? state.names : [];
-  const signature = names.join('|');
-  return signature === prev.join('|');
-}
-
-async function handleClaimCharacters(uid) {
-  if (!uid) return;
+function openClaimModal() {
   if (!claimModal) return;
-  const list = claimModal.querySelector('.claim-list');
-  if (!list) return;
-  const localNames = listLocalSaves();
-  const entries = [];
-  for (const name of localNames) {
-    const ownerUid = await getLocalCharacterOwnerUid(name);
-    if (!ownerUid || ownerUid !== uid) {
-      entries.push({ name, ownerUid });
-    }
-  }
-  if (!entries.length) return;
-  const entryNames = entries.map(entry => entry.name);
-  if (shouldSkipClaimPrompt(uid, entryNames)) return;
+  show('modal-claim');
+  refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
+}
 
-  list.textContent = '';
-  const shouldPreselect = entries.length < 10;
-  for (const entry of entries) {
+function closeClaimModal() {
+  hide('modal-claim');
+}
+
+async function maybeSetPinForCharacter(name) {
+  if (!name || typeof window?.pinPrompt !== 'function') return;
+  const shouldSet = typeof confirm === 'function'
+    ? confirm('Set a PIN for this character?')
+    : false;
+  if (!shouldSet) return;
+  const pin1 = await window.pinPrompt('Set PIN');
+  if (!pin1) return;
+  const pin2 = await window.pinPrompt('Confirm PIN');
+  if (!pin2 || pin1 !== pin2) {
+    toast('PINs did not match', 'error');
+    return;
+  }
+  try {
+    await setPin(name, pin1);
+    toast('PIN enabled', 'success');
+  } catch (err) {
+    console.error('Failed to set PIN', err);
+    toast('Failed to enable PIN', 'error');
+  }
+}
+
+async function persistClaimedCharacter(name, data) {
+  const migrated = migrateSavePayload(data);
+  const { payload } = buildCanonicalPayload(migrated);
+  ensureCharacterId(payload, name);
+  await saveLocal(name, payload);
+  try {
+    await saveCloud(name, payload);
+  } catch (err) {
+    console.error('Cloud save failed during claim', err);
+  }
+  await maybeSetPinForCharacter(name);
+  return payload;
+}
+
+async function handleLocalUse(name) {
+  try {
+    openCharacterModalByName(name);
+    closeClaimModal();
+  } catch (err) {
+    console.error('Failed to open character', err);
+    toast('Failed to open character.', 'error');
+  }
+}
+
+async function handleLocalClaim(name) {
+  try {
+    const data = await loadLocal(name);
+    await persistClaimedCharacter(name, data);
+    toast(`Claimed ${name}.`, 'success');
+  } catch (err) {
+    console.error('Failed to claim local character', err);
+    toast('Failed to claim character.', 'error');
+  }
+}
+
+async function handleCloudImport(name) {
+  try {
+    const data = await loadCloud(name);
+    await persistClaimedCharacter(name, data);
+    toast(`Imported ${name}.`, 'success');
+  } catch (err) {
+    console.error('Failed to import cloud save', err);
+    toast('Failed to import cloud save.', 'error');
+  }
+}
+
+async function handleCloudBackupImport(name) {
+  try {
+    const backups = await listCloudBackups(name);
+    const latest = backups?.[0]?.ts;
+    if (!latest) {
+      toast('No backups found.', 'info');
+      return;
+    }
+    const data = await loadCloudBackup(name, latest);
+    await persistClaimedCharacter(name, data);
+    toast(`Imported backup for ${name}.`, 'success');
+  } catch (err) {
+    console.error('Failed to import cloud backup', err);
+    toast('Failed to import cloud backup.', 'error');
+  }
+}
+
+async function handleAutosaveImport(deviceId, characterId, ts) {
+  try {
+    const data = await loadCloudAutosaveByIds(deviceId, characterId, ts);
+    const migrated = migrateSavePayload(data);
+    const { payload } = buildCanonicalPayload(migrated);
+    const name = payload?.meta?.name || payload?.character?.name || 'Recovered Character';
+    const finalName = typeof name === 'string' && name.trim() ? name.trim() : 'Recovered Character';
+    await persistClaimedCharacter(finalName, payload);
+    toast(`Imported autosave for ${finalName}.`, 'success');
+  } catch (err) {
+    console.error('Failed to import autosave', err);
+    toast('Failed to import autosave.', 'error');
+  }
+}
+
+function renderEmptyRow(container, message) {
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'claim-row';
+  const content = document.createElement('div');
+  content.className = 'claim-row__main';
+  const text = document.createElement('div');
+  text.className = 'claim-row__meta';
+  text.textContent = message;
+  content.append(text);
+  row.append(content);
+  container.append(row);
+}
+
+async function refreshLocalClaims() {
+  if (!claimLocalList) return;
+  claimLocalList.textContent = '';
+  const localNames = listLocalSaves();
+  if (!localNames.length) {
+    renderEmptyRow(claimLocalList, 'No local characters found.');
+    return;
+  }
+  for (const name of localNames) {
+    const row = document.createElement('div');
+    row.className = 'claim-row';
+    row.setAttribute('role', 'listitem');
+    const main = document.createElement('div');
+    main.className = 'claim-row__main';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'claim-row__name';
+    nameEl.textContent = name;
     let lastModified = 'Unknown';
     try {
-      const data = await loadLocal(entry.name);
+      const data = await loadLocal(name);
       const migrated = migrateSavePayload(data);
       const savedAt = migrated?.meta?.savedAt;
       if (Number.isFinite(savedAt)) {
         lastModified = new Date(savedAt).toLocaleDateString();
       }
     } catch {}
-    const row = document.createElement('div');
-    row.className = 'claim-row';
-    row.setAttribute('role', 'listitem');
-    const checkLabel = document.createElement('label');
-    checkLabel.className = 'claim-row__check';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = shouldPreselect;
-    input.dataset.claimName = entry.name;
-    const box = document.createElement('span');
-    box.className = 'claim-row__box';
-    checkLabel.append(input, box);
-    const main = document.createElement('div');
-    main.className = 'claim-row__main';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'claim-row__name';
-    nameEl.textContent = entry.name;
     const meta = document.createElement('div');
     meta.className = 'claim-row__meta';
     meta.textContent = `Last modified: ${lastModified}`;
     main.append(nameEl, meta);
-    const tag = document.createElement('div');
-    tag.className = 'claim-row__tag';
-    tag.textContent = entry.ownerUid ? 'Unlinked' : 'Local';
-    row.append(checkLabel, main, tag);
-    list.append(row);
+    const actions = document.createElement('div');
+    actions.className = 'claim-row__actions';
+    const useBtn = document.createElement('button');
+    useBtn.type = 'button';
+    useBtn.className = 'cc-btn cc-btn--ghost';
+    useBtn.textContent = 'Use';
+    useBtn.addEventListener('click', () => handleLocalUse(name));
+    const claimBtn = document.createElement('button');
+    claimBtn.type = 'button';
+    claimBtn.className = 'cc-btn cc-btn--primary';
+    claimBtn.textContent = 'Claim';
+    claimBtn.addEventListener('click', () => handleLocalClaim(name));
+    actions.append(useBtn, claimBtn);
+    row.append(main, actions);
+    claimLocalList.append(row);
   }
-
-  const confirm = document.getElementById('claim-confirm');
-  const skip = document.getElementById('claim-skip');
-  const selectAll = document.getElementById('claim-select-all');
-  const selectNone = document.getElementById('claim-select-none');
-  if (!confirm || !skip || !selectAll || !selectNone) return;
-
-  const updateConfirmState = () => {
-    const selected = Array.from(list.querySelectorAll('input[type="checkbox"]')).some(input => input.checked);
-    confirm.disabled = !selected;
-  };
-  updateConfirmState();
-
-  await new Promise(resolve => {
-    const cleanup = () => {
-      confirm.removeEventListener('click', onConfirm);
-      skip.removeEventListener('click', onSkip);
-      selectAll.removeEventListener('click', onSelectAll);
-      selectNone.removeEventListener('click', onSelectNone);
-      list.removeEventListener('change', onListChange);
-    };
-    const onSkip = () => {
-      writeClaimSkipState(uid, { ts: Date.now(), names: entryNames });
-      cleanup();
-      hide('modal-claim');
-      resolve();
-    };
-    const onSelectAll = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(input => {
-        input.checked = true;
-      });
-      updateConfirmState();
-    };
-    const onSelectNone = () => {
-      list.querySelectorAll('input[type="checkbox"]').forEach(input => {
-        input.checked = false;
-      });
-      updateConfirmState();
-    };
-    const onListChange = () => {
-      updateConfirmState();
-    };
-    const onConfirm = async () => {
-      confirm.disabled = true;
-      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]'))
-        .filter(input => input.checked)
-        .map(input => input.dataset.claimName)
-        .filter(Boolean);
-      try {
-        for (const name of selected) {
-          await claimCharacterOwnership(name, uid);
-        }
-        if (selected.length) {
-          toast('Characters claimed for your account.', 'success');
-          writeClaimSkipState(uid, { ts: Date.now(), names: entryNames });
-        }
-      } catch (err) {
-        console.error('Failed to claim characters', err);
-        toast('Failed to claim characters.', 'error');
-      } finally {
-        confirm.disabled = false;
-        cleanup();
-        hide('modal-claim');
-        resolve();
-      }
-    };
-    confirm.addEventListener('click', onConfirm);
-    skip.addEventListener('click', onSkip);
-    selectAll.addEventListener('click', onSelectAll);
-    selectNone.addEventListener('click', onSelectNone);
-    list.addEventListener('change', onListChange);
-    show('modal-claim');
-  });
 }
 
-async function handleImportCharacters(uid) {
-  if (!uid) return;
-  if (!importModal) return;
-  const list = document.getElementById('import-characters-list');
-  if (!list) return;
-  const localNames = listLocalSaves().map(name => canonicalCharacterKey(name) || name);
-  const localSet = new Set(localNames);
+async function refreshCloudClaims() {
+  if (!claimCloudList) return;
+  claimCloudList.textContent = '';
   let cloudNames = [];
+  let backupNames = [];
   try {
     cloudNames = await listCloudSaves();
   } catch (err) {
-    console.error('Failed to list cloud characters for import', err);
+    console.error('Failed to list cloud saves', err);
+  }
+  try {
+    backupNames = await listCloudBackupNames();
+  } catch (err) {
+    console.error('Failed to list cloud backups', err);
+  }
+  const combined = Array.from(new Set([...cloudNames, ...backupNames])).sort((a, b) => a.localeCompare(b));
+  if (!combined.length) {
+    renderEmptyRow(claimCloudList, 'No cloud saves found.');
     return;
   }
-  const entries = cloudNames.filter(name => {
-    const normalized = canonicalCharacterKey(name) || name;
-    return !localSet.has(normalized);
-  });
-  if (!entries.length) return;
-
-  list.textContent = '';
-  entries.forEach(name => {
-    const label = document.createElement('label');
-    label.className = 'import-modal__item';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = true;
-    checkbox.dataset.importName = name;
-    const text = document.createElement('span');
-    text.textContent = name;
-    label.append(checkbox, text);
-    list.append(label);
-  });
-
-  const confirm = document.getElementById('import-characters-confirm');
-  const skip = document.getElementById('import-characters-skip');
-  if (!confirm || !skip) return;
-
-  await new Promise(resolve => {
-    const cleanup = () => {
-      confirm.removeEventListener('click', onConfirm);
-      skip.removeEventListener('click', onSkip);
-    };
-    const onSkip = () => {
-      cleanup();
-      hide('modal-import-characters');
-      resolve();
-    };
-    const onConfirm = async () => {
-      confirm.disabled = true;
-      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]'))
-        .filter(input => input.checked)
-        .map(input => input.dataset.importName)
-        .filter(Boolean);
-      try {
-        for (const name of selected) {
-          const data = await loadCloud(name);
-          const migrated = migrateSavePayload(data);
-          const { payload } = buildCanonicalPayload(migrated);
-          payload.meta = {
-            ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
-            ownerUid: payload.meta?.ownerUid || uid,
-          };
-          if (payload.character && typeof payload.character === 'object') {
-            payload.character.ownerUid = payload.meta.ownerUid;
-          }
-          await saveLocal(name, payload);
-          try {
-            await saveCloud(name, payload);
-          } catch (err) {
-            console.error('Failed to refresh cloud save during import', err);
-          }
-        }
-        if (selected.length) {
-          toast('Characters imported to this device.', 'success');
-        }
-      } catch (err) {
-        console.error('Failed to import characters', err);
-        toast('Failed to import characters.', 'error');
-      } finally {
-        confirm.disabled = false;
-        cleanup();
-        hide('modal-import-characters');
-        resolve();
-      }
-    };
-    confirm.addEventListener('click', onConfirm);
-    skip.addEventListener('click', onSkip);
-    show('modal-import-characters');
+  combined.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'claim-row';
+    row.setAttribute('role', 'listitem');
+    const main = document.createElement('div');
+    main.className = 'claim-row__main';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'claim-row__name';
+    nameEl.textContent = name;
+    const meta = document.createElement('div');
+    meta.className = 'claim-row__meta';
+    meta.textContent = 'Import from cloud saves or history.';
+    main.append(nameEl, meta);
+    const actions = document.createElement('div');
+    actions.className = 'claim-row__actions';
+    const importBtn = document.createElement('button');
+    importBtn.type = 'button';
+    importBtn.className = 'cc-btn cc-btn--primary';
+    importBtn.textContent = 'Import';
+    importBtn.addEventListener('click', () => handleCloudImport(name));
+    const backupBtn = document.createElement('button');
+    backupBtn.type = 'button';
+    backupBtn.className = 'cc-btn cc-btn--ghost';
+    backupBtn.textContent = 'Import Backup';
+    backupBtn.addEventListener('click', () => handleCloudBackupImport(name));
+    actions.append(importBtn, backupBtn);
+    row.append(main, actions);
+    claimCloudList.append(row);
   });
 }
 
-let authReady = false;
-let lastAuthUid = '';
-let lastAuthAnonymous = true;
-let postLoginInFlight = null;
+async function refreshAutosaveList() {
+  if (!claimAutosaveList || !claimRecoveryInput) return;
+  claimAutosaveList.textContent = '';
+  const parsed = parseRecoveryCode(claimRecoveryInput.value);
+  if (!parsed) {
+    renderEmptyRow(claimAutosaveList, 'Enter a recovery code to list autosaves.');
+    return;
+  }
+  const { deviceId, characterId } = parsed;
+  const autosaves = await listCloudAutosavesByIds(deviceId, characterId);
+  if (!autosaves.length) {
+    renderEmptyRow(claimAutosaveList, 'No autosaves found for this code.');
+    return;
+  }
+  autosaves.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'claim-row';
+    row.setAttribute('role', 'listitem');
+    const main = document.createElement('div');
+    main.className = 'claim-row__main';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'claim-row__name';
+    nameEl.textContent = new Date(entry.ts).toLocaleString();
+    const meta = document.createElement('div');
+    meta.className = 'claim-row__meta';
+    meta.textContent = `Autosave ${entry.ts}`;
+    main.append(nameEl, meta);
+    const actions = document.createElement('div');
+    actions.className = 'claim-row__actions';
+    const importBtn = document.createElement('button');
+    importBtn.type = 'button';
+    importBtn.className = 'cc-btn cc-btn--primary';
+    importBtn.textContent = 'Import';
+    importBtn.addEventListener('click', () => handleAutosaveImport(deviceId, characterId, entry.ts));
+    actions.append(importBtn);
+    row.append(main, actions);
+    claimAutosaveList.append(row);
+  });
+}
 
-async function handleAuthFlow(user) {
-  const uid = user?.uid || '';
-  const anonymous = Boolean(user?.isAnonymous);
-  if (!authReady) {
-    authReady = true;
-    if (!document.body?.classList?.contains('launching')) {
-      queueWelcomeModal({ immediate: true });
-    }
+async function refreshClaimModal() {
+  await refreshLocalClaims();
+  await refreshCloudClaims();
+  if (claimAutosaveList) {
+    claimAutosaveList.textContent = '';
   }
-  if (authModal && !authModal.classList.contains('hidden') && uid && !anonymous) {
-    closeAuthModal();
-  }
-  if (uid && !anonymous && !welcomeModalDismissed) {
-    welcomeModalDeferred = false;
+}
+
+bindWelcomeModalHandlers({
+  onLogin: () => {
     dismissWelcomeModal();
-  }
-  if (uid && !anonymous && (uid !== lastAuthUid || lastAuthAnonymous)) {
-    if (!postLoginInFlight) {
-      postLoginInFlight = (async () => {
-        await handleClaimCharacters(uid);
-        await handleImportCharacters(uid);
-      })().finally(() => {
-        postLoginInFlight = null;
-      });
-    }
-  }
-  lastAuthUid = uid;
-  lastAuthAnonymous = anonymous;
-}
-
-if (welcomeLogin) {
-  welcomeLogin.addEventListener('click', () => {
-    welcomeModalDeferred = true;
-    hide(WELCOME_MODAL_ID);
-    openAuthModal();
-  });
-}
-if (welcomeContinue) {
-  welcomeContinue.addEventListener('click', () => {
-    initializeAuth().catch(err => console.error('Auth initialization failed', err));
+    openClaimModal();
+  },
+  onContinue: () => {
     dismissWelcomeModal();
+  },
+});
+
+if (claimRecoveryFetch) {
+  claimRecoveryFetch.addEventListener('click', () => {
+    refreshAutosaveList().catch(err => console.error('Failed to list autosaves', err));
   });
 }
-if (authGoogle) {
-  authGoogle.addEventListener('click', async () => {
-    setAuthError('');
-    setAuthControlsDisabled(true);
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      console.error('Google login failed', err);
-      setAuthError(err?.message || 'Google login failed.');
-      setAuthControlsDisabled(false);
-    }
-  });
-}
-if (authEmail) {
-  authEmail.addEventListener('click', async () => {
-    setAuthError('');
-    const email = authEmailInput?.value?.trim() || '';
-    const password = authPasswordInput?.value || '';
-    if (!email || !password) {
-      setAuthError('Enter both an email and password.');
-      return;
-    }
-    setAuthControlsDisabled(true);
-    try {
-      await signInWithEmail(email, password);
-    } catch (err) {
-      console.error('Email login failed', err);
-      setAuthError(err?.message || 'Email login failed.');
-      setAuthControlsDisabled(false);
-    }
-  });
-}
-if (authCancel) {
-  authCancel.addEventListener('click', () => {
-    closeAuthModal();
+if (claimClose) {
+  claimClose.addEventListener('click', () => {
+    closeClaimModal();
   });
 }
 
@@ -24217,11 +24133,6 @@ if (welcomeOverlayIsElement) {
     });
   }
 }
-
-initializeAuth()
-  .then(() => {})
-  .catch(err => console.error('Auth initialization failed', err));
-onAuthStateChanged(handleAuthFlow);
 
 const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
 const characterConfirmationContinue = $('character-confirmation-continue');

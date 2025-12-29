@@ -9,7 +9,6 @@ import {
   OUTBOX_PINS_STORE,
   OUTBOX_STORE,
 } from './cloud-outbox.js';
-import { getAuthToken, getCurrentUserUid, isAnonymousUser } from './auth.js';
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
@@ -240,7 +239,6 @@ const CLOUD_SAVES_URL = `${CLOUD_BASE_URL}/saves`;
 const CLOUD_HISTORY_URL = `${CLOUD_BASE_URL}/history`;
 const CLOUD_AUTOSAVES_URL = `${CLOUD_BASE_URL}/autosaves`;
 const CLOUD_CAMPAIGN_LOG_URL = `${CLOUD_BASE_URL}/campaignLogs`;
-const CLOUD_USERS_URL = `${CLOUD_BASE_URL}/users`;
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -822,17 +820,9 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   window.addEventListener('online', resetOfflineNotices);
 }
 
-function appendAuthToken(url, token) {
-  if (!token || typeof url !== 'string' || !url) return url;
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}auth=${encodeURIComponent(token)}`;
-}
-
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
-  const token = await getAuthToken();
-  const targetUrl = appendAuthToken(url, token);
-  const res = await fetch(targetUrl, options);
+  const res = await fetch(url, options);
   const ok = typeof res?.ok === 'boolean' ? res.ok : true;
   const status = typeof res?.status === 'number' ? res.status : 200;
   const json = typeof res?.json === 'function' ? res.json.bind(res) : async () => null;
@@ -872,28 +862,12 @@ function encodePath(name) {
     .join('/');
 }
 
-function resolveCloudUserSegment() {
-  const uid = getCurrentUserUid();
-  if (!uid || isAnonymousUser()) return '';
-  return encodePath(uid);
-}
-
 function getCloudUrls() {
-  const uidSegment = resolveCloudUserSegment();
-  if (!uidSegment) {
-    return {
-      savesUrl: CLOUD_SAVES_URL,
-      historyUrl: CLOUD_HISTORY_URL,
-      autosavesUrl: CLOUD_AUTOSAVES_URL,
-      campaignUrl: CLOUD_CAMPAIGN_LOG_URL,
-    };
-  }
-  const base = `${CLOUD_USERS_URL}/${uidSegment}`;
   return {
-    savesUrl: `${base}/saves`,
-    historyUrl: `${base}/history`,
-    autosavesUrl: `${base}/autosaves`,
-    campaignUrl: `${base}/campaignLogs`,
+    savesUrl: CLOUD_SAVES_URL,
+    historyUrl: CLOUD_HISTORY_URL,
+    autosavesUrl: CLOUD_AUTOSAVES_URL,
+    campaignUrl: CLOUD_CAMPAIGN_LOG_URL,
   };
 }
 
@@ -1586,6 +1560,31 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   }
 }
 
+export async function listCloudAutosavesByIds(deviceId, characterId) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
+    if (!autosaveKey) return [];
+    const urls = getCloudUrls();
+    const res = await cloudFetch(`${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    return val
+      ? Object.keys(val)
+          .map(k => Number(k))
+          .filter(ts => Number.isFinite(ts))
+          .sort((a, b) => b - a)
+          .map(ts => ({ ts }))
+      : [];
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud autosave list failed', e);
+    return [];
+  }
+}
+
 export async function listCloudBackupNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
@@ -1659,6 +1658,27 @@ export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
+    if (!autosaveKey) throw new Error('Invalid autosave key');
+    const urls = getCloudUrls();
+    const res = await cloudFetch(
+      `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`,
+      { method: 'GET' }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    if (val !== null) return val;
+  } catch (e) {
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud autosave load failed', e);
+    }
+  }
+  throw new Error('No backup found');
+}
+
+export async function loadCloudAutosaveByIds(deviceId, characterId, ts) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
     if (!autosaveKey) throw new Error('Invalid autosave key');
     const urls = getCloudUrls();
     const res = await cloudFetch(

@@ -103,7 +103,7 @@ function generateCharacterId() {
   return token;
 }
 
-function ensureCharacterId(payload, name) {
+export function ensureCharacterId(payload, name) {
   if (!payload || typeof payload !== 'object') return '';
   const character = payload.character && typeof payload.character === 'object' ? payload.character : null;
   const existing = character?.characterId;

@@ -1492,6 +1492,7 @@
     <div class="modal__body">
       <p class="modal__lead">Your characters are saved on this device.</p>
       <p class="modal__lead">Log in to sync across devices and claim your roster.</p>
+      <p class="modal__hint">Login enables sync and restore. Continue stays offline.</p>
     </div>
     <div class="modal__actions modal__actions--two">
       <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Login</button>
@@ -1503,38 +1504,6 @@
   </div>
 </div>
 
-<!-- AUTH MODAL -->
-<div class="overlay hidden" id="modal-auth" aria-hidden="true" data-modal-accent-hue="204deg" data-modal-glow-strength="0.5" data-modal-static>
-  <div class="modal-frame">
-    <div class="modal modal--auth" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="auth-modal__layout">
-        <header class="auth-modal__header">
-          <h3 class="auth-modal__title">Login to Catalyst Core</h3>
-          <p class="auth-modal__subtitle">Link this device to your account to sync characters.</p>
-        </header>
-        <div class="auth-modal__body">
-          <button id="auth-google" class="btn auth-modal__provider" type="button">Continue with Google</button>
-          <div class="auth-modal__divider" aria-hidden="true">or</div>
-          <label class="auth-modal__field">
-            <span>Email</span>
-            <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
-          </label>
-          <label class="auth-modal__field">
-            <span>Password</span>
-            <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••">
-          </label>
-          <button id="auth-email-submit" class="btn auth-modal__submit" type="button">Continue with Email</button>
-          <p id="auth-error" class="auth-modal__error" hidden></p>
-        </div>
-        <div class="actions auth-modal__actions">
-          <button id="auth-cancel" type="button">Back</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
-  </div>
-</div>
-
 <!-- CLAIM CHARACTERS MODAL -->
 <div class="overlay hidden" id="modal-claim" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45" data-modal-static>
   <div class="modal modal--claim" role="document">
@@ -1542,45 +1511,33 @@
       <div class="modal__badge" aria-hidden="true">ID</div>
       <div class="modal__titles">
         <h2 id="claim-title">Claim Characters</h2>
-        <p class="modal__subtitle">Link local characters to your account for cloud sync.</p>
+        <p class="modal__subtitle">Login enables sync and restore. Continue stays offline.</p>
       </div>
     </div>
     <div class="modal__body">
-      <p class="modal__lead">
-        We found characters on this device that are not linked to your account. Claiming links them to your login so they sync across devices. Nothing is deleted.
-      </p>
-      <div class="claim-tools">
-        <button type="button" class="cc-btn cc-btn--sm" id="claim-select-all">Select all</button>
-        <button type="button" class="cc-btn cc-btn--sm" id="claim-select-none">Select none</button>
-      </div>
-      <div class="claim-list" role="list" aria-label="Unclaimed characters"></div>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Local Characters</h3>
+        <p class="claim-section__hint">Select a local character to use or claim for sync.</p>
+        <div class="claim-local-list" id="claim-local-list" role="list" aria-label="Local characters"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Cloud Saves</h3>
+        <p class="claim-section__hint">Import the latest cloud save or a backup history snapshot.</p>
+        <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud saves"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Recovery Code</h3>
+        <p class="claim-section__hint">Enter deviceId/characterId to find autosaves.</p>
+        <div class="claim-recovery">
+          <input id="claim-recovery-code" type="text" placeholder="deviceId/characterId">
+          <button id="claim-recovery-fetch" class="cc-btn cc-btn--ghost" type="button">Find Autosaves</button>
+        </div>
+        <div class="claim-autosave-list" id="claim-autosave-list" role="list" aria-label="Autosaves"></div>
+      </section>
     </div>
     <div class="modal__actions modal__actions--stack">
-      <button id="claim-confirm" class="cc-btn cc-btn--primary" type="button" disabled>Claim Selected</button>
-      <button id="claim-skip" class="cc-btn cc-btn--ghost" type="button">Skip for now</button>
+      <button id="claim-close" class="cc-btn cc-btn--ghost" type="button">Close</button>
     </div>
-  </div>
-</div>
-
-<!-- IMPORT CHARACTERS MODAL -->
-<div class="overlay hidden" id="modal-import-characters" aria-hidden="true" data-modal-accent-hue="144deg" data-modal-glow-strength="0.45" data-modal-static>
-  <div class="modal-frame">
-    <div class="modal modal--import" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="import-modal__layout">
-        <header class="import-modal__header">
-          <h3 class="import-modal__title">Import Characters</h3>
-          <p class="import-modal__subtitle">These characters are stored in the cloud. Import them to this device.</p>
-        </header>
-        <div class="import-modal__body">
-          <div id="import-characters-list" class="import-modal__list" role="list"></div>
-        </div>
-        <div class="actions import-modal__actions">
-          <button id="import-characters-skip" type="button">Skip</button>
-          <button id="import-characters-confirm" type="button">Import Selected</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 

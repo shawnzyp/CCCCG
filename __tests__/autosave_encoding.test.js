@@ -37,4 +37,30 @@ describe('cloud autosave path encoding', () => {
     expect(calls.some((url) => url.includes(`/autosaves/${encodedDevice}/${encodedCharacter}/`))).toBe(true);
     expect(calls.some((url) => url.includes('/autosaves/Al.ice.Bob/'))).toBe(false);
   });
+
+  test('lists autosaves using encoded device and character ids', async () => {
+    const calls = [];
+    global.fetch = jest.fn((url) => {
+      calls.push(url);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ 123: { foo: 'bar' } }),
+        text: async () => '',
+        arrayBuffer: async () => new ArrayBuffer(0),
+        blob: async () => new Blob(),
+        clone() {
+          return this;
+        },
+      });
+    });
+
+    const { listCloudAutosavesByIds } = await import('../scripts/storage.js');
+
+    await listCloudAutosavesByIds('device.id', 'char.id');
+
+    const encodedDevice = 'device%2Eid';
+    const encodedCharacter = 'char%2Eid';
+    expect(calls.some((url) => url.includes(`/autosaves/${encodedDevice}/${encodedCharacter}.json`))).toBe(true);
+  });
 });
