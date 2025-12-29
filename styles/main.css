@@ -10181,3 +10181,14 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .dm-discord__label{font-weight:600}
 .dm-discord__hint{margin:0;color:var(--muted);font-size:.9rem}
 .dm-discord__actions{gap:10px}
+.modal--auth .auth-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modal--auth .auth-panel{display:flex;flex-direction:column;gap:10px}
+.modal--auth .auth-panel input{width:100%}
+.modal--auth .auth-panel button{align-self:flex-start}
+.modal--migration .migration-actions{display:flex;flex-direction:column;gap:14px}
+.modal--migration .migration-legacy{display:flex;flex-direction:column;gap:8px}
+.modal--migration .migration-legacy input{width:100%}
+@media(min-width:540px){
+  .modal--migration .migration-legacy{flex-direction:row;align-items:center}
+  .modal--migration .migration-legacy input{flex:1 1 auto}
+}

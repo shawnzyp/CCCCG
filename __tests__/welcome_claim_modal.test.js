@@ -12,40 +12,22 @@ function loadDom() {
   document.documentElement.innerHTML = html;
 }
 
-describe('welcome modal handlers', () => {
+describe('auth modal layout', () => {
   beforeEach(() => {
     loadDom();
   });
 
-  test('login and continue buttons trigger handlers', async () => {
-    const { bindWelcomeModalHandlers } = await import('../scripts/claim-utils.js');
-    const onLogin = jest.fn();
-    const onContinue = jest.fn();
+  test('renders login and create account panels', () => {
+    const loginTab = document.getElementById('auth-tab-login');
+    const createTab = document.getElementById('auth-tab-create');
+    const loginPanel = document.getElementById('auth-panel-login');
+    const createPanel = document.getElementById('auth-panel-create');
+    const offlineButton = document.getElementById('auth-offline');
 
-    bindWelcomeModalHandlers({ onLogin, onContinue });
-
-    const login = document.getElementById('welcome-login');
-    const cont = document.getElementById('welcome-continue');
-
-    expect(login).not.toBeNull();
-    expect(cont).not.toBeNull();
-
-    login.click();
-    cont.click();
-
-    expect(onLogin).toHaveBeenCalledTimes(1);
-    expect(onContinue).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('recovery code parsing', () => {
-  test('parses deviceId/characterId forms', async () => {
-    const { parseRecoveryCode } = await import('../scripts/claim-utils.js');
-
-    expect(parseRecoveryCode('device-1/char-2')).toEqual({ deviceId: 'device-1', characterId: 'char-2' });
-    expect(parseRecoveryCode('device-1:char-2')).toEqual({ deviceId: 'device-1', characterId: 'char-2' });
-    expect(parseRecoveryCode('device-1 / char-2')).toEqual({ deviceId: 'device-1', characterId: 'char-2' });
-    expect(parseRecoveryCode('')).toBeNull();
-    expect(parseRecoveryCode('device-only')).toBeNull();
+    expect(loginTab).not.toBeNull();
+    expect(createTab).not.toBeNull();
+    expect(loginPanel).not.toBeNull();
+    expect(createPanel).not.toBeNull();
+    expect(offlineButton).not.toBeNull();
   });
 });

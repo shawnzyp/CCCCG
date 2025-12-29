@@ -12,6 +12,7 @@ import {
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
+const LAST_USER_UID_KEY = 'cc:last-user-uid';
 const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
 const FETCH_SUPPORTED = typeof fetch === 'function';
@@ -47,6 +48,49 @@ function getLocalStorageSafe() {
   } catch {
     return null;
   }
+}
+
+let activeUserId = '';
+let activeAuthUserId = '';
+
+export function setActiveUserId(uid) {
+  activeUserId = typeof uid === 'string' ? uid.trim() : '';
+}
+
+export function setActiveAuthUserId(uid) {
+  activeAuthUserId = typeof uid === 'string' ? uid.trim() : '';
+}
+
+export function getActiveUserId() {
+  return activeUserId;
+}
+
+export function getActiveAuthUserId() {
+  return activeAuthUserId;
+}
+
+export function readLastUserUid() {
+  const storage = getLocalStorageSafe();
+  if (!storage) return '';
+  try {
+    const stored = storage.getItem(LAST_USER_UID_KEY);
+    return typeof stored === 'string' && stored.trim() ? stored.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+export function writeLastUserUid(uid) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  const normalized = typeof uid === 'string' ? uid.trim() : '';
+  try {
+    if (normalized) {
+      storage.setItem(LAST_USER_UID_KEY, normalized);
+    } else {
+      storage.removeItem(LAST_USER_UID_KEY);
+    }
+  } catch {}
 }
 
 function generateStableId() {
@@ -91,14 +135,29 @@ function isQuotaExceededError(err) {
   return false;
 }
 
-function pruneOldestLocalSave({ excludeKeys = new Set() } = {}) {
+function getLocalSaveKey(name, uid = activeUserId) {
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  if (uid) {
+    return `save:${uid}:${normalizedName}`;
+  }
+  return `save:${normalizedName}`;
+}
+
+function isScopedSaveKey(key, uid = activeUserId) {
+  if (!key) return false;
+  if (uid) return key.startsWith(`save:${uid}:`);
+  return key.startsWith('save:');
+}
+
+function pruneOldestLocalSave({ excludeKeys = new Set(), uid = activeUserId } = {}) {
   if (typeof localStorage === 'undefined') return null;
   const candidates = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (!key || !key.startsWith('save:')) continue;
+    if (!key || !isScopedSaveKey(key, uid)) continue;
     if (excludeKeys.has(key)) continue;
-    candidates.push({ key, name: key.slice(5), order: candidates.length });
+    const name = uid ? key.slice(`save:${uid}:`.length) : key.slice(5);
+    candidates.push({ key, name, order: candidates.length });
   }
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => {
@@ -122,8 +181,8 @@ function pruneOldestLocalSave({ excludeKeys = new Set() } = {}) {
   return target.name;
 }
 
-export async function saveLocal(name, payload) {
-  const storageKey = 'save:' + name;
+export async function saveLocal(name, payload, { uid = activeUserId } = {}) {
+  const storageKey = getLocalSaveKey(name, uid);
   let serialized;
   try {
     serialized = JSON.stringify(payload);
@@ -151,10 +210,10 @@ export async function saveLocal(name, payload) {
     const prunedNames = [];
     let lastError = e;
     while (true) {
-      const prunedName = pruneOldestLocalSave({ excludeKeys: excludedKeys });
+      const prunedName = pruneOldestLocalSave({ excludeKeys: excludedKeys, uid });
       if (!prunedName) break;
       prunedNames.push(prunedName);
-      excludedKeys.add('save:' + prunedName);
+      excludedKeys.add(getLocalSaveKey(prunedName, uid));
       try {
         attemptPersist();
         if (prunedNames.length > 0) {
@@ -200,7 +259,7 @@ export async function saveLocal(name, payload) {
 
 export async function loadLocal(name) {
   try {
-    const raw = localStorage.getItem('save:' + name);
+    const raw = localStorage.getItem(getLocalSaveKey(name, activeUserId));
     if (raw) return JSON.parse(raw);
   } catch (e) {
     console.error('Local load failed', e);
@@ -208,9 +267,9 @@ export async function loadLocal(name) {
   throw new Error('No save found');
 }
 
-export async function deleteSave(name) {
+export async function deleteSave(name, { uid = activeUserId } = {}) {
   try {
-    localStorage.removeItem('save:' + name);
+    localStorage.removeItem(getLocalSaveKey(name, uid));
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
     }
@@ -219,16 +278,53 @@ export async function deleteSave(name) {
   }
 }
 
-export function listLocalSaves() {
+export function listLocalSaves({ uid = activeUserId, includeLegacy = false } = {}) {
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('save:')) keys.push(k.slice(5));
+      if (!k) continue;
+      if (uid && k.startsWith(`save:${uid}:`)) {
+        keys.push(k.slice(`save:${uid}:`.length));
+        continue;
+      }
+      if (!uid && k.startsWith('save:')) {
+        keys.push(k.slice(5));
+        continue;
+      }
+      if (includeLegacy && k.startsWith('save:') && !/^save:[^:]+:.+/.test(k)) {
+        keys.push(k.slice(5));
+      }
     }
     return keys.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Local list failed', e);
+    return [];
+  }
+}
+
+export async function loadLegacyLocal(name) {
+  try {
+    const raw = localStorage.getItem(`save:${name}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Legacy local load failed', e);
+  }
+  throw new Error('No legacy save found');
+}
+
+export function listLegacyLocalSaves() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith('save:')) continue;
+      if (/^save:[^:]+:.+/.test(k)) continue;
+      keys.push(k.slice(5));
+    }
+    return keys.sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    console.error('Legacy local list failed', e);
     return [];
   }
 }
@@ -239,6 +335,7 @@ const CLOUD_SAVES_URL = `${CLOUD_BASE_URL}/saves`;
 const CLOUD_HISTORY_URL = `${CLOUD_BASE_URL}/history`;
 const CLOUD_AUTOSAVES_URL = `${CLOUD_BASE_URL}/autosaves`;
 const CLOUD_CAMPAIGN_LOG_URL = `${CLOUD_BASE_URL}/campaignLogs`;
+const CLOUD_USERS_URL = `${CLOUD_BASE_URL}/users`;
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -871,6 +968,26 @@ function getCloudUrls() {
   };
 }
 
+function getUserUrls(uid) {
+  const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
+  if (!normalizedUid) return null;
+  const encodedUid = encodePath(normalizedUid);
+  return {
+    profileUrl: `${CLOUD_USERS_URL}/${encodedUid}/profile`,
+    charactersUrl: `${CLOUD_USERS_URL}/${encodedUid}/characters`,
+    historyUrl: `${CLOUD_USERS_URL}/${encodedUid}/history`,
+    autosavesUrl: `${CLOUD_USERS_URL}/${encodedUid}/autosaves`,
+  };
+}
+
+export function buildUserCharacterPath(uid, characterId) {
+  const urls = getUserUrls(uid);
+  if (!urls) return '';
+  const encodedCharacterId = encodePath(characterId || '');
+  if (!encodedCharacterId) return '';
+  return `${urls.charactersUrl}/${encodedCharacterId}`;
+}
+
 function sanitizeForJson(value, seen = new WeakSet()) {
   if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
     return { value: undefined };
@@ -1400,20 +1517,24 @@ export async function saveCloudAutosave(name, payload) {
   const deviceId = getDeviceId();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
   const urls = getCloudUrls();
+  const uid = activeAuthUserId;
+  const userUrls = uid ? getUserUrls(uid) : null;
   if (!characterId) {
     const error = new Error('Autosave requires characterId');
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
-  if (!deviceId) {
-    const error = new Error('Autosave requires deviceId');
+  if (!deviceId && !userUrls) {
+    const error = new Error('Autosave requires deviceId or user account');
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
-  const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
+  const autosaveKey = userUrls
+    ? characterId
+    : resolveAutosaveKey({ deviceId, characterId });
   const autosavePath = autosaveKey
-    ? `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`
-    : `${urls.autosavesUrl}/.json`;
+    ? `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/${encodePath(autosaveKey)}/${ts}.json`
+    : `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/.json`;
   const payloadWithMeta = {
     ...payload,
     meta: {
@@ -1429,7 +1550,8 @@ export async function saveCloudAutosave(name, payload) {
       autosaveDebugLogged = true;
       console.info('Autosave debug path', { autosaveKey, autosavePath });
     }
-    await saveHistoryEntry(urls.autosavesUrl, autosaveKey, payloadWithMeta, ts);
+    const autosaveBase = userUrls ? userUrls.autosavesUrl : urls.autosavesUrl;
+    await saveHistoryEntry(autosaveBase, autosaveKey, payloadWithMeta, ts);
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
@@ -1448,6 +1570,76 @@ export async function saveCloudAutosave(name, payload) {
     console.error('Cloud autosave failed', autosavePath, e);
     throw e;
   }
+}
+
+export async function saveCloudCharacter(uid, characterId, payload) {
+  if (!isCloudSyncAvailable()) {
+    showCloudSyncUnsupportedNotice();
+    return 'disabled';
+  }
+  if (typeof fetch !== 'function') {
+    disableCloudSync('fetch not supported');
+    return 'disabled';
+  }
+  const urls = getUserUrls(uid);
+  if (!urls) throw new Error('Missing user id');
+  const targetPath = buildUserCharacterPath(uid, characterId);
+  if (!targetPath) throw new Error('Missing character id');
+  const serialized = safeJsonStringify(payload);
+  if (!serialized.ok) {
+    const error = new Error('Invalid JSON payload for cloud save');
+    error.name = 'InvalidPayloadError';
+    error.cause = serialized.error;
+    throw error;
+  }
+  const res = await cloudFetch(`${targetPath}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: serialized.json,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return 'saved';
+}
+
+export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const targetPath = buildUserCharacterPath(uid, characterId);
+  if (!targetPath) throw new Error('Missing user id or character id');
+  const res = await cloudFetch(`${targetPath}.json`, { method: 'GET', signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const val = await res.json();
+  if (val !== null) return val;
+  throw new Error('No character found');
+}
+
+export async function listCloudCharacters(uid) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const urls = getUserUrls(uid);
+    if (!urls) return [];
+    const res = await cloudFetch(`${urls.charactersUrl}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    if (!val || typeof val !== 'object') return [];
+    return Object.entries(val).map(([characterId, payload]) => ({
+      characterId,
+      payload,
+    }));
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud character list failed', e);
+    return [];
+  }
+}
+
+export async function deleteCloudCharacter(uid, characterId) {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const targetPath = buildUserCharacterPath(uid, characterId);
+  if (!targetPath) throw new Error('Missing user id or character id');
+  const res = await cloudFetch(`${targetPath}.json`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 export async function loadCloud(name, { signal } = {}) {
@@ -1537,9 +1729,13 @@ export async function listCloudBackups(name) {
 export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
+    const uid = activeAuthUserId;
+    const userUrls = uid ? getUserUrls(uid) : null;
+    const autosaveKey = userUrls
+      ? characterId
+      : resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
     if (!autosaveKey) return [];
-    const urls = getCloudUrls();
+    const urls = userUrls || getCloudUrls();
     const res = await cloudFetch(
       `${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`
     );
@@ -1749,6 +1945,23 @@ export async function cacheCloudSaves(
     offlineSyncToastShown = false;
     abortController = getCacheNavigationAbortController();
     const signal = abortController?.signal ?? null;
+    const uid = activeAuthUserId;
+    if (uid && listFn === listCloudSaves && loadFn === loadCloud) {
+      const entries = await listCloudCharacters(uid);
+      if (signal?.aborted) {
+        return;
+      }
+      for (const entry of entries) {
+        if (signal?.aborted) {
+          return;
+        }
+        const payload = entry?.payload;
+        const name = payload?.meta?.name || payload?.character?.name || entry.characterId;
+        if (!payload || !name) continue;
+        await saveFn(name, payload, { uid });
+      }
+      return;
+    }
 
     const keys = await listFn();
 

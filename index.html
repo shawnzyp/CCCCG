@@ -1478,65 +1478,69 @@
   </div>
 </div>
 
-<!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
-  <div class="modal modal--welcome" role="document">
-    <button class="x" type="button" data-close="modal-welcome" aria-label="Close" hidden></button>
+<!-- AUTH MODAL -->
+<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+  <div class="modal modal--auth" role="document">
     <div class="modal__header">
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
-        <h2 id="welcome-title">Welcome to Codex</h2>
-        <p class="modal__subtitle">Fast local play. Optional cloud sync.</p>
+        <h2 id="auth-title">Sign in to Codex</h2>
+        <p class="modal__subtitle">Cloud sync keeps your roster safe and up to date.</p>
       </div>
     </div>
     <div class="modal__body">
-      <p class="modal__lead">Your characters are saved on this device.</p>
-      <p class="modal__lead">Log in to sync across devices and claim your roster.</p>
-      <p class="modal__hint">Login enables sync and restore. Continue stays offline.</p>
+      <div class="auth-tabs" role="tablist" aria-label="Authentication options">
+        <button id="auth-tab-login" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="true" aria-controls="auth-panel-login">Login</button>
+        <button id="auth-tab-create" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="false" aria-controls="auth-panel-create">Create Account</button>
+      </div>
+      <div id="auth-panel-login" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-login">
+        <label class="sr-only" for="auth-login-email">Email</label>
+        <input id="auth-login-email" type="email" autocomplete="username" placeholder="Email" required>
+        <label class="sr-only" for="auth-login-password">Password</label>
+        <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Login</button>
+      </div>
+      <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
+        <label class="sr-only" for="auth-create-email">Email</label>
+        <input id="auth-create-email" type="email" autocomplete="username" placeholder="Email" required>
+        <label class="sr-only" for="auth-create-password">Password</label>
+        <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
+        <button id="auth-create-submit" class="cc-btn cc-btn--primary" type="button">Create Account</button>
+      </div>
+      <p id="auth-error" class="modal__hint" role="alert" hidden></p>
     </div>
     <div class="modal__actions modal__actions--two">
-      <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Login</button>
-      <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button">Continue</button>
-    </div>
-    <div class="modal__footer">
-      <span class="modal__hint">You can log in later from Settings.</span>
+      <button id="auth-offline" class="cc-btn cc-btn--ghost" type="button" hidden>Use Cached Characters</button>
+      <button id="auth-cancel" class="cc-btn cc-btn--ghost" type="button" data-close="modal-welcome" hidden>Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- CLAIM CHARACTERS MODAL -->
-<div class="overlay hidden" id="modal-claim" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45" data-modal-static>
-  <div class="modal modal--claim" role="document">
+<!-- MIGRATION MODAL -->
+<div class="overlay hidden" id="modal-migration" role="dialog" aria-modal="true" aria-labelledby="migration-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--migration" role="document">
+    <button class="x" type="button" data-close="modal-migration" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <div class="modal__header">
-      <div class="modal__badge" aria-hidden="true">ID</div>
+      <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
-        <h2 id="claim-title">Claim Characters</h2>
-        <p class="modal__subtitle">Login enables sync and restore. Continue stays offline.</p>
+        <h2 id="migration-title">Import Characters</h2>
+        <p class="modal__subtitle">Bring older saves into your new cloud roster.</p>
       </div>
     </div>
     <div class="modal__body">
-      <section class="claim-section">
-        <h3 class="claim-section__title">Local Characters</h3>
-        <p class="claim-section__hint">Select a local character to use or claim for sync.</p>
-        <div class="claim-local-list" id="claim-local-list" role="list" aria-label="Local characters"></div>
-      </section>
-      <section class="claim-section">
-        <h3 class="claim-section__title">Cloud Saves</h3>
-        <p class="claim-section__hint">Import the latest cloud save or a backup history snapshot.</p>
-        <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud saves"></div>
-      </section>
-      <section class="claim-section">
-        <h3 class="claim-section__title">Recovery Code</h3>
-        <p class="claim-section__hint">Enter deviceId/characterId to find autosaves.</p>
-        <div class="claim-recovery">
-          <input id="claim-recovery-code" type="text" placeholder="deviceId/characterId">
-          <button id="claim-recovery-fetch" class="cc-btn cc-btn--ghost" type="button">Find Autosaves</button>
+      <div class="migration-actions">
+        <button id="migration-import-local" class="cc-btn cc-btn--primary" type="button">Import Local Characters</button>
+        <div class="migration-legacy">
+          <label class="sr-only" for="migration-legacy-name">Legacy cloud character name</label>
+          <input id="migration-legacy-name" type="text" placeholder="Legacy cloud character name">
+          <button id="migration-import-legacy" class="cc-btn cc-btn--ghost" type="button">Import Legacy Cloud</button>
         </div>
-        <div class="claim-autosave-list" id="claim-autosave-list" role="list" aria-label="Autosaves"></div>
-      </section>
-    </div>
-    <div class="modal__actions modal__actions--stack">
-      <button id="claim-close" class="cc-btn cc-btn--ghost" type="button">Close</button>
+      </div>
+      <p id="migration-status" class="modal__hint" aria-live="polite" hidden></p>
     </div>
   </div>
 </div>

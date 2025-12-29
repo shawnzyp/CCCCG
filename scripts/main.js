@@ -33,12 +33,21 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
-import { bindWelcomeModalHandlers, parseRecoveryCode } from './claim-utils.js';
+import { ensureAuth, subscribeAuthState, signInWithEmail, createAccount, signOut, getAuthState } from './auth.js';
 import {
   listLocalSaves,
   loadLocal,
   saveLocal,
   saveCloud,
+  saveCloudCharacter,
+  listCloudCharacters,
+  getActiveUserId,
+  setActiveUserId,
+  setActiveAuthUserId,
+  writeLastUserUid,
+  readLastUserUid,
+  listLegacyLocalSaves,
+  loadLegacyLocal,
   listCloudSaves,
   listCloudBackupNames,
   listCloudBackups,
@@ -13110,6 +13119,22 @@ async function renderCharacterList(){
 
 document.addEventListener('character-saved', renderCharacterList);
 document.addEventListener('character-deleted', renderCharacterList);
+document.addEventListener('character-cloud-update', event => {
+  const detail = event?.detail || {};
+  const name = detail.name;
+  const payload = detail.payload;
+  if (!name || !payload) return;
+  const current = currentCharacter();
+  if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
+  try {
+    const applied = applyAppSnapshot(payload);
+    if (applied) {
+      applyViewLockState();
+    }
+  } catch (err) {
+    console.error('Failed to apply cloud-updated character', err);
+  }
+});
 window.addEventListener('storage', renderCharacterList);
 
 async function renderRecoverCharList(){
@@ -21899,6 +21924,11 @@ function serialize(){
 }
 const DEFAULT_STATE = serialize();
 
+function getCurrentUserUid() {
+  const { uid } = getAuthState();
+  return uid || getActiveUserId();
+}
+
 function createDefaultSnapshot() {
   let character;
   try {
@@ -21942,7 +21972,6 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
-  'modal-claim',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -23793,306 +23822,267 @@ if (btnRules) {
   });
 }
 
-/* ========= Welcome + Claim ========= */
-const claimModal = $('modal-claim');
-const claimLocalList = $('claim-local-list');
-const claimCloudList = $('claim-cloud-list');
-const claimAutosaveList = $('claim-autosave-list');
-const claimRecoveryInput = $('claim-recovery-code');
-const claimRecoveryFetch = $('claim-recovery-fetch');
-const claimClose = $('claim-close');
+/* ========= Auth ========= */
+const authTabLogin = $('auth-tab-login');
+const authTabCreate = $('auth-tab-create');
+const authPanelLogin = $('auth-panel-login');
+const authPanelCreate = $('auth-panel-create');
+const authLoginEmail = $('auth-login-email');
+const authLoginPassword = $('auth-login-password');
+const authCreateEmail = $('auth-create-email');
+const authCreatePassword = $('auth-create-password');
+const authLoginSubmit = $('auth-login-submit');
+const authCreateSubmit = $('auth-create-submit');
+const authError = $('auth-error');
+const authOffline = $('auth-offline');
+const authCancel = $('auth-cancel');
+const migrationModal = $('modal-migration');
+const migrationImportLocal = $('migration-import-local');
+const migrationImportLegacy = $('migration-import-legacy');
+const migrationLegacyName = $('migration-legacy-name');
+const migrationStatus = $('migration-status');
 
-function openClaimModal() {
-  if (!claimModal) return;
-  show('modal-claim');
-  refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
+const MIGRATION_SEEN_PREFIX = 'cc:migration-seen:';
+
+function setAuthView(view) {
+  const isLogin = view === 'login';
+  if (authTabLogin) authTabLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+  if (authTabCreate) authTabCreate.setAttribute('aria-selected', isLogin ? 'false' : 'true');
+  if (authPanelLogin) {
+    authPanelLogin.hidden = !isLogin;
+    authPanelLogin.setAttribute('aria-hidden', isLogin ? 'false' : 'true');
+  }
+  if (authPanelCreate) {
+    authPanelCreate.hidden = isLogin;
+    authPanelCreate.setAttribute('aria-hidden', isLogin ? 'true' : 'false');
+  }
 }
 
-function closeClaimModal() {
-  hide('modal-claim');
+function setAuthError(message) {
+  if (!authError) return;
+  const text = typeof message === 'string' ? message.trim() : '';
+  authError.textContent = text;
+  authError.hidden = !text;
 }
 
-async function maybeSetPinForCharacter(name) {
-  if (!name || typeof window?.pinPrompt !== 'function') return;
-  const shouldSet = typeof confirm === 'function'
-    ? confirm('Set a PIN for this character?')
-    : false;
-  if (!shouldSet) return;
-  const pin1 = await window.pinPrompt('Set PIN');
-  if (!pin1) return;
-  const pin2 = await window.pinPrompt('Confirm PIN');
-  if (!pin2 || pin1 !== pin2) {
-    toast('PINs did not match', 'error');
+function setAuthBusy(busy) {
+  const disabled = !!busy;
+  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
+
+function setDmVisibility(isDm) {
+  const dmLogin = $('dm-login');
+  const dmToggle = $('dm-tools-toggle');
+  const dmMenu = $('dm-tools-menu');
+  const hidden = !isDm;
+  if (dmLogin) dmLogin.hidden = hidden;
+  if (dmToggle) dmToggle.hidden = hidden;
+  if (dmMenu) dmMenu.hidden = hidden;
+}
+
+function markMigrationSeen(uid) {
+  if (!uid || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(`${MIGRATION_SEEN_PREFIX}${uid}`, 'true');
+  } catch {}
+}
+
+function hasSeenMigration(uid) {
+  if (!uid || typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(`${MIGRATION_SEEN_PREFIX}${uid}`) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function updateMigrationStatus(message) {
+  if (!migrationStatus) return;
+  const text = typeof message === 'string' ? message : '';
+  migrationStatus.textContent = text;
+  migrationStatus.hidden = !text;
+}
+
+async function rehydrateLocalCache(uid) {
+  const entries = await listCloudCharacters(uid);
+  for (const entry of entries) {
+    if (!entry?.payload) continue;
+    const payload = entry.payload;
+    const name = payload?.meta?.name || payload?.character?.name || entry.characterId;
+    if (!name) continue;
+    ensureCharacterId(payload, name);
+    await saveLocal(name, payload, { uid });
+  }
+}
+
+function updateOfflineOption() {
+  if (!authOffline) return;
+  const lastUid = readLastUserUid();
+  const hasCache = !!(lastUid && listLocalSaves({ uid: lastUid }).length);
+  authOffline.hidden = !hasCache;
+  return { lastUid, hasCache };
+}
+
+async function handleAuthSubmit(mode) {
+  try {
+    setAuthError('');
+    setAuthBusy(true);
+    await ensureAuth();
+    if (mode === 'create') {
+      const email = authCreateEmail?.value?.trim() || '';
+      const password = authCreatePassword?.value || '';
+      if (!email || !password) {
+        setAuthError('Enter an email and password to continue.');
+        return;
+      }
+      await createAccount(email, password);
+    } else {
+      const email = authLoginEmail?.value?.trim() || '';
+      const password = authLoginPassword?.value || '';
+      if (!email || !password) {
+        setAuthError('Enter your email and password to continue.');
+        return;
+      }
+      await signInWithEmail(email, password);
+    }
+  } catch (err) {
+    console.error('Auth failed', err);
+    setAuthError(err?.message || 'Unable to sign in.');
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
+async function importLocalCharacters(uid) {
+  const legacyNames = listLegacyLocalSaves();
+  if (!legacyNames.length) {
+    updateMigrationStatus('No legacy local characters found.');
     return;
   }
-  try {
-    await setPin(name, pin1);
-    toast('PIN enabled', 'success');
-  } catch (err) {
-    console.error('Failed to set PIN', err);
-    toast('Failed to enable PIN', 'error');
-  }
-}
-
-async function persistClaimedCharacter(name, data) {
-  const migrated = migrateSavePayload(data);
-  const { payload } = buildCanonicalPayload(migrated);
-  ensureCharacterId(payload, name);
-  await saveLocal(name, payload);
-  try {
-    await saveCloud(name, payload);
-  } catch (err) {
-    console.error('Cloud save failed during claim', err);
-  }
-  await maybeSetPinForCharacter(name);
-  return payload;
-}
-
-async function handleLocalUse(name) {
-  try {
-    openCharacterModalByName(name);
-    closeClaimModal();
-  } catch (err) {
-    console.error('Failed to open character', err);
-    toast('Failed to open character.', 'error');
-  }
-}
-
-async function handleLocalClaim(name) {
-  try {
-    const data = await loadLocal(name);
-    await persistClaimedCharacter(name, data);
-    toast(`Claimed ${name}.`, 'success');
-  } catch (err) {
-    console.error('Failed to claim local character', err);
-    toast('Failed to claim character.', 'error');
-  }
-}
-
-async function handleCloudImport(name) {
-  try {
-    const data = await loadCloud(name);
-    await persistClaimedCharacter(name, data);
-    toast(`Imported ${name}.`, 'success');
-  } catch (err) {
-    console.error('Failed to import cloud save', err);
-    toast('Failed to import cloud save.', 'error');
-  }
-}
-
-async function handleCloudBackupImport(name) {
-  try {
-    const backups = await listCloudBackups(name);
-    const latest = backups?.[0]?.ts;
-    if (!latest) {
-      toast('No backups found.', 'info');
-      return;
-    }
-    const data = await loadCloudBackup(name, latest);
-    await persistClaimedCharacter(name, data);
-    toast(`Imported backup for ${name}.`, 'success');
-  } catch (err) {
-    console.error('Failed to import cloud backup', err);
-    toast('Failed to import cloud backup.', 'error');
-  }
-}
-
-async function handleAutosaveImport(deviceId, characterId, ts) {
-  try {
-    const data = await loadCloudAutosaveByIds(deviceId, characterId, ts);
+  updateMigrationStatus('Importing local characters...');
+  for (const name of legacyNames) {
+    const data = await loadLegacyLocal(name);
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    const name = payload?.meta?.name || payload?.character?.name || 'Recovered Character';
-    const finalName = typeof name === 'string' && name.trim() ? name.trim() : 'Recovered Character';
-    await persistClaimedCharacter(finalName, payload);
-    toast(`Imported autosave for ${finalName}.`, 'success');
-  } catch (err) {
-    console.error('Failed to import autosave', err);
-    toast('Failed to import autosave.', 'error');
+    const characterId = ensureCharacterId(payload, name);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid: uid,
+      name,
+    };
+    payload.updatedAt = Date.now();
+    await saveCloudCharacter(uid, characterId, payload);
+    await saveLocal(name, payload, { uid });
   }
+  updateMigrationStatus('Local characters imported.');
+  markMigrationSeen(uid);
 }
 
-function renderEmptyRow(container, message) {
-  if (!container) return;
-  const row = document.createElement('div');
-  row.className = 'claim-row';
-  const content = document.createElement('div');
-  content.className = 'claim-row__main';
-  const text = document.createElement('div');
-  text.className = 'claim-row__meta';
-  text.textContent = message;
-  content.append(text);
-  row.append(content);
-  container.append(row);
-}
-
-async function refreshLocalClaims() {
-  if (!claimLocalList) return;
-  claimLocalList.textContent = '';
-  const localNames = listLocalSaves();
-  if (!localNames.length) {
-    renderEmptyRow(claimLocalList, 'No local characters found.');
+async function importLegacyCloudByName(uid) {
+  const name = migrationLegacyName?.value?.trim() || '';
+  if (!name) {
+    updateMigrationStatus('Enter a legacy character name to import.');
     return;
   }
-  for (const name of localNames) {
-    const row = document.createElement('div');
-    row.className = 'claim-row';
-    row.setAttribute('role', 'listitem');
-    const main = document.createElement('div');
-    main.className = 'claim-row__main';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'claim-row__name';
-    nameEl.textContent = name;
-    let lastModified = 'Unknown';
-    try {
-      const data = await loadLocal(name);
-      const migrated = migrateSavePayload(data);
-      const savedAt = migrated?.meta?.savedAt;
-      if (Number.isFinite(savedAt)) {
-        lastModified = new Date(savedAt).toLocaleDateString();
-      }
-    } catch {}
-    const meta = document.createElement('div');
-    meta.className = 'claim-row__meta';
-    meta.textContent = `Last modified: ${lastModified}`;
-    main.append(nameEl, meta);
-    const actions = document.createElement('div');
-    actions.className = 'claim-row__actions';
-    const useBtn = document.createElement('button');
-    useBtn.type = 'button';
-    useBtn.className = 'cc-btn cc-btn--ghost';
-    useBtn.textContent = 'Use';
-    useBtn.addEventListener('click', () => handleLocalUse(name));
-    const claimBtn = document.createElement('button');
-    claimBtn.type = 'button';
-    claimBtn.className = 'cc-btn cc-btn--primary';
-    claimBtn.textContent = 'Claim';
-    claimBtn.addEventListener('click', () => handleLocalClaim(name));
-    actions.append(useBtn, claimBtn);
-    row.append(main, actions);
-    claimLocalList.append(row);
-  }
+  updateMigrationStatus('Importing legacy cloud save...');
+  const data = await loadCloud(name);
+  const migrated = migrateSavePayload(data);
+  const { payload } = buildCanonicalPayload(migrated);
+  const characterId = ensureCharacterId(payload, name);
+  payload.meta = {
+    ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+    ownerUid: uid,
+    name,
+  };
+  payload.updatedAt = Date.now();
+  await saveCloudCharacter(uid, characterId, payload);
+  await saveLocal(name, payload, { uid });
+  updateMigrationStatus(`Imported ${name}.`);
+  markMigrationSeen(uid);
 }
 
-async function refreshCloudClaims() {
-  if (!claimCloudList) return;
-  claimCloudList.textContent = '';
-  let cloudNames = [];
-  let backupNames = [];
+async function maybeShowMigration(uid) {
+  if (!migrationModal || hasSeenMigration(uid)) return;
+  const hasLegacyLocal = listLegacyLocalSaves().length > 0;
+  let hasLegacyCloud = false;
   try {
-    cloudNames = await listCloudSaves();
+    const legacyCloudNames = await listCloudSaves();
+    hasLegacyCloud = legacyCloudNames.length > 0;
   } catch (err) {
-    console.error('Failed to list cloud saves', err);
+    console.warn('Failed to check legacy cloud saves', err);
   }
-  try {
-    backupNames = await listCloudBackupNames();
-  } catch (err) {
-    console.error('Failed to list cloud backups', err);
-  }
-  const combined = Array.from(new Set([...cloudNames, ...backupNames])).sort((a, b) => a.localeCompare(b));
-  if (!combined.length) {
-    renderEmptyRow(claimCloudList, 'No cloud saves found.');
-    return;
-  }
-  combined.forEach(name => {
-    const row = document.createElement('div');
-    row.className = 'claim-row';
-    row.setAttribute('role', 'listitem');
-    const main = document.createElement('div');
-    main.className = 'claim-row__main';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'claim-row__name';
-    nameEl.textContent = name;
-    const meta = document.createElement('div');
-    meta.className = 'claim-row__meta';
-    meta.textContent = 'Import from cloud saves or history.';
-    main.append(nameEl, meta);
-    const actions = document.createElement('div');
-    actions.className = 'claim-row__actions';
-    const importBtn = document.createElement('button');
-    importBtn.type = 'button';
-    importBtn.className = 'cc-btn cc-btn--primary';
-    importBtn.textContent = 'Import';
-    importBtn.addEventListener('click', () => handleCloudImport(name));
-    const backupBtn = document.createElement('button');
-    backupBtn.type = 'button';
-    backupBtn.className = 'cc-btn cc-btn--ghost';
-    backupBtn.textContent = 'Import Backup';
-    backupBtn.addEventListener('click', () => handleCloudBackupImport(name));
-    actions.append(importBtn, backupBtn);
-    row.append(main, actions);
-    claimCloudList.append(row);
-  });
-}
-
-async function refreshAutosaveList() {
-  if (!claimAutosaveList || !claimRecoveryInput) return;
-  claimAutosaveList.textContent = '';
-  const parsed = parseRecoveryCode(claimRecoveryInput.value);
-  if (!parsed) {
-    renderEmptyRow(claimAutosaveList, 'Enter a recovery code to list autosaves.');
-    return;
-  }
-  const { deviceId, characterId } = parsed;
-  const autosaves = await listCloudAutosavesByIds(deviceId, characterId);
-  if (!autosaves.length) {
-    renderEmptyRow(claimAutosaveList, 'No autosaves found for this code.');
-    return;
-  }
-  autosaves.forEach(entry => {
-    const row = document.createElement('div');
-    row.className = 'claim-row';
-    row.setAttribute('role', 'listitem');
-    const main = document.createElement('div');
-    main.className = 'claim-row__main';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'claim-row__name';
-    nameEl.textContent = new Date(entry.ts).toLocaleString();
-    const meta = document.createElement('div');
-    meta.className = 'claim-row__meta';
-    meta.textContent = `Autosave ${entry.ts}`;
-    main.append(nameEl, meta);
-    const actions = document.createElement('div');
-    actions.className = 'claim-row__actions';
-    const importBtn = document.createElement('button');
-    importBtn.type = 'button';
-    importBtn.className = 'cc-btn cc-btn--primary';
-    importBtn.textContent = 'Import';
-    importBtn.addEventListener('click', () => handleAutosaveImport(deviceId, characterId, entry.ts));
-    actions.append(importBtn);
-    row.append(main, actions);
-    claimAutosaveList.append(row);
-  });
-}
-
-async function refreshClaimModal() {
-  await refreshLocalClaims();
-  await refreshCloudClaims();
-  if (claimAutosaveList) {
-    claimAutosaveList.textContent = '';
+  if (hasLegacyLocal || hasLegacyCloud) {
+    show('modal-migration');
   }
 }
 
-bindWelcomeModalHandlers({
-  onLogin: () => {
+function handleAuthStateChange({ uid, isDm } = {}) {
+  setDmVisibility(!!isDm);
+  if (uid) {
+    setActiveUserId(uid);
+    setActiveAuthUserId(uid);
+    writeLastUserUid(uid);
+    welcomeModalDismissed = true;
     dismissWelcomeModal();
-    openClaimModal();
-  },
-  onContinue: () => {
-    dismissWelcomeModal();
-  },
-});
+    rehydrateLocalCache(uid)
+      .then(() => maybeShowMigration(uid))
+      .catch(err => console.error('Failed to rehydrate local cache', err));
+    return;
+  }
+  setActiveUserId('');
+  setActiveAuthUserId('');
+  welcomeModalDismissed = false;
+  welcomeSequenceComplete = false;
+  updateOfflineOption();
+  queueWelcomeModal({ immediate: true });
+}
 
-if (claimRecoveryFetch) {
-  claimRecoveryFetch.addEventListener('click', () => {
-    refreshAutosaveList().catch(err => console.error('Failed to list autosaves', err));
+if (authTabLogin) {
+  authTabLogin.addEventListener('click', () => setAuthView('login'));
+}
+if (authTabCreate) {
+  authTabCreate.addEventListener('click', () => setAuthView('create'));
+}
+if (authLoginSubmit) {
+  authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
+}
+if (authCreateSubmit) {
+  authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+}
+if (authOffline) {
+  authOffline.addEventListener('click', () => {
+    const lastUid = readLastUserUid();
+    if (!lastUid) return;
+    setActiveUserId(lastUid);
+    setActiveAuthUserId('');
+    welcomeModalDismissed = true;
+    dismissWelcomeModal();
   });
 }
-if (claimClose) {
-  claimClose.addEventListener('click', () => {
-    closeClaimModal();
+
+if (migrationImportLocal) {
+  migrationImportLocal.addEventListener('click', () => {
+    const { uid } = getAuthState();
+    if (!uid) return;
+    importLocalCharacters(uid).catch(err => console.error('Failed to import local characters', err));
   });
 }
+if (migrationImportLegacy) {
+  migrationImportLegacy.addEventListener('click', () => {
+    const { uid } = getAuthState();
+    if (!uid) return;
+    importLegacyCloudByName(uid).catch(err => console.error('Failed to import legacy cloud', err));
+  });
+}
+
+setAuthView('login');
+ensureAuth().catch(err => console.error('Failed to initialize auth', err));
+subscribeAuthState(handleAuthStateChange);
+handleAuthStateChange(getAuthState());
 
 const welcomeOverlay = getWelcomeModal();
 const welcomeOverlayIsElement = Boolean(
