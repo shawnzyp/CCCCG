@@ -4766,8 +4766,11 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 @media(max-width:540px){.somf-confirm{padding:18px}.somf-confirm__actions{flex-direction:column}.somf-confirm__cancel,.somf-confirm__accept{flex:1 1 auto;width:100%}}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
-#modal-welcome .modal{
-  font-size:.85rem;
+#modal-welcome .modal,
+#modal-auth .modal,
+#modal-claim-characters .modal,
+#modal-import-characters .modal{
+  font-size:.9rem;
   line-height:1.4;
   --welcome-modal-bg:color-mix(in srgb,var(--surface) 92%,rgba(5,8,22,.92));
   background:var(--welcome-modal-bg);
@@ -4776,21 +4779,45 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   backdrop-filter:blur(24px) saturate(140%);
   -webkit-backdrop-filter:blur(24px) saturate(140%);
 }
-.theme-light #modal-welcome .modal{
+.theme-light #modal-welcome .modal,
+.theme-light #modal-auth .modal,
+.theme-light #modal-claim-characters .modal,
+.theme-light #modal-import-characters .modal{
   --welcome-modal-bg:color-mix(in srgb,#fff 94%,rgba(255,255,255,.88));
   border-color:color-mix(in srgb,var(--surface) 48%,rgba(0,0,0,.15));
 }
-#modal-welcome{align-items:center;justify-content:center}
+#modal-welcome,
+#modal-auth,
+#modal-claim-characters,
+#modal-import-characters{align-items:start;justify-content:center}
+#modal-welcome .modal{max-width:min(480px,calc(100vw - 32px))}
+#modal-auth .modal,
+#modal-claim-characters .modal,
+#modal-import-characters .modal{max-width:min(520px,calc(100vw - 32px))}
+#modal-welcome .welcome-modal__layout{display:flex;flex-direction:column;gap:16px;text-align:center}
+#modal-welcome .welcome-modal__title{margin:0;font-size:1.2rem;font-weight:700}
+#modal-welcome .welcome-modal__subtitle{margin:0;color:var(--muted);font-size:.95rem}
 #modal-welcome .actions{justify-content:center;width:100%;flex-wrap:nowrap;gap:var(--control-gap)}
-#modal-welcome .actions button{font-size:.8rem;padding:8px 12px;white-space:nowrap;flex:0 0 auto;text-align:center}
-@media(max-width:540px){#modal-welcome .actions{flex-direction:column;align-items:stretch;gap:10px}#modal-welcome .actions button{width:100%;font-size:.78rem;padding:8px 12px}}
-#modal-welcome .welcome-modal__title{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:baseline}
-#modal-welcome .welcome-modal__title-break{display:inline}
-#modal-welcome .welcome-modal__tab-label{text-decoration:underline;text-decoration-thickness:.08em;text-decoration-skip-ink:auto}
-#modal-welcome .welcome-modal__preference{display:flex;justify-content:center;margin-bottom:var(--control-gap)}
-#modal-welcome .welcome-modal__preference-label{display:inline-flex;align-items:center;gap:8px;font-size:.8rem}
-#modal-welcome .welcome-modal__preference-label input{margin:0}
-@media(max-width:600px){#modal-welcome .welcome-modal__title{display:block}#modal-welcome .welcome-modal__title-break{display:block}}
+#modal-welcome .actions button{font-size:.85rem;padding:8px 14px;white-space:nowrap;flex:0 0 auto;text-align:center}
+@media(max-width:540px){#modal-welcome .actions{flex-direction:column;align-items:stretch;gap:10px}#modal-welcome .actions button{width:100%}}
+.auth-modal__layout,.claim-modal__layout,.import-modal__layout{display:flex;flex-direction:column;gap:16px}
+.auth-modal__header,.claim-modal__header,.import-modal__header{display:flex;flex-direction:column;gap:6px}
+.auth-modal__title,.claim-modal__title,.import-modal__title{margin:0;font-size:1.1rem;font-weight:700}
+.auth-modal__subtitle,.claim-modal__subtitle,.import-modal__subtitle{margin:0;color:var(--muted);font-size:.9rem}
+.auth-modal__body{display:flex;flex-direction:column;gap:12px}
+.auth-modal__provider{width:100%;font-weight:600}
+.auth-modal__divider{text-transform:uppercase;letter-spacing:.18em;font-size:.7rem;color:var(--muted);text-align:center}
+.auth-modal__field{display:flex;flex-direction:column;gap:6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.auth-modal__field input{padding:9px 12px;border-radius:var(--radius);border:1px solid color-mix(in srgb,var(--text) 12%,transparent);background:color-mix(in srgb,var(--surface) 96%,transparent);color:inherit;font-size:.9rem;text-transform:none;letter-spacing:normal}
+.auth-modal__field input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.auth-modal__submit{width:100%;font-weight:600}
+.auth-modal__error{margin:0;color:var(--error);font-size:.85rem}
+.auth-modal__actions,.claim-modal__actions,.import-modal__actions{justify-content:flex-end}
+.claim-modal__list,.import-modal__list{display:flex;flex-direction:column;gap:8px;padding:0;margin:0;max-height:min(220px,30vh);overflow:auto}
+.claim-modal__item,.import-modal__item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);background:color-mix(in srgb,var(--surface) 94%,transparent)}
+.claim-modal__item input,.import-modal__item input{margin:0}
+.claim-modal__item span,.import-modal__item span{font-size:.92rem}
+.claim-modal__item small,.import-modal__item small{color:var(--muted);font-size:.78rem}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
 #modal-help .feature-list li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 #modal-help .feature-list b{display:block}

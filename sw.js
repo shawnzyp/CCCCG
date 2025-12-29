@@ -309,7 +309,7 @@ function normalizeAutosaveEntry(entry) {
   };
 }
 
-async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId }) {
+async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId, cloudUrls }) {
   const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -324,7 +324,8 @@ async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId }
     if (!autosaveKey) {
       throw new Error('Invalid autosave key');
     }
-    const autosaveRes = await fetch(`${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`, {
+    const autosaveBase = cloudUrls?.autosavesUrl || CLOUD_AUTOSAVES_URL;
+    const autosaveRes = await fetch(`${autosaveBase}/${encodePath(autosaveKey)}/${ts}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: serialized.json,
@@ -334,27 +335,29 @@ async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId }
   }
 
   const encoded = encodePath(name);
-  const res = await fetch(`${CLOUD_SAVES_URL}/${encoded}.json`, {
+  const savesBase = cloudUrls?.savesUrl || CLOUD_SAVES_URL;
+  const historyBase = cloudUrls?.historyUrl || CLOUD_HISTORY_URL;
+  const res = await fetch(`${savesBase}/${encoded}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: serialized.json,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  await fetch(`${CLOUD_HISTORY_URL}/${encoded}/${ts}.json`, {
+  await fetch(`${historyBase}/${encoded}/${ts}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: serialized.json,
   });
 
-  const listRes = await fetch(`${CLOUD_HISTORY_URL}/${encoded}.json`, { method: 'GET' });
+  const listRes = await fetch(`${historyBase}/${encoded}.json`, { method: 'GET' });
   if (listRes.ok) {
     const val = await listRes.json();
     const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
     const excess = keys.slice(3);
     await Promise.all(
       excess.map(k =>
-        fetch(`${CLOUD_HISTORY_URL}/${encoded}/${k}.json`, { method: 'DELETE' })
+        fetch(`${historyBase}/${encoded}/${k}.json`, { method: 'DELETE' })
       )
     );
   }

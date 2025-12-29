@@ -712,16 +712,23 @@ function normalizeSnapshotMeta(meta = {}, character = {}, ui = null, fallback = 
   const uiVersion = typeof meta.uiVersion === 'number' ? meta.uiVersion : fallback.uiVersion;
   const savedAt = Number.isFinite(meta.savedAt) ? meta.savedAt : Date.now();
   const appVersion = typeof meta.appVersion === 'string' && meta.appVersion ? meta.appVersion : APP_VERSION;
+  const ownerUid = typeof meta.ownerUid === 'string' && meta.ownerUid
+    ? meta.ownerUid
+    : (typeof character?.ownerUid === 'string' ? character.ownerUid : '');
   const checksum = typeof meta.checksum === 'string' && meta.checksum
     ? meta.checksum
     : calculateSnapshotChecksum({ character, ui }) || fallback.checksum || null;
-  return {
+  const normalized = {
     schemaVersion: typeof schemaVersion === 'number' ? schemaVersion : SAVE_SCHEMA_VERSION,
     uiVersion: typeof uiVersion === 'number' ? uiVersion : UI_STATE_VERSION,
     savedAt,
     appVersion,
     checksum,
   };
+  if (ownerUid) {
+    normalized.ownerUid = ownerUid;
+  }
+  return normalized;
 }
 
 export function isSnapshotChecksumValid(snapshot = {}) {
@@ -851,6 +858,9 @@ export function buildCanonicalPayload(migrated) {
     appVersion: migrated.appVersion ?? APP_VERSION,
     checksum: migrated.checksum,
   });
+  if (meta?.ownerUid && cleanedCharacter && typeof cleanedCharacter === 'object' && !cleanedCharacter.ownerUid) {
+    cleanedCharacter.ownerUid = meta.ownerUid;
+  }
   const checksum = meta.checksum || calculateSnapshotChecksum({ character: cleanedCharacter, ui: workingUi });
   const payload = {
     meta: { ...meta, checksum },
@@ -1079,6 +1089,44 @@ export async function saveCharacter(data, name = currentCharacter()) {
     return true;
   } catch (err) {
     throw reportCharacterError(err, `Failed to save character "${name}"`);
+  }
+}
+
+export async function getLocalCharacterOwnerUid(name) {
+  if (!name) return '';
+  try {
+    const data = await loadLocal(name);
+    const migrated = migrateSavePayload(data);
+    return typeof migrated?.meta?.ownerUid === 'string' ? migrated.meta.ownerUid : '';
+  } catch {
+    return '';
+  }
+}
+
+export async function claimCharacterOwnership(name, ownerUid) {
+  if (!name) throw new Error('No character selected');
+  if (!ownerUid) throw new Error('Missing owner uid');
+  const storageName = normalizedCharacterName(name) || name;
+  try {
+    const data = await loadLocal(storageName);
+    const migrated = migrateSavePayload(data);
+    const { payload } = buildCanonicalPayload(migrated);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid,
+    };
+    if (payload.character && typeof payload.character === 'object') {
+      payload.character.ownerUid = ownerUid;
+    }
+    await saveLocal(storageName, payload);
+    try {
+      await saveCloud(storageName, payload);
+    } catch (err) {
+      console.error('Cloud save failed while claiming character', err);
+    }
+    return payload;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to claim character "${name}"`);
   }
 }
 

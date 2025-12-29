@@ -1479,53 +1479,91 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6" data-dismiss-policy="soft">
+<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
   <div class="modal-frame">
     <div class="modal modal--welcome" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-        </svg>
-      </button>
       <div class="welcome-modal__layout">
-        <header class="welcome-modal__header">
-          <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core</span></h3>
-          <p class="welcome-modal__subtitle">Your mission log and survival plan.<br>Start by creating or loading a hero profile.</p>
-        </header>
-        <div class="welcome-modal__body">
-          <details class="welcome-modal__section" open>
-            <summary>Create or load your hero profile</summary>
-            <p>This is your vigilante record. Without it, you do not exist in the Core.</p>
-          </details>
-          <details class="welcome-modal__section">
-            <summary>Use the tabs</summary>
-            <p><span class="welcome-modal__tab-label">Combat:</span> Track combat stats.</p>
-            <p><span class="welcome-modal__tab-label">Stats:</span> Track abilities and skills.</p>
-            <p><span class="welcome-modal__tab-label">Powers:</span> Track powers and signature moves.</p>
-            <p><span class="welcome-modal__tab-label">Gear:</span> Manage loadouts and upgrades.</p>
-            <p><span class="welcome-modal__tab-label">Personal Details:</span> Log mission details and intel.</p>
-          </details>
-          <details class="welcome-modal__section">
-            <summary>Save and sync</summary>
-            <p>Auto save runs every two minutes in the O.M.N.I. network. Make manual saves any time.</p>
-          </details>
-          <details class="welcome-modal__section">
-            <summary>Command briefing</summary>
-            <p>This is your mission log and record of legacy. Use it well.</p>
-          </details>
+        <h3 class="welcome-modal__title">Welcome to Catalyst Core</h3>
+        <p class="welcome-modal__subtitle">Your characters are saved on this device. Log in to sync them across devices.</p>
+        <div class="actions welcome-modal__actions">
+          <button id="welcome-login" type="button">Login</button>
+          <button id="welcome-continue" type="button">Continue</button>
         </div>
-        <div class="welcome-modal__footer">
-          <div class="welcome-modal__preference">
-            <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-              <input type="checkbox" id="welcome-hide-toggle">
-              Do not show this again
-            </label>
-          </div>
-          <div class="actions welcome-modal__actions">
-            <button id="welcome-create-character" type="button">Create New Character</button>
-            <button id="welcome-load-character" type="button">Load Character</button>
-            <button id="welcome-skip" type="button">Skip</button>
-          </div>
+      </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="overlay hidden" id="modal-auth" aria-hidden="true" data-modal-accent-hue="204deg" data-modal-glow-strength="0.5" data-modal-static>
+  <div class="modal-frame">
+    <div class="modal modal--auth" role="dialog" aria-modal="true" tabindex="-1">
+      <div class="auth-modal__layout">
+        <header class="auth-modal__header">
+          <h3 class="auth-modal__title">Login to Catalyst Core</h3>
+          <p class="auth-modal__subtitle">Link this device to your account to sync characters.</p>
+        </header>
+        <div class="auth-modal__body">
+          <button id="auth-google" class="btn auth-modal__provider" type="button">Continue with Google</button>
+          <div class="auth-modal__divider" aria-hidden="true">or</div>
+          <label class="auth-modal__field">
+            <span>Email</span>
+            <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
+          </label>
+          <label class="auth-modal__field">
+            <span>Password</span>
+            <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••">
+          </label>
+          <button id="auth-email-submit" class="btn auth-modal__submit" type="button">Continue with Email</button>
+          <p id="auth-error" class="auth-modal__error" hidden></p>
+        </div>
+        <div class="actions auth-modal__actions">
+          <button id="auth-cancel" type="button">Back</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- CLAIM CHARACTERS MODAL -->
+<div class="overlay hidden" id="modal-claim-characters" aria-hidden="true" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45" data-modal-static>
+  <div class="modal-frame">
+    <div class="modal modal--claim" role="dialog" aria-modal="true" tabindex="-1">
+      <div class="claim-modal__layout">
+        <header class="claim-modal__header">
+          <h3 class="claim-modal__title">Claim Characters</h3>
+          <p class="claim-modal__subtitle">These characters are stored on this device. Claim them to sync with your account.</p>
+        </header>
+        <div class="claim-modal__body">
+          <div id="claim-characters-list" class="claim-modal__list" role="list"></div>
+        </div>
+        <div class="actions claim-modal__actions">
+          <button id="claim-characters-skip" type="button">Skip</button>
+          <button id="claim-characters-confirm" type="button">Claim Selected</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- IMPORT CHARACTERS MODAL -->
+<div class="overlay hidden" id="modal-import-characters" aria-hidden="true" data-modal-accent-hue="144deg" data-modal-glow-strength="0.45" data-modal-static>
+  <div class="modal-frame">
+    <div class="modal modal--import" role="dialog" aria-modal="true" tabindex="-1">
+      <div class="import-modal__layout">
+        <header class="import-modal__header">
+          <h3 class="import-modal__title">Import Characters</h3>
+          <p class="import-modal__subtitle">These characters are stored in the cloud. Import them to this device.</p>
+        </header>
+        <div class="import-modal__body">
+          <div id="import-characters-list" class="import-modal__list" role="list"></div>
+        </div>
+        <div class="actions import-modal__actions">
+          <button id="import-characters-skip" type="button">Skip</button>
+          <button id="import-characters-confirm" type="button">Import Selected</button>
         </div>
       </div>
     </div>

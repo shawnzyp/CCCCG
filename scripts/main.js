@@ -22,6 +22,8 @@ import {
   APP_VERSION,
   calculateSnapshotChecksum,
   persistLocalAutosaveSnapshot,
+  claimCharacterOwnership,
+  getLocalCharacterOwnerUid,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -32,6 +34,8 @@ import {
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
+import { initializeAuth, onAuthStateChanged, signInWithEmail, signInWithGoogle, getCurrentUserUid } from './auth.js';
+import { listLocalSaves, saveLocal, saveCloud, listCloudSaves, loadCloud } from './storage.js';
 import {
   activateTab,
   getActiveTab,
@@ -2122,7 +2126,6 @@ const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
-const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
@@ -2254,13 +2257,6 @@ function setPlayerToolsTabHidden(hidden) {
   }
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
 }
-
-try {
-  const storage = getLocalStorageSafe();
-  if (storage) {
-    welcomeModalDismissed = storage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
-  }
-} catch {}
 
 welcomeSequenceComplete = welcomeModalDismissed;
 
@@ -21879,12 +21875,17 @@ function createDefaultSnapshot() {
   } catch {
     character = DEFAULT_STATE;
   }
+  const ownerUid = getCurrentUserUid();
+  if (ownerUid && character && typeof character === 'object') {
+    character.ownerUid = ownerUid;
+  }
   const ui = null;
   const meta = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     uiVersion: UI_STATE_VERSION,
     appVersion: APP_VERSION,
     savedAt: Date.now(),
+    ...(ownerUid ? { ownerUid } : {}),
   };
   const checksum = calculateSnapshotChecksum({ character, ui });
   return {
@@ -21910,6 +21911,9 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
+  'modal-auth',
+  'modal-claim-characters',
+  'modal-import-characters',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -22062,12 +22066,14 @@ function createUiSnapshot() {
 
 function createAppSnapshot() {
   const character = serialize();
+  const ownerUid = typeof character?.ownerUid === 'string' && character.ownerUid ? character.ownerUid : '';
   const ui = createUiSnapshot();
   const meta = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     uiVersion: UI_STATE_VERSION,
     appVersion: APP_VERSION,
     savedAt: Date.now(),
+    ...(ownerUid ? { ownerUid } : {}),
   };
   const checksum = calculateSnapshotChecksum({ character, ui });
   meta.checksum = checksum;
@@ -23758,47 +23764,301 @@ if (btnRules) {
   });
 }
 
-/* ========= Close + click-outside ========= */
-qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-const welcomeHideToggle = $('welcome-hide-toggle');
-if (welcomeHideToggle) {
-  welcomeHideToggle.checked = welcomeModalDismissed;
-  welcomeHideToggle.addEventListener('change', () => {
-    const shouldHide = welcomeHideToggle.checked;
-    welcomeModalDismissed = shouldHide;
-    const storage = getLocalStorageSafe();
-    if (storage) {
-      try {
-        if (shouldHide) {
-          storage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
-        } else {
-          storage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
-        }
-      } catch {}
+/* ========= Welcome + Auth ========= */
+const welcomeLogin = $('welcome-login');
+const welcomeContinue = $('welcome-continue');
+const authModal = $('modal-auth');
+const authGoogle = $('auth-google');
+const authEmail = $('auth-email-submit');
+const authCancel = $('auth-cancel');
+const authEmailInput = $('auth-email');
+const authPasswordInput = $('auth-password');
+const authError = $('auth-error');
+const claimModal = $('modal-claim-characters');
+const importModal = $('modal-import-characters');
+
+function setAuthError(message) {
+  if (!authError) return;
+  if (message) {
+    authError.textContent = message;
+    authError.hidden = false;
+  } else {
+    authError.textContent = '';
+    authError.hidden = true;
+  }
+}
+
+function setAuthControlsDisabled(disabled) {
+  [authGoogle, authEmail, authCancel, authEmailInput, authPasswordInput].forEach(el => {
+    if (el && 'disabled' in el) {
+      el.disabled = disabled;
     }
   });
 }
-const welcomeCreate = $('welcome-create-character');
-if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => {
-    dismissWelcomeModal();
-    const newCharBtn = $('create-character');
-    if (newCharBtn) newCharBtn.click();
+
+function openAuthModal() {
+  setAuthError('');
+  setAuthControlsDisabled(false);
+  show('modal-auth');
+}
+
+function closeAuthModal() {
+  hide('modal-auth');
+  setAuthControlsDisabled(false);
+  setAuthError('');
+}
+
+async function handleClaimCharacters(uid) {
+  if (!uid) return;
+  if (!claimModal) return;
+  const list = document.getElementById('claim-characters-list');
+  if (!list) return;
+  const localNames = listLocalSaves();
+  const entries = [];
+  for (const name of localNames) {
+    const ownerUid = await getLocalCharacterOwnerUid(name);
+    if (!ownerUid || ownerUid !== uid) {
+      entries.push({ name, ownerUid });
+    }
+  }
+  if (!entries.length) return;
+
+  list.textContent = '';
+  entries.forEach(entry => {
+    const label = document.createElement('label');
+    label.className = 'claim-modal__item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.dataset.claimName = entry.name;
+    const text = document.createElement('span');
+    text.textContent = entry.name;
+    const detail = document.createElement('small');
+    detail.textContent = entry.ownerUid ? 'Owned by another account' : 'Unclaimed';
+    const stack = document.createElement('span');
+    stack.style.display = 'flex';
+    stack.style.flexDirection = 'column';
+    stack.style.gap = '2px';
+    stack.append(text, detail);
+    label.append(checkbox, stack);
+    list.append(label);
+  });
+
+  const confirm = document.getElementById('claim-characters-confirm');
+  const skip = document.getElementById('claim-characters-skip');
+  if (!confirm || !skip) return;
+
+  await new Promise(resolve => {
+    const cleanup = () => {
+      confirm.removeEventListener('click', onConfirm);
+      skip.removeEventListener('click', onSkip);
+    };
+    const onSkip = () => {
+      cleanup();
+      hide('modal-claim-characters');
+      resolve();
+    };
+    const onConfirm = async () => {
+      confirm.disabled = true;
+      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]'))
+        .filter(input => input.checked)
+        .map(input => input.dataset.claimName)
+        .filter(Boolean);
+      try {
+        for (const name of selected) {
+          await claimCharacterOwnership(name, uid);
+        }
+        if (selected.length) {
+          toast('Characters claimed for your account.', 'success');
+        }
+      } catch (err) {
+        console.error('Failed to claim characters', err);
+        toast('Failed to claim characters.', 'error');
+      } finally {
+        confirm.disabled = false;
+        cleanup();
+        hide('modal-claim-characters');
+        resolve();
+      }
+    };
+    confirm.addEventListener('click', onConfirm);
+    skip.addEventListener('click', onSkip);
+    show('modal-claim-characters');
   });
 }
-const welcomeLoad = $('welcome-load-character');
-if (welcomeLoad) {
-  welcomeLoad.addEventListener('click', () => {
-    dismissWelcomeModal();
-    window.requestAnimationFrame(() => {
-      openCharacterList().catch(err => console.error('Failed to open load list from welcome', err));
-    });
+
+async function handleImportCharacters(uid) {
+  if (!uid) return;
+  if (!importModal) return;
+  const list = document.getElementById('import-characters-list');
+  if (!list) return;
+  const localNames = listLocalSaves().map(name => canonicalCharacterKey(name) || name);
+  const localSet = new Set(localNames);
+  let cloudNames = [];
+  try {
+    cloudNames = await listCloudSaves();
+  } catch (err) {
+    console.error('Failed to list cloud characters for import', err);
+    return;
+  }
+  const entries = cloudNames.filter(name => {
+    const normalized = canonicalCharacterKey(name) || name;
+    return !localSet.has(normalized);
+  });
+  if (!entries.length) return;
+
+  list.textContent = '';
+  entries.forEach(name => {
+    const label = document.createElement('label');
+    label.className = 'import-modal__item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.dataset.importName = name;
+    const text = document.createElement('span');
+    text.textContent = name;
+    label.append(checkbox, text);
+    list.append(label);
+  });
+
+  const confirm = document.getElementById('import-characters-confirm');
+  const skip = document.getElementById('import-characters-skip');
+  if (!confirm || !skip) return;
+
+  await new Promise(resolve => {
+    const cleanup = () => {
+      confirm.removeEventListener('click', onConfirm);
+      skip.removeEventListener('click', onSkip);
+    };
+    const onSkip = () => {
+      cleanup();
+      hide('modal-import-characters');
+      resolve();
+    };
+    const onConfirm = async () => {
+      confirm.disabled = true;
+      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]'))
+        .filter(input => input.checked)
+        .map(input => input.dataset.importName)
+        .filter(Boolean);
+      try {
+        for (const name of selected) {
+          const data = await loadCloud(name);
+          const migrated = migrateSavePayload(data);
+          const { payload } = buildCanonicalPayload(migrated);
+          payload.meta = {
+            ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+            ownerUid: payload.meta?.ownerUid || uid,
+          };
+          if (payload.character && typeof payload.character === 'object') {
+            payload.character.ownerUid = payload.meta.ownerUid;
+          }
+          await saveLocal(name, payload);
+          try {
+            await saveCloud(name, payload);
+          } catch (err) {
+            console.error('Failed to refresh cloud save during import', err);
+          }
+        }
+        if (selected.length) {
+          toast('Characters imported to this device.', 'success');
+        }
+      } catch (err) {
+        console.error('Failed to import characters', err);
+        toast('Failed to import characters.', 'error');
+      } finally {
+        confirm.disabled = false;
+        cleanup();
+        hide('modal-import-characters');
+        resolve();
+      }
+    };
+    confirm.addEventListener('click', onConfirm);
+    skip.addEventListener('click', onSkip);
+    show('modal-import-characters');
   });
 }
-const welcomeSkip = $('welcome-skip');
-if (welcomeSkip) {
-  welcomeSkip.addEventListener('click', () => { dismissWelcomeModal(); });
+
+let authReady = false;
+let lastAuthUid = '';
+let lastAuthAnonymous = true;
+let postLoginInFlight = null;
+
+async function handleAuthFlow(user) {
+  const uid = user?.uid || '';
+  const anonymous = Boolean(user?.isAnonymous);
+  if (!authReady) {
+    authReady = true;
+    if (!document.body?.classList?.contains('launching')) {
+      queueWelcomeModal({ immediate: true });
+    }
+  }
+  if (authModal && !authModal.classList.contains('hidden') && uid && !anonymous) {
+    closeAuthModal();
+  }
+  if (uid && !anonymous && (uid !== lastAuthUid || lastAuthAnonymous)) {
+    if (!postLoginInFlight) {
+      postLoginInFlight = (async () => {
+        await handleClaimCharacters(uid);
+        await handleImportCharacters(uid);
+      })().finally(() => {
+        postLoginInFlight = null;
+      });
+    }
+  }
+  lastAuthUid = uid;
+  lastAuthAnonymous = anonymous;
 }
+
+if (welcomeLogin) {
+  welcomeLogin.addEventListener('click', () => {
+    dismissWelcomeModal();
+    openAuthModal();
+  });
+}
+if (welcomeContinue) {
+  welcomeContinue.addEventListener('click', () => {
+    dismissWelcomeModal();
+  });
+}
+if (authGoogle) {
+  authGoogle.addEventListener('click', async () => {
+    setAuthError('');
+    setAuthControlsDisabled(true);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      console.error('Google login failed', err);
+      setAuthError(err?.message || 'Google login failed.');
+      setAuthControlsDisabled(false);
+    }
+  });
+}
+if (authEmail) {
+  authEmail.addEventListener('click', async () => {
+    setAuthError('');
+    const email = authEmailInput?.value?.trim() || '';
+    const password = authPasswordInput?.value || '';
+    if (!email || !password) {
+      setAuthError('Enter both an email and password.');
+      return;
+    }
+    setAuthControlsDisabled(true);
+    try {
+      await signInWithEmail(email, password);
+    } catch (err) {
+      console.error('Email login failed', err);
+      setAuthError(err?.message || 'Email login failed.');
+      setAuthControlsDisabled(false);
+    }
+  });
+}
+if (authCancel) {
+  authCancel.addEventListener('click', () => {
+    closeAuthModal();
+  });
+}
+
 const welcomeOverlay = getWelcomeModal();
 const welcomeOverlayIsElement = Boolean(
   welcomeOverlay &&
@@ -23808,16 +24068,6 @@ const welcomeOverlayIsElement = Boolean(
   typeof welcomeOverlay.nodeType === 'number'
 );
 if (welcomeOverlayIsElement) {
-  welcomeOverlay.addEventListener('click', event => {
-    if (event.target === welcomeOverlay) {
-      dismissWelcomeModal();
-    }
-  }, { capture: true });
-  qsa('#modal-welcome [data-close]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      dismissWelcomeModal();
-    }, { capture: true });
-  });
   const updatePlayerToolsTabForWelcome = () => {
     const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
     setPlayerToolsTabHidden(shouldHideTab);
@@ -23849,6 +24099,11 @@ if (welcomeOverlayIsElement) {
   }
 }
 
+initializeAuth()
+  .then(() => {})
+  .catch(err => console.error('Auth initialization failed', err));
+onAuthStateChanged(handleAuthFlow);
+
 const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
 const characterConfirmationContinue = $('character-confirmation-continue');
 const characterConfirmationClose = $('character-confirmation-close');
@@ -23874,17 +24129,6 @@ document.addEventListener('keydown', event => {
     dismissCharacterConfirmation();
   }
 });
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
-    const modal = getWelcomeModal();
-    if (modal && !modal.classList.contains('hidden')) {
-      dismissWelcomeModal();
-    }
-  }
-});
-if (!document.body?.classList?.contains('launching')) {
-  queueWelcomeModal({ immediate: true });
-}
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);

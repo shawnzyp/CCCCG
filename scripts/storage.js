@@ -9,6 +9,7 @@ import {
   OUTBOX_PINS_STORE,
   OUTBOX_STORE,
 } from './cloud-outbox.js';
+import { getAuthToken, getCurrentUserUid, isAnonymousUser } from './auth.js';
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
@@ -234,10 +235,12 @@ export function listLocalSaves() {
 }
 
 // ===== Firebase Cloud Save =====
-const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
-const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
-const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
-const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/campaignLogs';
+const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const CLOUD_SAVES_URL = `${CLOUD_BASE_URL}/saves`;
+const CLOUD_HISTORY_URL = `${CLOUD_BASE_URL}/history`;
+const CLOUD_AUTOSAVES_URL = `${CLOUD_BASE_URL}/autosaves`;
+const CLOUD_CAMPAIGN_LOG_URL = `${CLOUD_BASE_URL}/campaignLogs`;
+const CLOUD_USERS_URL = `${CLOUD_BASE_URL}/users`;
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -676,11 +679,12 @@ function normalizeAutosaveOutboxEntry(entry) {
   };
 }
 
-async function pushQueuedAutosaveLocally({ name, payload, ts, deviceId, characterId }) {
+async function pushQueuedAutosaveLocally({ name, payload, ts, deviceId, characterId, cloudUrls }) {
   const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
   if (!autosaveKey) {
     throw new Error('Invalid autosave key');
   }
+  const urls = cloudUrls || getCloudUrls();
   const encoded = encodePath(autosaveKey);
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -689,7 +693,7 @@ async function pushQueuedAutosaveLocally({ name, payload, ts, deviceId, characte
     error.cause = serialized.error;
     throw error;
   }
-  const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}/${encoded}/${ts}.json`, {
+  const res = await cloudFetch(`${urls.autosavesUrl}/${encoded}/${ts}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: serialized.json,
@@ -734,7 +738,7 @@ async function flushLocalCloudOutbox() {
           }
           await pushQueuedAutosaveLocally(normalized.entry);
         } else {
-          await attemptCloudSave(entry.name, entry.payload, entry.ts);
+          await attemptCloudSave(entry.name, entry.payload, entry.ts, { cloudUrls: entry.cloudUrls });
         }
         if (entry?.id !== undefined) {
           await deleteOutboxEntry(entry.id, OUTBOX_STORE);
@@ -818,9 +822,17 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   window.addEventListener('online', resetOfflineNotices);
 }
 
+function appendAuthToken(url, token) {
+  if (!token || typeof url !== 'string' || !url) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}auth=${encodeURIComponent(token)}`;
+}
+
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
-  const res = await fetch(url, options);
+  const token = await getAuthToken();
+  const targetUrl = appendAuthToken(url, token);
+  const res = await fetch(targetUrl, options);
   const ok = typeof res?.ok === 'boolean' ? res.ok : true;
   const status = typeof res?.status === 'number' ? res.status : 200;
   const json = typeof res?.json === 'function' ? res.json.bind(res) : async () => null;
@@ -858,6 +870,31 @@ function encodePath(name) {
     .filter(segment => segment.length > 0)
     .map(segment => encodeURIComponent(segment).replace(/\./g, '%2E'))
     .join('/');
+}
+
+function resolveCloudUserSegment() {
+  const uid = getCurrentUserUid();
+  if (!uid || isAnonymousUser()) return '';
+  return encodePath(uid);
+}
+
+function getCloudUrls() {
+  const uidSegment = resolveCloudUserSegment();
+  if (!uidSegment) {
+    return {
+      savesUrl: CLOUD_SAVES_URL,
+      historyUrl: CLOUD_HISTORY_URL,
+      autosavesUrl: CLOUD_AUTOSAVES_URL,
+      campaignUrl: CLOUD_CAMPAIGN_LOG_URL,
+    };
+  }
+  const base = `${CLOUD_USERS_URL}/${uidSegment}`;
+  return {
+    savesUrl: `${base}/saves`,
+    historyUrl: `${base}/history`,
+    autosavesUrl: `${base}/autosaves`,
+    campaignUrl: `${base}/campaignLogs`,
+  };
 }
 
 function sanitizeForJson(value, seen = new WeakSet()) {
@@ -993,7 +1030,7 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
   );
 }
 
-async function attemptCloudSave(name, payload, ts) {
+async function attemptCloudSave(name, payload, ts, { cloudUrls } = {}) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -1002,7 +1039,8 @@ async function attemptCloudSave(name, payload, ts) {
     error.cause = serialized.error;
     throw error;
   }
-  const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+  const urls = cloudUrls || getCloudUrls();
+  const res = await cloudFetch(`${urls.savesUrl}/${encodePath(name)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: serialized.json,
@@ -1023,7 +1061,7 @@ async function attemptCloudSave(name, payload, ts) {
   }
 
   try {
-    await saveHistoryEntry(CLOUD_HISTORY_URL, name, serialized.value, ts);
+    await saveHistoryEntry(urls.historyUrl, name, serialized.value, ts);
   } catch (err) {
     console.warn('Failed to update cloud save history after successful save', err);
     emitSyncError({
@@ -1063,7 +1101,8 @@ export async function appendCampaignLogEntry(entry = {}) {
     error.cause = serialized.error;
     throw error;
   }
-  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, {
+  const urls = getCloudUrls();
+  const res = await cloudFetch(`${urls.campaignUrl}/${encodePath(id)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: serialized.json,
@@ -1077,13 +1116,15 @@ export async function appendCampaignLogEntry(entry = {}) {
 export async function deleteCampaignLogEntry(id) {
   if (typeof id !== 'string' || !id) return;
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, { method: 'DELETE' });
+  const urls = getCloudUrls();
+  const res = await cloudFetch(`${urls.campaignUrl}/${encodePath(id)}.json`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 export async function fetchCampaignLogEntries() {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}.json`, { method: 'GET' });
+  const urls = getCloudUrls();
+  const res = await cloudFetch(`${urls.campaignUrl}.json`, { method: 'GET' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (!data) return [];
@@ -1118,7 +1159,8 @@ export function subscribeCampaignLog(onChange) {
       return null;
     }
 
-    const src = new EventSource(`${CLOUD_CAMPAIGN_LOG_URL}.json`);
+    const urls = getCloudUrls();
+    const src = new EventSource(`${urls.campaignUrl}.json`);
     const handler = () => {
       if (typeof onChange === 'function') {
         onChange();
@@ -1155,6 +1197,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
   const data = serialized.value;
   const deviceId = getDeviceId();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
+  const cloudUrls = getCloudUrls();
 
   let entry;
   try {
@@ -1165,6 +1208,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       kind,
       deviceId,
       characterId,
+      cloudUrls,
     });
   } catch (err) {
     console.error('Failed to prepare cloud save entry', err);
@@ -1381,6 +1425,7 @@ export async function saveCloudAutosave(name, payload) {
   const ts = nextHistoryTimestamp();
   const deviceId = getDeviceId();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
+  const urls = getCloudUrls();
   if (!characterId) {
     const error = new Error('Autosave requires characterId');
     error.name = 'InvalidAutosaveKey';
@@ -1393,8 +1438,8 @@ export async function saveCloudAutosave(name, payload) {
   }
   const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
   const autosavePath = autosaveKey
-    ? `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`
-    : `${CLOUD_AUTOSAVES_URL}/.json`;
+    ? `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`
+    : `${urls.autosavesUrl}/.json`;
   const payloadWithMeta = {
     ...payload,
     meta: {
@@ -1410,7 +1455,7 @@ export async function saveCloudAutosave(name, payload) {
       autosaveDebugLogged = true;
       console.info('Autosave debug path', { autosaveKey, autosavePath });
     }
-    await saveHistoryEntry(CLOUD_AUTOSAVES_URL, autosaveKey, payloadWithMeta, ts);
+    await saveHistoryEntry(urls.autosavesUrl, autosaveKey, payloadWithMeta, ts);
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
@@ -1434,8 +1479,9 @@ export async function saveCloudAutosave(name, payload) {
 export async function loadCloud(name, { signal } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const urls = getCloudUrls();
     const res = await cloudFetch(
-      `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
+      `${urls.savesUrl}/${encodePath(name)}.json`,
       { method: 'GET', signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1455,7 +1501,8 @@ export async function loadCloud(name, { signal } = {}) {
 export async function deleteCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+    const urls = getCloudUrls();
+    const res = await cloudFetch(`${urls.savesUrl}/${encodePath(name)}.json`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1473,7 +1520,8 @@ export async function deleteCloud(name) {
 export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await cloudFetch(`${CLOUD_SAVES_URL}.json`);
+    const urls = getCloudUrls();
+    const res = await cloudFetch(`${urls.savesUrl}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
@@ -1491,8 +1539,9 @@ export async function listCloudSaves() {
 export async function listCloudBackups(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const urls = getCloudUrls();
     const res = await cloudFetch(
-      `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`
+      `${urls.historyUrl}/${encodePath(name)}.json`
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
@@ -1516,8 +1565,9 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
     if (!autosaveKey) return [];
+    const urls = getCloudUrls();
     const res = await cloudFetch(
-      `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}.json`
+      `${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
@@ -1539,7 +1589,8 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
 export async function listCloudBackupNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await cloudFetch(`${CLOUD_HISTORY_URL}.json`);
+    const urls = getCloudUrls();
+    const res = await cloudFetch(`${urls.historyUrl}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
@@ -1557,7 +1608,8 @@ export async function listCloudAutosaveNames() {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const deviceId = getDeviceId();
     if (!deviceId) return [];
-    const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}/${encodePath(deviceId)}.json`);
+    const urls = getCloudUrls();
+    const res = await cloudFetch(`${urls.autosavesUrl}/${encodePath(deviceId)}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     if (!val || typeof val !== 'object') return [];
@@ -1587,8 +1639,9 @@ export async function listCloudAutosaveNames() {
 export async function loadCloudBackup(name, ts) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const urls = getCloudUrls();
     const res = await cloudFetch(
-      `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
+      `${urls.historyUrl}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1607,8 +1660,9 @@ export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
     if (!autosaveKey) throw new Error('Invalid autosave key');
+    const urls = getCloudUrls();
     const res = await cloudFetch(
-      `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`,
+      `${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`,
       { method: 'GET' }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1757,7 +1811,8 @@ export function subscribeCloudSaves(onChange = cacheCloudSaves) {
       return null;
     }
 
-    const src = new EventSource(`${CLOUD_SAVES_URL}.json`);
+    const urls = getCloudUrls();
+    const src = new EventSource(`${urls.savesUrl}.json`);
     const handler = () => onChange();
 
     src.addEventListener('put', handler);

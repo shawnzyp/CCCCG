@@ -89,7 +89,7 @@
     });
   }
 
-  function createCloudSaveOutboxEntry({ name, payload, ts, kind, queuedAt, deviceId, characterId }) {
+  function createCloudSaveOutboxEntry({ name, payload, ts, kind, queuedAt, deviceId, characterId, cloudUrls }) {
     if (typeof name !== 'string' || !name) {
       throw new TypeError('Invalid cloud save entry name');
     }
@@ -106,6 +106,7 @@
       kind: entryKind,
       deviceId: typeof deviceId === 'string' && deviceId ? deviceId : null,
       characterId: typeof characterId === 'string' && characterId ? characterId : null,
+      cloudUrls: cloudUrls && typeof cloudUrls === 'object' ? { ...cloudUrls } : null,
     };
   }
 
