@@ -8264,8 +8264,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 /* Tray wrapper – removes any card background so only the phone is visible */
 .player-tools-tray {
-  --player-tools-tray-offset-x: -12px;
-  --player-tools-tray-offset-y: -10px;
+  --player-tools-tray-offset-x: 0px;
+  --player-tools-tray-offset-y: 0px;
   position: fixed;
   left: 0;
   right: 0;
@@ -8324,6 +8324,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow: none;
   border-radius: 46px;      /* match inner device radius */
   overflow: hidden;         /* clip tools to the phone screen shape */
+  transform: translate(-12px, -10px);
 }
 
 .player-tools-shell-image {
