@@ -23,7 +23,7 @@
     "usernames": {
       "$name": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)"
       }
     },
     "characterClaims": {

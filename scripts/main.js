@@ -43,7 +43,6 @@ import {
   getFirebaseDatabase,
   createRecoveryCodes,
   saveRecoveryEmail,
-  sendPasswordResetForUsername,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -23928,7 +23927,6 @@ const authPanelLogin = $('auth-panel-login');
 const authPanelCreate = $('auth-panel-create');
 const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
-const authResetPassword = $('auth-reset-password');
 const authCreateUsername = $('auth-create-username');
 const authCreateEmail = $('auth-create-email');
 const authCreatePassword = $('auth-create-password');
@@ -24030,7 +24028,7 @@ function isValidRecoveryEmail(email) {
 
 function setAuthBusy(busy) {
   const disabled = !!busy;
-  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate, authResetPassword].forEach(btn => {
+  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate].forEach(btn => {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
@@ -24041,7 +24039,7 @@ function getFriendlySignupError(error) {
   const code = error?.code || '';
   switch (code) {
     case 'auth/email-already-in-use':
-      return 'Username already taken.';
+      return 'That username is already taken.';
     case 'auth/invalid-email':
       return 'Enter a valid username.';
     case 'auth/network-request-failed':
@@ -24090,6 +24088,7 @@ async function rehydrateLocalCache(uid) {
   const hadLocal = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
   let restoredCount = 0;
   let updatedCount = 0;
+  let firstRestoredName = '';
   const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
   for (const entry of entries) {
     const characterId = entry?.characterId || '';
@@ -24102,10 +24101,10 @@ async function rehydrateLocalCache(uid) {
     const localUpdated = localPayload ? localUpdatedAt(localPayload) : 0;
     const cloudUpdated = Number(entry?.updatedAtServer || entry?.updatedAt) || 0;
     const lastSyncedAt = readLastSyncedAt(characterId);
-    if (!lastSyncedAt && localUpdated && cloudUpdated && localUpdated === cloudUpdated) {
-      writeLastSyncedAt(characterId, localUpdated);
+    if (!lastSyncedAt && cloudUpdated > 0 && localUpdated === cloudUpdated) {
+      writeLastSyncedAt(characterId, cloudUpdated);
     }
-    if (detectSyncConflict({ localUpdatedAt: localUpdated, cloudUpdatedAt: cloudUpdated, lastSyncedAt })) {
+    if (lastSyncedAt > 0 && detectSyncConflict({ localUpdatedAt: localUpdated, cloudUpdatedAt: cloudUpdated, lastSyncedAt })) {
       try {
         const cloudPayload = await loadCloudCharacter(uid, characterId);
         queueSyncConflict({
@@ -24128,9 +24127,12 @@ async function rehydrateLocalCache(uid) {
       const cloudPayload = await loadCloudCharacter(uid, characterId);
       ensureCharacterId(cloudPayload, name);
       await saveLocal(name, cloudPayload, { characterId });
-      writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || cloudUpdated);
+      writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAtServer ?? cloudPayload?.updatedAtServer ?? cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || cloudUpdated);
       if (!localPayload) {
         restoredCount += 1;
+        if (!firstRestoredName) {
+          firstRestoredName = name;
+        }
       } else if (cloudUpdated > localUpdated) {
         updatedCount += 1;
       }
@@ -24138,11 +24140,15 @@ async function rehydrateLocalCache(uid) {
       console.error('Failed to refresh local cache from cloud', err);
     }
   }
-  if (!hadLocal && restoredCount > 0) {
-    toast(`Restored ${restoredCount} character(s) from cloud`, 'info', { duration: 3000 });
-  } else if (hadLocal && updatedCount > 0) {
-    toast(`Updated ${updatedCount} character(s) from cloud`, 'info', { duration: 3000 });
+  if (!readLastSaveName() && firstRestoredName) {
+    writeLastSaveName(firstRestoredName);
   }
+  return {
+    hadLocal,
+    restoredCount,
+    updatedCount,
+    totalCloud: entries.length,
+  };
 }
 
 function queueSyncConflict(conflict) {
@@ -24275,10 +24281,10 @@ async function handleAuthSubmit(mode) {
         setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
         return;
       }
-      if (recoveryEmail && !isValidRecoveryEmail(recoveryEmail)) {
-        setAuthError('Enter a valid recovery email or leave it blank.');
-        return;
-      }
+    if (recoveryEmail && !isValidRecoveryEmail(recoveryEmail)) {
+      setAuthError('Enter a valid recovery email or leave it blank.');
+      return;
+    }
       if (password !== confirm) {
         setAuthError('Passwords do not match.');
         return;
@@ -24347,22 +24353,6 @@ async function handleAuthSubmit(mode) {
   }
 }
 
-async function handlePasswordReset() {
-  try {
-    setAuthError('');
-    const username = authLoginUsername?.value?.trim() || '';
-    const resolved = username || (typeof prompt === 'function' ? prompt('Enter your username to reset your password:') : '');
-    if (!resolved) {
-      setAuthError('Username required to reset password.');
-      return;
-    }
-    await sendPasswordResetForUsername(resolved);
-    toast('Password reset email sent.', 'success');
-  } catch (err) {
-    console.error('Failed to send password reset', err);
-    setAuthError(err?.message || 'Unable to send reset email.');
-  }
-}
 
 function setClaimTokenAdminVisibility(isDm) {
   if (!claimTokenAdmin) return;
@@ -24465,7 +24455,7 @@ async function refreshPostAuthCloudList() {
         await saveLocal(name, cloudPayload, { characterId });
         writeLastSaveName(name);
         closePostAuthChoice();
-        toast(`Opened ${name}.`, 'success');
+        toast(`Loaded ${name}.`, 'success');
       } catch (err) {
         console.error('Failed to open cloud character', err);
         toast('Failed to open cloud character.', 'error');
@@ -24682,13 +24672,23 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     dismissWelcomeModal();
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
-      .then(() => {
+      .then(({ hadLocal, restoredCount, updatedCount, totalCloud } = {}) => {
         restoreLastLoadedCharacter().catch(err => {
           console.error('Failed to restore last loaded character', err);
         });
-        if (pendingPostAuthChoice) {
+        if (!hadLocal && totalCloud === 1 && restoredCount === 1) {
           pendingPostAuthChoice = false;
-          openPostAuthChoice();
+          toast('Restored from cloud', 'info', { duration: 3000 });
+        } else {
+          if (!hadLocal && restoredCount > 0) {
+            toast(`Restored ${restoredCount} character(s) from cloud`, 'info', { duration: 3000 });
+          } else if (hadLocal && updatedCount > 0) {
+            toast(`Updated ${updatedCount} character(s) from cloud`, 'info', { duration: 3000 });
+          }
+          if (pendingPostAuthChoice) {
+            pendingPostAuthChoice = false;
+            openPostAuthChoice();
+          }
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
@@ -24729,11 +24729,6 @@ if (authTabCreate) {
 }
 if (authLoginSubmit) {
   authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
-}
-if (authResetPassword) {
-  authResetPassword.addEventListener('click', () => {
-    handlePasswordReset();
-  });
 }
 if (authCreateSubmit) {
   authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));

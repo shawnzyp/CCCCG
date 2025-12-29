@@ -267,15 +267,6 @@ export async function signInWithUsernamePassword(username, password) {
   return credential;
 }
 
-export async function sendPasswordResetForUsername(username) {
-  const auth = await initFirebaseAuth();
-  const email = usernameToEmail(username);
-  if (!email) {
-    throw new Error('Enter a valid username to reset your password.');
-  }
-  await auth.sendPasswordResetEmail(email);
-}
-
 export async function createAccountWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);

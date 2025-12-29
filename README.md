@@ -38,6 +38,8 @@ Cloud-first records live in Firebase RTDB with these primary paths:
 * `/history/{uid}/{characterId}/conflict/{ts}`: conflict backups before sync overwrites
 * `/claimTokens/{token}`: `{ sourceUid, characterId, targetUid, expiresAt, consumedAt }`
 
+Authentication is username and password only. The app does not support email-based account recovery. Account recovery is handled by logging in and migrating or claiming characters from cloud or legacy sources.
+
 The app requires a Firebase Realtime Database for real-time updates. To
 configure the database:
 
@@ -68,7 +70,7 @@ configure the database:
     "usernames": {
       "$name": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)"
       }
     },
     "characterClaims": {

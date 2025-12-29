@@ -1511,7 +1511,7 @@
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
         <h2 id="auth-title">Account Login</h2>
-        <p class="modal__subtitle">Use your Codex username and password.</p>
+        <p class="modal__subtitle">Use your username and password.</p>
       </div>
     </div>
     <div class="modal__body">
@@ -1525,13 +1525,12 @@
         <label class="sr-only" for="auth-login-password">Password</label>
         <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
         <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Login</button>
-        <button id="auth-reset-password" class="cc-btn cc-btn--ghost" type="button">Reset Password</button>
       </div>
       <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
         <label class="sr-only" for="auth-create-username">Username</label>
         <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
-        <label class="sr-only" for="auth-create-email">Recovery email (optional)</label>
-        <input id="auth-create-email" type="email" autocomplete="email" placeholder="Recovery email (optional)">
+        <label class="sr-only" for="auth-create-email">Recovery email (optional, not used for login)</label>
+        <input id="auth-create-email" type="email" autocomplete="email" placeholder="Recovery email (optional, not used for login)">
         <label class="sr-only" for="auth-create-password">Password</label>
         <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
         <label class="sr-only" for="auth-create-confirm">Confirm password</label>

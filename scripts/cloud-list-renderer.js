@@ -35,6 +35,13 @@ export function renderEmptyRow(container, message) {
   container.append(row);
 }
 
+function getEntryUpdatedAt(entry) {
+  const serverValue = Number(entry?.updatedAtServer);
+  if (Number.isFinite(serverValue) && serverValue > 0) return serverValue;
+  const value = Number(entry?.updatedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
 export function renderCloudCharacterList(container, entries = [], options = {}) {
   if (!container) return;
   const {
@@ -48,7 +55,7 @@ export function renderCloudCharacterList(container, entries = [], options = {}) 
     renderEmptyRow(container, emptyMessage);
     return;
   }
-  list.sort((a, b) => (Number(b?.updatedAt) || 0) - (Number(a?.updatedAt) || 0));
+  list.sort((a, b) => getEntryUpdatedAt(b) - getEntryUpdatedAt(a));
   list.forEach(entry => {
     const name = entry?.name || entry?.characterId || 'Unnamed character';
     const actions = [];
@@ -62,7 +69,7 @@ export function renderCloudCharacterList(container, entries = [], options = {}) 
     }
     container.append(buildClaimRow({
       name,
-      meta: formatUpdatedAt(entry?.updatedAt),
+      meta: formatUpdatedAt(getEntryUpdatedAt(entry)),
       actions,
     }));
   });
