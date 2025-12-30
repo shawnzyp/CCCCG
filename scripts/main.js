@@ -24367,6 +24367,7 @@ async function refreshUsernameAvailability() {
 if (authCreateUsername) {
   authCreateUsername.addEventListener('input', () => {
     setAuthError('', 'create');
+    setUsernameAvailabilityStatus({ state: 'idle', message: '' });
     refreshUsernameAvailability();
   });
   authCreateUsername.addEventListener('blur', () => {
@@ -25061,16 +25062,16 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   }
   setActiveUserId('');
   setActiveAuthUserId('');
-  welcomeModalDismissed = false;
-  welcomeSequenceComplete = false;
-  updateWelcomeContinue();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
   if (!hasLocalSave && offlineBlankActive) {
     setOfflineBlankState(true);
-  } else {
-    setOfflineBlankState(false);
+    return;
   }
+  setOfflineBlankState(false);
+  welcomeModalDismissed = false;
+  welcomeSequenceComplete = false;
+  updateWelcomeContinue();
   queueWelcomeModal({ immediate: true });
 }
 

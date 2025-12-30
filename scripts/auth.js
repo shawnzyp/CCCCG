@@ -26,19 +26,25 @@ function getFirebaseConfig() {
   }
   if (typeof window !== 'undefined') {
     if (window.__CCCG_FIREBASE_CONFIG__) {
-      return window.__CCCG_FIREBASE_CONFIG__;
+      return {
+        ...window.__CCCG_FIREBASE_CONFIG__,
+        databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
+      };
     }
     if (window.CCCG_FIREBASE_CONFIG) {
-      return window.CCCG_FIREBASE_CONFIG;
+      return {
+        ...window.CCCG_FIREBASE_CONFIG,
+        databaseURL: window.CCCG_FIREBASE_CONFIG.databaseURL || CLOUD_BASE_URL,
+      };
     }
   }
-  return {};
+  return { databaseURL: CLOUD_BASE_URL };
 }
 
 function validateFirebaseConfig(config) {
   const missing = REQUIRED_CONFIG_KEYS.filter(key => typeof config?.[key] !== 'string' || !config[key].trim());
   if (missing.length) {
-    throw new Error('Firebase configuration is missing. Please add the Firebase config in index.html.');
+    throw new Error(`Firebase configuration missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
   }
 }
 
