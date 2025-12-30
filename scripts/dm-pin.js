@@ -1,4 +1,6 @@
-const DM_CREDENTIALS_CLOUD_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dmCredentials';
+import { getFirebaseDatabase } from './auth.js';
+
+const DM_CREDENTIALS_PATH = 'dmCredentials';
 const DM_CREDENTIAL_CACHE_KEY = 'cc:dm-credential-cache';
 const DM_CREDENTIAL_CACHE_VERSION = 1;
 const DM_PIN_DEFAULT_ITERATIONS = 120000;
@@ -358,17 +360,9 @@ function replaceCredentialCache(records) {
 }
 
 async function fetchCloudCredentialRecords() {
-  if (typeof fetch !== 'function') {
-    throw new Error('fetch not supported');
-  }
-  const response = await fetch(`${DM_CREDENTIALS_CLOUD_URL}.json`);
-  if (!response || typeof response.ok !== 'boolean') {
-    throw new TypeError('Invalid DM credential response');
-  }
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  const payload = await response.json();
+  const db = await getFirebaseDatabase();
+  const snapshot = await db.ref(DM_CREDENTIALS_PATH).once('value');
+  const payload = snapshot.val();
   if (!payload || typeof payload !== 'object') {
     return {};
   }
@@ -376,9 +370,6 @@ async function fetchCloudCredentialRecords() {
 }
 
 async function putCloudCredentialRecord(username, record) {
-  if (typeof fetch !== 'function') {
-    throw new Error('fetch not supported');
-  }
   const encodedName = encodeCredentialKey(username);
   const payload = {
     hash: record.hash,
@@ -388,17 +379,8 @@ async function putCloudCredentialRecord(username, record) {
     digest: record.digest,
     updatedAt: record.updatedAt,
   };
-  const response = await fetch(`${DM_CREDENTIALS_CLOUD_URL}/${encodedName}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response || typeof response.ok !== 'boolean') {
-    throw new TypeError('Invalid DM credential response');
-  }
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  const db = await getFirebaseDatabase();
+  await db.ref(`${DM_CREDENTIALS_PATH}/${encodedName}`).set(payload);
 }
 
 async function loadCredentialCache({ forceRefresh = false } = {}) {
@@ -537,7 +519,7 @@ export function __setNodeCryptoModuleOverride(module) {
 }
 
 export {
-  DM_CREDENTIALS_CLOUD_URL,
+  DM_CREDENTIALS_PATH,
   DM_CREDENTIAL_CACHE_KEY,
   DM_CREDENTIAL_CACHE_VERSION,
   DM_PIN_DEFAULT_DIGEST,

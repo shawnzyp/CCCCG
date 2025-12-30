@@ -1494,52 +1494,73 @@
     </div>
     <div class="modal__body">
       <p class="modal__lead">Cloud saves keep your roster safe and up to date.</p>
-      <p class="modal__hint">Continue is only available when a signed-in session already has local characters.</p>
+      <p class="modal__hint">Continue offline to play from this device only.</p>
     </div>
-    <div class="modal__actions modal__actions--two">
-      <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Login</button>
+    <div class="modal__actions modal__actions--stacked">
+      <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Log In</button>
       <button id="welcome-create" class="cc-btn cc-btn--ghost" type="button">Create Account</button>
-      <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button" disabled aria-disabled="true">Continue Offline</button>
+      <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button">Continue Offline</button>
+    </div>
+    <div class="modal__footer">
+      <span>Cloud accounts use a username + password only (no email required).</span>
     </div>
   </div>
 </div>
 
 <!-- LOGIN MODAL -->
-<div class="overlay hidden" id="modal-auth" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+<div class="overlay hidden" id="modal-auth-login" role="dialog" aria-modal="true" aria-labelledby="auth-login-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
   <div class="modal modal--auth" role="document">
     <div class="modal__header">
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
-        <h2 id="auth-title">Account Login</h2>
+        <h2 id="auth-login-title">Account Login</h2>
         <p class="modal__subtitle">Use your username and password.</p>
       </div>
     </div>
     <div class="modal__body">
-      <div class="auth-tabs" role="tablist" aria-label="Authentication options">
-        <button id="auth-tab-login" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="true" aria-controls="auth-panel-login">Login</button>
-        <button id="auth-tab-create" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="false" aria-controls="auth-panel-create">Create Account</button>
-      </div>
-      <div id="auth-panel-login" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-login">
+      <div class="auth-panel auth-panel--login">
         <label class="sr-only" for="auth-login-username">Username</label>
         <input id="auth-login-username" type="text" autocomplete="username" placeholder="Username" required>
         <label class="sr-only" for="auth-login-password">Password</label>
         <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
-        <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Login</button>
+        <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Log In</button>
+        <button id="auth-login-open-create" class="cc-btn cc-btn--ghost auth-panel__switch" type="button">Need an account? Create one.</button>
       </div>
-      <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
+      <p id="auth-login-error" class="modal__hint" role="alert" hidden></p>
+    </div>
+    <div class="modal__actions modal__actions--two">
+      <button id="auth-login-cancel" class="cc-btn cc-btn--ghost" type="button" data-close="modal-auth-login">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE ACCOUNT MODAL -->
+<div class="overlay hidden" id="modal-auth-create" role="dialog" aria-modal="true" aria-labelledby="auth-create-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+  <div class="modal modal--auth" role="document">
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="auth-create-title">Create Account</h2>
+        <p class="modal__subtitle">Choose a username to save your roster.</p>
+      </div>
+    </div>
+    <div class="modal__body">
+      <div class="auth-panel auth-panel--create">
         <label class="sr-only" for="auth-create-username">Username</label>
         <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
+        <p id="auth-create-username-status" class="modal__hint auth-username-status" role="status" aria-live="polite"></p>
         <label class="sr-only" for="auth-create-password">Password</label>
         <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
         <label class="sr-only" for="auth-create-confirm">Confirm password</label>
         <input id="auth-create-confirm" type="password" autocomplete="new-password" placeholder="Confirm password" required>
         <ul id="auth-password-policy" class="password-policy" aria-live="polite"></ul>
-        <button id="auth-create-submit" class="cc-btn cc-btn--primary" type="button">Create Account</button>
+        <button id="auth-create-submit" class="cc-btn cc-btn--primary" type="button" disabled aria-disabled="true">Create Account</button>
+        <button id="auth-create-open-login" class="cc-btn cc-btn--ghost auth-panel__switch" type="button">Already have an account? Log in.</button>
       </div>
-      <p id="auth-error" class="modal__hint" role="alert" hidden></p>
+      <p id="auth-create-error" class="modal__hint" role="alert" hidden></p>
     </div>
     <div class="modal__actions modal__actions--two">
-      <button id="auth-cancel" class="cc-btn cc-btn--ghost" type="button" data-close="modal-auth">Cancel</button>
+      <button id="auth-create-cancel" class="cc-btn cc-btn--ghost" type="button" data-close="modal-auth-create">Cancel</button>
     </div>
   </div>
 </div>
@@ -3436,6 +3457,18 @@ aria-label="Open player tools"
     </div>
   </div>
 </div>
+<script>
+  window.__CCCG_FIREBASE_CONFIG__ = {
+    apiKey: 'AIzaSyDgdbqGm1xG3f9oQH5oVY9H3aXvC1n1S5E',
+    authDomain: 'ccapp-fb946.firebaseapp.com',
+    projectId: 'ccapp-fb946',
+    appId: '1:915229030017:web:9d0cf04e6e2fbf8f0a1d3b',
+    databaseURL: 'https://ccapp-fb946-default-rtdb.firebaseio.com',
+    storageBucket: 'ccapp-fb946.appspot.com',
+    messagingSenderId: '915229030017',
+    measurementId: 'G-K6V3N2YJQH'
+  };
+</script>
 <script type="module" src="scripts/polyfills.js"></script>
 <script type="module" src="scripts/crash-handler.js"></script>
 <script type="module" src="scripts/header-title.js"></script>

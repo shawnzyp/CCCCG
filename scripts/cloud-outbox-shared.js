@@ -111,7 +111,7 @@
     };
   }
 
-  function createCloudPinOutboxEntry({ name, hash, op, queuedAt }) {
+  function createCloudPinOutboxEntry({ name, hash, op, queuedAt, pinsUrl }) {
     if (typeof name !== 'string' || !name) {
       throw new TypeError('Invalid cloud pin entry name');
     }
@@ -123,6 +123,7 @@
       hash: typeof hash === 'string' && hash ? hash : null,
       op,
       queuedAt: Number.isFinite(queuedAt) ? queuedAt : Date.now(),
+      pinsUrl: typeof pinsUrl === 'string' && pinsUrl ? pinsUrl : null,
     };
   }
 

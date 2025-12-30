@@ -1,9 +1,12 @@
-const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const CLOUD_BASE_URL = 'https://ccapp-fb946-default-rtdb.firebaseio.com';
+const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId'];
 
 let authInitPromise = null;
 let authInstance = null;
 let firebaseApp = null;
 let firebaseDatabase = null;
+let firebaseFirestore = null;
+let firebaseNamespace = null;
 let authState = {
   uid: '',
   user: null,
@@ -12,10 +15,29 @@ let authState = {
 const authListeners = new Set();
 
 function getFirebaseConfig() {
-  if (typeof window !== 'undefined' && window.CCCG_FIREBASE_CONFIG) {
-    return window.CCCG_FIREBASE_CONFIG;
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    return {
+      apiKey: 'test',
+      authDomain: 'test',
+      projectId: 'test',
+      appId: 'test',
+      databaseURL: CLOUD_BASE_URL,
+    };
+  }
+  if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
+    return {
+      ...window.__CCCG_FIREBASE_CONFIG__,
+      databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
+    };
   }
   return { databaseURL: CLOUD_BASE_URL };
+}
+
+function validateFirebaseConfig(config) {
+  const missing = REQUIRED_CONFIG_KEYS.filter(key => typeof config?.[key] !== 'string' || !config[key].trim());
+  if (missing.length) {
+    throw new Error(`Firebase configuration missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
+  }
 }
 
 async function loadFirebaseCompat() {
@@ -39,6 +61,15 @@ async function loadFirebaseCompat() {
           transaction: async () => ({ committed: false }),
         }),
       }),
+      firestore: () => ({
+        collection: () => ({
+          doc: () => ({
+            get: async () => ({ exists: false, data: () => ({}) }),
+            set: async () => {},
+          }),
+        }),
+        runTransaction: async () => ({}),
+      }),
     };
   }
   if (window.firebase?.auth) {
@@ -48,6 +79,7 @@ async function loadFirebaseCompat() {
     import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js'),
     import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js'),
     import('https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js'),
+    import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js'),
   ]);
   if (!window.firebase?.auth) {
     throw new Error('Failed to load Firebase auth libraries.');
@@ -77,11 +109,21 @@ export function usernameToEmail(username) {
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const firebaseConfig = getFirebaseConfig();
+  validateFirebaseConfig(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  if (typeof process === 'undefined' || !process?.env?.JEST_WORKER_ID) {
+    const projectId = app?.options?.projectId;
+    if (projectId && projectId !== 'ccapp-fb946') {
+      console.warn('Firebase project mismatch:', projectId);
+    }
+  }
   const auth = firebase.auth(app);
   const db = firebase.database(app);
+  const firestore = firebase.firestore(app);
   firebaseApp = app;
   firebaseDatabase = db;
+  firebaseFirestore = firestore;
+  firebaseNamespace = firebase;
   try {
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
   } catch (err) {
@@ -147,6 +189,14 @@ export async function getFirebaseDatabase() {
   return firebaseDatabase;
 }
 
+export async function getFirebaseFirestore() {
+  await initFirebaseAuth();
+  if (!firebaseFirestore) {
+    throw new Error('Firebase firestore not initialized');
+  }
+  return firebaseFirestore;
+}
+
 export async function getAuthToken() {
   const auth = await initFirebaseAuth();
   const user = auth?.currentUser;
@@ -159,35 +209,53 @@ export async function getAuthToken() {
   }
 }
 
-export async function claimUsernameTransaction(db, normalizedUsername, uid) {
-  if (!db) throw new Error('Database required');
+async function reserveUsernameAndProfile(firestore, normalizedUsername, uid) {
+  if (!firestore) throw new Error('Firestore required');
   if (!normalizedUsername) throw new Error('Username required');
   if (!uid) throw new Error('User id required');
-  const ref = db.ref(`usernames/${normalizedUsername}`);
-  const result = await ref.transaction(current => {
-    if (current && current !== uid) {
-      return;
+  const usernameRef = firestore.collection('usernames').doc(normalizedUsername);
+  const userRef = firestore.collection('users').doc(uid);
+  const serverTimestamp = firebaseNamespace?.firestore?.FieldValue?.serverTimestamp?.();
+  await firestore.runTransaction(async transaction => {
+    const existing = await transaction.get(usernameRef);
+    if (existing.exists) {
+      const data = existing.data() || {};
+      if (data.uid && data.uid !== uid) {
+        throw new Error('Username already taken');
+      }
     }
-    return uid;
+    transaction.set(usernameRef, {
+      uid,
+      username: normalizedUsername,
+      createdAt: serverTimestamp || new Date(),
+    }, { merge: true });
+    transaction.set(userRef, {
+      username: normalizedUsername,
+      createdAt: serverTimestamp || new Date(),
+    }, { merge: true });
   });
-  if (!result.committed) {
-    throw new Error('Username already taken');
-  }
-  return true;
 }
 
-async function ensureUserProfile(db, uid, username) {
-  if (!db || !uid || !username) return;
-  const userRef = db.ref(`users/${uid}/profile`);
-  await userRef.transaction(current => {
-    if (current && current.username) {
-      return current;
-    }
-    return {
-      username,
-      createdAt: Date.now(),
-    };
-  });
+async function ensureUsernameReservation(firestore, normalizedUsername, uid) {
+  return reserveUsernameAndProfile(firestore, normalizedUsername, uid);
+}
+
+export async function checkUsernameAvailability(username) {
+  const normalized = normalizeUsername(username);
+  if (!normalized) {
+    return { available: false, normalized, reason: 'invalid' };
+  }
+  const firestore = await getFirebaseFirestore();
+  const usernameRef = firestore.collection('usernames').doc(normalized);
+  const snapshot = await usernameRef.get();
+  if (!snapshot.exists) {
+    return { available: true, normalized };
+  }
+  const data = snapshot.data() || {};
+  if (!data.uid) {
+    return { available: true, normalized };
+  }
+  return { available: false, normalized, reason: 'taken' };
 }
 
 export async function signInWithUsernamePassword(username, password) {
@@ -199,20 +267,14 @@ export async function signInWithUsernamePassword(username, password) {
   }
   const credential = await auth.signInWithEmailAndPassword(email, password);
   const uid = credential?.user?.uid || '';
-  const db = await getFirebaseDatabase();
   if (!uid) throw new Error('Login failed');
-  const ref = db.ref(`usernames/${normalized}`);
-  const result = await ref.transaction(current => {
-    if (!current || current === uid) {
-      return uid;
-    }
-    return;
-  });
-  if (!result.committed) {
+  const firestore = await getFirebaseFirestore();
+  try {
+    await ensureUsernameReservation(firestore, normalized, uid);
+  } catch (err) {
     await auth.signOut();
-    throw new Error('Username already linked to another account.');
+    throw err;
   }
-  await ensureUserProfile(db, uid, normalized);
   return credential;
 }
 
@@ -226,10 +288,9 @@ export async function createAccountWithUsernamePassword(username, password) {
   const credential = await auth.createUserWithEmailAndPassword(email, password);
   const uid = credential?.user?.uid || '';
   if (!uid) throw new Error('Account creation failed');
-  const db = await getFirebaseDatabase();
   try {
-    await claimUsernameTransaction(db, normalized, uid);
-    await ensureUserProfile(db, uid, normalized);
+    const firestore = await getFirebaseFirestore();
+    await reserveUsernameAndProfile(firestore, normalized, uid);
   } catch (err) {
     try {
       await credential?.user?.delete?.();

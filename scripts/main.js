@@ -39,6 +39,7 @@ import {
   onAuthStateChanged,
   signInWithUsernamePassword,
   createAccountWithUsernamePassword,
+  checkUsernameAvailability,
   normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
@@ -22323,7 +22324,8 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
   WELCOME_MODAL_ID,
-  'modal-auth',
+  'modal-auth-login',
+  'modal-auth-create',
   'modal-post-auth-choice',
   'modal-claim-characters',
   'modal-pin',
@@ -24180,21 +24182,23 @@ if (btnRules) {
 const welcomeLogin = $('welcome-login');
 const welcomeContinue = $('welcome-continue');
 const welcomeCreate = $('welcome-create');
-const authModal = $('modal-auth');
-const authTabLogin = $('auth-tab-login');
-const authTabCreate = $('auth-tab-create');
-const authPanelLogin = $('auth-panel-login');
-const authPanelCreate = $('auth-panel-create');
+const authLoginModal = $('modal-auth-login');
+const authCreateModal = $('modal-auth-create');
 const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
 const authPasswordPolicy = $('auth-password-policy');
+const authCreateUsernameStatus = $('auth-create-username-status');
 const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
-const authError = $('auth-error');
-const authCancel = $('auth-cancel');
+const authLoginError = $('auth-login-error');
+const authCreateError = $('auth-create-error');
+const authLoginCancel = $('auth-login-cancel');
+const authCreateCancel = $('auth-create-cancel');
+const authLoginOpenCreate = $('auth-login-open-create');
+const authCreateOpenLogin = $('auth-create-open-login');
 const postAuthChoiceModal = $('modal-post-auth-choice');
 const postAuthImport = $('post-auth-import');
 const postAuthCreate = $('post-auth-create');
@@ -24225,38 +24229,67 @@ let pendingPostAuthChoice = false;
 const passwordPolicy = { ...PASSWORD_POLICY };
 const syncConflictQueue = [];
 let activeSyncConflict = null;
+let authBusy = false;
+let firebaseInitErrorMessage = '';
+let usernameAvailabilityState = 'idle';
+let lastUsernameCheckToken = 0;
+let offlineBlankActive = false;
 
-function setAuthView(view) {
-  const isLogin = view === 'login';
-  if (authTabLogin) authTabLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
-  if (authTabCreate) authTabCreate.setAttribute('aria-selected', isLogin ? 'false' : 'true');
-  if (authPanelLogin) {
-    authPanelLogin.hidden = !isLogin;
-    authPanelLogin.setAttribute('aria-hidden', isLogin ? 'false' : 'true');
-  }
-  if (authPanelCreate) {
-    authPanelCreate.hidden = isLogin;
-    authPanelCreate.setAttribute('aria-hidden', isLogin ? 'true' : 'false');
-  }
-  if (!isLogin) {
-    updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
-  }
+function setAuthError(message, mode) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  const target = mode === 'create' ? authCreateError : authLoginError;
+  if (!target) return;
+  target.textContent = text;
+  target.hidden = !text;
 }
 
-function setAuthError(message) {
-  if (!authError) return;
-  const text = typeof message === 'string' ? message.trim() : '';
-  authError.textContent = text;
-  authError.hidden = !text;
+function clearAuthErrors() {
+  setAuthError('', 'login');
+  setAuthError('', 'create');
 }
 
 function setAuthBusy(busy) {
+  authBusy = !!busy;
   const disabled = !!busy;
-  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate].forEach(btn => {
+  [authLoginSubmit, authLoginOpenCreate, authLoginCancel, authCreateOpenLogin, authCreateCancel].forEach(btn => {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   });
+  updateCreateSubmitState();
+}
+
+function setUsernameAvailabilityStatus({ state = 'idle', message = '' } = {}) {
+  usernameAvailabilityState = state;
+  if (!authCreateUsernameStatus) return;
+  authCreateUsernameStatus.textContent = message;
+  authCreateUsernameStatus.classList.remove('is-available', 'is-unavailable', 'is-checking');
+  if (state === 'available') {
+    authCreateUsernameStatus.classList.add('is-available');
+  } else if (state === 'unavailable') {
+    authCreateUsernameStatus.classList.add('is-unavailable');
+  } else if (state === 'checking') {
+    authCreateUsernameStatus.classList.add('is-checking');
+  }
+}
+
+function updateCreateSubmitState() {
+  if (!authCreateSubmit) return;
+  if (authBusy) {
+    authCreateSubmit.disabled = true;
+    authCreateSubmit.setAttribute('aria-disabled', 'true');
+    return;
+  }
+  const username = authCreateUsername?.value?.trim() || '';
+  const password = authCreatePassword?.value || '';
+  const confirm = authCreateConfirm?.value || '';
+  const normalized = normalizeUsername(username);
+  const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+  const passwordsMatch = !!password && password === confirm;
+  const usernameReady = !!normalized && usernameAvailabilityState === 'available';
+  const ready = usernameReady && !unmetRules.length && passwordsMatch;
+  authCreateSubmit.disabled = !ready;
+  authCreateSubmit.setAttribute('aria-disabled', ready ? 'false' : 'true');
 }
 
 function getFriendlySignupError(error) {
@@ -24281,6 +24314,64 @@ if (authPasswordPolicy) {
 if (authCreatePassword) {
   authCreatePassword.addEventListener('input', () => {
     updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword.value || '', passwordPolicy);
+    updateCreateSubmitState();
+  });
+}
+
+if (authCreateConfirm) {
+  authCreateConfirm.addEventListener('input', () => {
+    updateCreateSubmitState();
+  });
+}
+
+async function refreshUsernameAvailability() {
+  if (!authCreateUsername) return;
+  const username = authCreateUsername.value || '';
+  const normalized = normalizeUsername(username);
+  if (!username.trim()) {
+    setUsernameAvailabilityStatus({ state: 'idle', message: '' });
+    updateCreateSubmitState();
+    return;
+  }
+  if (!normalized) {
+    setUsernameAvailabilityStatus({
+      state: 'unavailable',
+      message: 'Use 3-20 letters, numbers, or underscores.',
+    });
+    updateCreateSubmitState();
+    return;
+  }
+  const token = ++lastUsernameCheckToken;
+  setUsernameAvailabilityStatus({ state: 'checking', message: 'Checking availability…' });
+  try {
+    await primeFirebaseAuth();
+    const result = await checkUsernameAvailability(username);
+    if (token !== lastUsernameCheckToken) return;
+    if (result.available) {
+      setUsernameAvailabilityStatus({ state: 'available', message: 'Username is available.' });
+    } else {
+      setUsernameAvailabilityStatus({ state: 'unavailable', message: 'Username is already taken.' });
+    }
+  } catch (err) {
+    if (token !== lastUsernameCheckToken) return;
+    setUsernameAvailabilityStatus({
+      state: 'unavailable',
+      message: err?.message || 'Unable to check username.',
+    });
+    setAuthError(err?.message || 'Firebase failed to initialize.', 'create');
+  } finally {
+    updateCreateSubmitState();
+  }
+}
+
+if (authCreateUsername) {
+  authCreateUsername.addEventListener('input', () => {
+    setAuthError('', 'create');
+    setUsernameAvailabilityStatus({ state: 'idle', message: '' });
+    refreshUsernameAvailability();
+  });
+  authCreateUsername.addEventListener('blur', () => {
+    refreshUsernameAvailability();
   });
 }
 
@@ -24294,16 +24385,25 @@ function setDmVisibility(isDm) {
   if (dmMenu) dmMenu.hidden = hidden;
 }
 
+function setOfflineBlankState(enabled) {
+  if (typeof document === 'undefined') return;
+  const { body } = document;
+  if (!body) return;
+  offlineBlankActive = !!enabled;
+  body.classList.toggle('offline-blank', offlineBlankActive);
+}
+
 function updateWelcomeContinue() {
   if (!welcomeContinue) return;
   const { uid } = getAuthState();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const lastSave = readLastSaveName();
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: lastSave, uid });
-  const allowed = !!(uid || hasLocalSave);
-  welcomeContinue.hidden = !hasLocalSave && !uid;
-  welcomeContinue.disabled = !allowed;
-  welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+  welcomeContinue.disabled = false;
+  welcomeContinue.setAttribute('aria-disabled', 'false');
+  if (uid || hasLocalSave) {
+    setOfflineBlankState(false);
+  }
 }
 
 async function rehydrateLocalCache(uid) {
@@ -24468,12 +24568,49 @@ async function resolveSyncConflict(action) {
   }
 }
 
-function openAuthModal(view = 'login') {
-  if (!authModal) return;
-  setAuthError('');
-  setAuthView(view);
+async function primeFirebaseAuth() {
+  if (firebaseInitErrorMessage) {
+    return Promise.reject(new Error(firebaseInitErrorMessage));
+  }
+  try {
+    await initFirebaseAuth();
+    firebaseInitErrorMessage = '';
+    return true;
+  } catch (err) {
+    firebaseInitErrorMessage = err?.message || 'Firebase failed to initialize.';
+    throw err;
+  }
+}
+
+function openLoginModal() {
+  if (!authLoginModal) return;
+  clearAuthErrors();
   hide(WELCOME_MODAL_ID);
-  show('modal-auth');
+  show('modal-auth-login');
+  if (firebaseInitErrorMessage) {
+    setAuthError(firebaseInitErrorMessage, 'login');
+  } else {
+    primeFirebaseAuth().catch(err => {
+      setAuthError(err?.message || 'Firebase failed to initialize.', 'login');
+    });
+  }
+}
+
+function openCreateModal() {
+  if (!authCreateModal) return;
+  clearAuthErrors();
+  hide(WELCOME_MODAL_ID);
+  show('modal-auth-create');
+  if (firebaseInitErrorMessage) {
+    setAuthError(firebaseInitErrorMessage, 'create');
+  } else {
+    primeFirebaseAuth().catch(err => {
+      setAuthError(err?.message || 'Firebase failed to initialize.', 'create');
+    });
+  }
+  setUsernameAvailabilityStatus({ state: 'idle', message: '' });
+  updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
+  updateCreateSubmitState();
 }
 
 function openPostAuthChoice() {
@@ -24504,30 +24641,39 @@ function closeClaimModal() {
 
 async function handleAuthSubmit(mode) {
   try {
-    setAuthError('');
+    clearAuthErrors();
     setAuthBusy(true);
-    await initFirebaseAuth();
+    await primeFirebaseAuth();
     if (mode === 'create') {
       const username = authCreateUsername?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
       const confirm = authCreateConfirm?.value || '';
       const normalized = normalizeUsername(username);
       if (!username || !password) {
-        setAuthError('Enter a username and password to continue.');
+        setAuthError('Enter a username and password to continue.', 'create');
         return;
       }
       if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'create');
+        return;
+      }
+      if (usernameAvailabilityState !== 'available') {
+        setAuthError('That username is not available yet.', 'create');
         return;
       }
       if (password !== confirm) {
-        setAuthError('Passwords do not match.');
+        setAuthError('Passwords do not match.', 'create');
         return;
       }
       const lengthError = getPasswordLengthError(password, passwordPolicy);
       if (lengthError) {
         updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
-        setAuthError(lengthError);
+        setAuthError(lengthError, 'create');
+        return;
+      }
+      const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+      if (unmetRules.length) {
+        setAuthError('Password does not meet requirements.', 'create');
         return;
       }
       pendingPostAuthChoice = true;
@@ -24537,17 +24683,18 @@ async function handleAuthSubmit(mode) {
       const password = authLoginPassword?.value || '';
       const normalized = normalizeUsername(username);
       if (!username || !password) {
-        setAuthError('Enter your username and password to continue.');
+        setAuthError('Enter your username and password to continue.', 'login');
         return;
       }
       if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'login');
         return;
       }
       pendingPostAuthChoice = true;
       await signInWithUsernamePassword(username, password);
     }
-    hide('modal-auth');
+    hide('modal-auth-login');
+    hide('modal-auth-create');
   } catch (err) {
     console.error('Auth failed', err);
     if (mode === 'create') {
@@ -24559,12 +24706,12 @@ async function handleAuthSubmit(mode) {
         error: err,
       });
       if (policyFeedback) {
-        setAuthError(policyFeedback.message);
+        setAuthError(policyFeedback.message, 'create');
       } else {
-        setAuthError(getFriendlySignupError(err));
+        setAuthError(getFriendlySignupError(err), 'create');
       }
     } else {
-      setAuthError(err?.message || 'Unable to sign in.');
+      setAuthError(err?.message || 'Unable to sign in.', 'login');
     }
   } finally {
     setAuthBusy(false);
@@ -24863,7 +25010,7 @@ async function refreshClaimModal() {
 
 function createNewCharacterFromModal() {
   if (!getAuthState().uid) {
-    openAuthModal();
+    openLoginModal();
     return;
   }
   const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';
@@ -24883,6 +25030,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
   setClaimTokenAdminVisibility(!!isDm);
   if (uid) {
+    setOfflineBlankState(false);
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
     writeLastUserUid(uid);
@@ -24914,6 +25062,13 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   }
   setActiveUserId('');
   setActiveAuthUserId('');
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
+  if (!hasLocalSave && offlineBlankActive) {
+    setOfflineBlankState(true);
+    return;
+  }
+  setOfflineBlankState(false);
   welcomeModalDismissed = false;
   welcomeSequenceComplete = false;
   updateWelcomeContinue();
@@ -24921,29 +25076,28 @@ function handleAuthStateChange({ uid, isDm } = {}) {
 }
 
 if (welcomeLogin) {
-  welcomeLogin.addEventListener('click', () => openAuthModal('login'));
+  welcomeLogin.addEventListener('click', () => openLoginModal());
 }
 if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => openAuthModal('create'));
+  welcomeCreate.addEventListener('click', () => openCreateModal());
 }
 if (welcomeContinue) {
   welcomeContinue.addEventListener('click', () => {
     updateWelcomeContinue();
-    if (!welcomeContinue.disabled) {
+    const { uid } = getAuthState();
+    const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+    const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+    if (!uid && !hasLocalSave) {
+      setOfflineBlankState(true);
       dismissWelcomeModal();
-      restoreLastLoadedCharacter().catch(err => {
-        console.error('Failed to restore last loaded character', err);
-      });
       return;
     }
-    openAuthModal();
+    setOfflineBlankState(false);
+    dismissWelcomeModal();
+    restoreLastLoadedCharacter().catch(err => {
+      console.error('Failed to restore last loaded character', err);
+    });
   });
-}
-if (authTabLogin) {
-  authTabLogin.addEventListener('click', () => setAuthView('login'));
-}
-if (authTabCreate) {
-  authTabCreate.addEventListener('click', () => setAuthView('create'));
 }
 if (authLoginSubmit) {
   authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
@@ -24951,12 +25105,32 @@ if (authLoginSubmit) {
 if (authCreateSubmit) {
   authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
 }
-if (authCancel) {
-  authCancel.addEventListener('click', () => {
-    hide('modal-auth');
+if (authLoginCancel) {
+  authLoginCancel.addEventListener('click', () => {
+    hide('modal-auth-login');
     if (!getAuthState().uid) {
       queueWelcomeModal({ immediate: true });
     }
+  });
+}
+if (authCreateCancel) {
+  authCreateCancel.addEventListener('click', () => {
+    hide('modal-auth-create');
+    if (!getAuthState().uid) {
+      queueWelcomeModal({ immediate: true });
+    }
+  });
+}
+if (authLoginOpenCreate) {
+  authLoginOpenCreate.addEventListener('click', () => {
+    hide('modal-auth-login');
+    openCreateModal();
+  });
+}
+if (authCreateOpenLogin) {
+  authCreateOpenLogin.addEventListener('click', () => {
+    hide('modal-auth-create');
+    openLoginModal();
   });
 }
 if (postAuthImport) {
@@ -25021,8 +25195,7 @@ if (conflictModal) {
   conflictModal.addEventListener('click', handleConflictDismiss, true);
 }
 
-setAuthView('login');
-initFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
+primeFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
 onAuthStateChanged(handleAuthStateChange);
 handleAuthStateChange(getAuthState());
 

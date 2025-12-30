@@ -1,5 +1,5 @@
 export const PASSWORD_POLICY = Object.freeze({
-  minLength: 8,
+  minLength: 10,
   maxLength: 64,
   requireUpper: true,
   requireLower: true,

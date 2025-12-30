@@ -1,6 +1,6 @@
 import { toast } from './notifications.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
-import { getAuthToken } from './auth.js';
+import { getFirebaseDatabase } from './auth.js';
 import {
   addOutboxEntry,
   createCloudSaveOutboxEntry,
@@ -19,22 +19,9 @@ const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
 const LAST_SYNCED_PREFIX = 'cc:last-synced:';
 const CONFLICT_SNAPSHOT_PREFIX = 'cc:conflict:';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
-const FETCH_SUPPORTED = typeof fetch === 'function';
-const EVENTSOURCE_SUPPORTED = typeof EventSource === 'function';
-let cloudSyncDisabled = !FETCH_SUPPORTED;
-let cloudSyncUnsupported = !FETCH_SUPPORTED || !EVENTSOURCE_SUPPORTED;
-let cloudSyncDisabledReason = (() => {
-  if (!FETCH_SUPPORTED && !EVENTSOURCE_SUPPORTED) {
-    return 'Cloud sync requires fetch and EventSource support.';
-  }
-  if (!FETCH_SUPPORTED) {
-    return 'Cloud sync requires fetch support.';
-  }
-  if (!EVENTSOURCE_SUPPORTED) {
-    return 'Cloud sync requires EventSource support.';
-  }
-  return '';
-})();
+let cloudSyncDisabled = false;
+let cloudSyncUnsupported = false;
+let cloudSyncDisabledReason = '';
 let cloudSyncSupportToastShown = false;
 
 if (cloudSyncUnsupported) {
@@ -362,13 +349,12 @@ export function listLegacyLocalSaves() {
 }
 
 // ===== Firebase Cloud Save =====
-const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
-const CLOUD_SAVES_URL = `${CLOUD_BASE_URL}/saves`;
-const CLOUD_HISTORY_URL = `${CLOUD_BASE_URL}/history`;
-const CLOUD_AUTOSAVES_URL = `${CLOUD_BASE_URL}/autosaves`;
-const CLOUD_CAMPAIGN_LOG_URL = `${CLOUD_BASE_URL}/campaignLogs`;
-const CLOUD_CHARACTERS_URL = `${CLOUD_BASE_URL}/characters`;
-const CLOUD_USERS_URL = `${CLOUD_BASE_URL}/users`;
+const CLOUD_SAVES_PATH = 'saves';
+const CLOUD_HISTORY_PATH = 'history';
+const CLOUD_AUTOSAVES_PATH = 'autosaves';
+const CLOUD_CAMPAIGN_LOG_PATH = 'campaignLogs';
+const CLOUD_CHARACTERS_PATH = 'characters';
+const CLOUD_USERS_PATH = 'users';
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -804,12 +790,11 @@ function normalizeAutosaveOutboxEntry(entry) {
   };
 }
 
-async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId, cloudUrls }) {
+async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId }) {
   const autosaveKey = resolveAutosaveKey({ uid, characterId });
   if (!autosaveKey) {
     throw new Error('Invalid autosave key');
   }
-  const urls = cloudUrls || getCloudUrls();
   const encoded = encodePath(autosaveKey);
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -818,13 +803,8 @@ async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId, 
     error.cause = serialized.error;
     throw error;
   }
-  const autosaveUrl = await withAuth(`${urls.autosavesUrl}/${encoded}/${ts}.json`);
-  const res = await cloudFetch(autosaveUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(`${CLOUD_AUTOSAVES_PATH}/${encoded}/${ts}`);
+  await ref.set(serialized.value);
 }
 
 async function flushLocalCloudOutbox() {
@@ -864,7 +844,7 @@ async function flushLocalCloudOutbox() {
           }
           await pushQueuedAutosaveLocally(normalized.entry);
         } else {
-          await attemptCloudSave(entry.name, entry.payload, entry.ts, { cloudUrls: entry.cloudUrls });
+          await attemptCloudSave(entry.name, entry.payload, entry.ts);
         }
         if (entry?.id !== undefined) {
           await deleteOutboxEntry(entry.id, OUTBOX_STORE);
@@ -948,40 +928,25 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   window.addEventListener('online', resetOfflineNotices);
 }
 
-// Direct fetch helper used by cloud save functions.
-async function cloudFetch(url, options = {}) {
-  const res = await fetch(url, options);
-  const ok = typeof res?.ok === 'boolean' ? res.ok : true;
-  const status = typeof res?.status === 'number' ? res.status : 200;
-  const json = typeof res?.json === 'function' ? res.json.bind(res) : async () => null;
-  const text = typeof res?.text === 'function' ? res.text.bind(res) : async () => '';
-  const arrayBuffer =
-    typeof res?.arrayBuffer === 'function' ? res.arrayBuffer.bind(res) : async () => new ArrayBuffer(0);
-  const blob = typeof res?.blob === 'function' ? res.blob.bind(res) : async () => new Blob();
-  const clone = typeof res?.clone === 'function' ? res.clone.bind(res) : undefined;
-  const headers = res?.headers ?? null;
-
-  const normalized = { ok, status, json, text, arrayBuffer, blob, headers, raw: res ?? null };
-  if (clone) {
-    normalized.clone = clone;
-  }
-  if (res?.url) {
-    normalized.url = res.url;
-  }
-  return normalized;
+async function getDatabaseRef(path) {
+  const db = await getFirebaseDatabase();
+  return db.ref(path);
 }
 
-async function withAuth(url) {
-  if (!url) return url;
-  try {
-    const token = await getAuthToken();
-    if (!token) return url;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}auth=${encodeURIComponent(token)}`;
-  } catch (err) {
-    console.warn('Failed to resolve auth token for cloud request', err);
-    return url;
-  }
+function getServerTimestampValue() {
+  return window.firebase?.database?.ServerValue?.TIMESTAMP ?? Date.now();
+}
+
+async function getCloudUrlsForOutbox() {
+  const db = await getFirebaseDatabase();
+  const databaseURL = db?.app?.options?.databaseURL;
+  if (!databaseURL) return null;
+  const base = databaseURL.replace(/\/$/, '');
+  return {
+    savesUrl: `${base}/${CLOUD_SAVES_PATH}`,
+    historyUrl: `${base}/${CLOUD_HISTORY_PATH}`,
+    autosavesUrl: `${base}/${CLOUD_AUTOSAVES_PATH}`,
+  };
 }
 
 // Encode each path segment separately so callers can supply hierarchical
@@ -1003,51 +968,42 @@ function encodePath(name) {
     .join('/');
 }
 
-function getCloudUrls() {
-  return {
-    savesUrl: CLOUD_SAVES_URL,
-    historyUrl: CLOUD_HISTORY_URL,
-    autosavesUrl: CLOUD_AUTOSAVES_URL,
-    campaignUrl: CLOUD_CAMPAIGN_LOG_URL,
-  };
-}
-
-function getUserUrls(uid) {
+function getUserPaths(uid) {
   const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
   if (!normalizedUid) return null;
   const encodedUid = encodePath(normalizedUid);
   return {
-    charactersUrl: `${CLOUD_CHARACTERS_URL}/${encodedUid}`,
-    autosavesUrl: `${CLOUD_AUTOSAVES_URL}/${encodedUid}`,
-    historyUrl: `${CLOUD_HISTORY_URL}/${encodedUid}`,
-    profileUrl: `${CLOUD_USERS_URL}/${encodedUid}/profile`,
-    charactersIndexUrl: `${CLOUD_USERS_URL}/${encodedUid}/charactersIndex`,
-    autosaveIndexUrl: `${CLOUD_USERS_URL}/${encodedUid}/autosaves`,
+    charactersPath: `${CLOUD_CHARACTERS_PATH}/${encodedUid}`,
+    autosavesPath: `${CLOUD_AUTOSAVES_PATH}/${encodedUid}`,
+    historyPath: `${CLOUD_HISTORY_PATH}/${encodedUid}`,
+    profilePath: `${CLOUD_USERS_PATH}/${encodedUid}/profile`,
+    charactersIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/charactersIndex`,
+    autosaveIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/autosaves`,
   };
 }
 
 export function buildUserCharacterPath(uid, characterId) {
-  const urls = getUserUrls(uid);
-  if (!urls) return '';
+  const paths = getUserPaths(uid);
+  if (!paths) return '';
   const encodedCharacterId = encodePath(characterId || '');
   if (!encodedCharacterId) return '';
-  return `${urls.charactersUrl}/${encodedCharacterId}`;
+  return `${paths.charactersPath}/${encodedCharacterId}`;
 }
 
 export function buildUserCharacterIndexPath(uid, characterId) {
-  const urls = getUserUrls(uid);
-  if (!urls) return '';
+  const paths = getUserPaths(uid);
+  if (!paths) return '';
   const encodedCharacterId = encodePath(characterId || '');
   if (!encodedCharacterId) return '';
-  return `${urls.charactersIndexUrl}/${encodedCharacterId}`;
+  return `${paths.charactersIndexPath}/${encodedCharacterId}`;
 }
 
 export function buildUserAutosaveIndexPath(uid, characterId) {
-  const urls = getUserUrls(uid);
-  if (!urls) return '';
+  const paths = getUserPaths(uid);
+  if (!paths) return '';
   const encodedCharacterId = encodePath(characterId || '');
   if (!encodedCharacterId) return '';
-  return `${urls.autosaveIndexUrl}/${encodedCharacterId}`;
+  return `${paths.autosaveIndexPath}/${encodedCharacterId}`;
 }
 
 export function readLastSyncedAt(characterId) {
@@ -1158,7 +1114,7 @@ function decodePath(name) {
     .join('/');
 }
 
-async function saveHistoryEntry(baseUrl, name, payload, ts) {
+async function saveHistoryEntry(basePath, name, payload, ts) {
   const encodedName = encodePath(name);
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -1168,13 +1124,8 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
     throw error;
   }
 
-  const url = await withAuth(`${baseUrl}/${encodedName}/${ts}.json`);
-  const res = await cloudFetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const entryRef = await getDatabaseRef(`${basePath}/${encodedName}/${ts}`);
+  await entryRef.set(serialized.value);
 
   const parseKeys = (val) =>
     val
@@ -1187,41 +1138,20 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
   let keys = [];
 
   try {
-    const limitedRes = await cloudFetch(
-      `${baseUrl}/${encodedName}.json?orderBy="$key"&limitToLast=4`,
-      { method: 'GET' }
-    );
-    if (!limitedRes.ok) {
-      throw new Error(`HTTP ${limitedRes.status}`);
-    }
-    const val = await limitedRes.json();
-    keys = parseKeys(val);
+    const historyRef = await getDatabaseRef(`${basePath}/${encodedName}`);
+    const snapshot = await historyRef.orderByKey().limitToLast(4).once('value');
+    keys = parseKeys(snapshot.val());
   } catch (err) {
-    try {
-      const listRes = await cloudFetch(
-        `${baseUrl}/${encodedName}.json`,
-        { method: 'GET' }
-      );
-      if (!listRes.ok) return;
-      const val = await listRes.json();
-      keys = parseKeys(val);
-    } catch (legacyErr) {
-      return;
-    }
+    return;
   }
 
   const excess = keys.slice(3);
-  await Promise.all(
-    excess.map((k) =>
-      cloudFetch(`${baseUrl}/${encodedName}/${k}.json`, {
-        method: 'DELETE',
-      })
-    )
-  );
+  if (!excess.length) return;
+  const historyRef = await getDatabaseRef(`${basePath}/${encodedName}`);
+  await Promise.all(excess.map((k) => historyRef.child(String(k)).remove()));
 }
 
-async function attemptCloudSave(name, payload, ts, { cloudUrls } = {}) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+async function attemptCloudSave(name, payload, ts) {
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
     const error = new Error('Invalid JSON payload for cloud save');
@@ -1229,13 +1159,8 @@ async function attemptCloudSave(name, payload, ts, { cloudUrls } = {}) {
     error.cause = serialized.error;
     throw error;
   }
-  const urls = cloudUrls || getCloudUrls();
-  const res = await cloudFetch(`${urls.savesUrl}/${encodePath(name)}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+  await ref.set(serialized.value);
 
   try {
     writeLastSaveName(name);
@@ -1251,7 +1176,7 @@ async function attemptCloudSave(name, payload, ts, { cloudUrls } = {}) {
   }
 
   try {
-    await saveHistoryEntry(urls.historyUrl, name, serialized.value, ts);
+    await saveHistoryEntry(CLOUD_HISTORY_PATH, name, serialized.value, ts);
   } catch (err) {
     console.warn('Failed to update cloud save history after successful save', err);
     emitSyncError({
@@ -1266,8 +1191,6 @@ async function attemptCloudSave(name, payload, ts, { cloudUrls } = {}) {
 }
 
 export async function appendCampaignLogEntry(entry = {}) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-
   const id = typeof entry.id === 'string' && entry.id ? entry.id : String(nextCampaignLogTimestamp());
   let ts = typeof entry.t === 'number' && Number.isFinite(entry.t) ? entry.t : Date.now();
   if (!Number.isFinite(ts) || ts <= 0) {
@@ -1291,32 +1214,22 @@ export async function appendCampaignLogEntry(entry = {}) {
     error.cause = serialized.error;
     throw error;
   }
-  const urls = getCloudUrls();
-  const res = await cloudFetch(`${urls.campaignUrl}/${encodePath(id)}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(`${CLOUD_CAMPAIGN_LOG_PATH}/${encodePath(id)}`);
+  await ref.set(serialized.value);
 
   return { ...payload, id };
 }
 
 export async function deleteCampaignLogEntry(id) {
   if (typeof id !== 'string' || !id) return;
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const urls = getCloudUrls();
-  const res = await cloudFetch(`${urls.campaignUrl}/${encodePath(id)}.json`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(`${CLOUD_CAMPAIGN_LOG_PATH}/${encodePath(id)}`);
+  await ref.remove();
 }
 
 export async function fetchCampaignLogEntries() {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const urls = getCloudUrls();
-  const res = await cloudFetch(`${urls.campaignUrl}.json`, { method: 'GET' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const ref = await getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH);
+  const snapshot = await ref.once('value');
+  const data = snapshot.val();
   if (!data) return [];
   const entries = Object.entries(data).map(([id, value]) => {
     const record = value && typeof value === 'object' ? value : {};
@@ -1342,33 +1255,28 @@ export async function fetchCampaignLogEntries() {
 
 export function subscribeCampaignLog(onChange) {
   try {
-    if (typeof EventSource !== 'function') {
-      if (typeof onChange === 'function') {
-        onChange();
-      }
-      return null;
-    }
-
-    const urls = getCloudUrls();
-    const src = new EventSource(`${urls.campaignUrl}.json`);
     const handler = () => {
       if (typeof onChange === 'function') {
         onChange();
       }
     };
-
-    src.addEventListener('put', handler);
-    src.addEventListener('patch', handler);
-    src.onerror = () => {
-      try { src.close(); } catch {}
-      setTimeout(() => subscribeCampaignLog(onChange), 2000);
-    };
+    getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH)
+      .then(ref => {
+        ref.on('value', handler);
+      })
+      .catch(err => {
+        console.error('Failed to subscribe to campaign log', err);
+      });
 
     if (typeof onChange === 'function') {
       onChange();
     }
 
-    return src;
+    return () => {
+      getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH)
+        .then(ref => ref.off('value', handler))
+        .catch(() => {});
+    };
   } catch (e) {
     console.error('Failed to subscribe to campaign log', e);
     if (typeof onChange === 'function') {
@@ -1388,10 +1296,10 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
   const deviceId = getDeviceId();
   const uid = activeAuthUserId;
   const characterId = payload?.character?.characterId || payload?.characterId || '';
-  const cloudUrls = getCloudUrls();
 
   let entry;
   try {
+    const cloudUrls = await getCloudUrlsForOutbox();
     entry = createCloudSaveOutboxEntry({
       name,
       payload: data,
@@ -1437,6 +1345,7 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       characterId,
       kind: entry.kind,
       queuedAt: entry.queuedAt,
+      cloudUrls: entry.cloudUrls || null,
       requestId,
     };
 
@@ -1564,10 +1473,6 @@ export async function saveCloud(name, payload) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
   }
-  if (typeof fetch !== 'function') {
-    disableCloudSync('fetch not supported');
-    return 'disabled';
-  }
   if (!isNavigatorOffline()) {
     offlineQueueToastShown = false;
   }
@@ -1581,10 +1486,6 @@ export async function saveCloud(name, payload) {
     emitSyncQueueUpdate();
     return 'saved';
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      disableCloudSync('fetch not supported');
-      return 'disabled';
-    }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
     if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
       notifySaveQueued();
@@ -1611,30 +1512,24 @@ export async function saveCloudAutosave(name, payload) {
     showCloudSyncUnsupportedNotice();
     return null;
   }
-  if (typeof fetch !== 'function') {
-    disableCloudSync('fetch not supported');
-    return null;
-  }
   const ts = nextHistoryTimestamp();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
-  const urls = getCloudUrls();
   const uid = activeAuthUserId;
-  const userUrls = uid ? getUserUrls(uid) : null;
+  const userPaths = uid ? getUserPaths(uid) : null;
   if (!characterId) {
     const error = new Error('Autosave requires characterId');
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
-  if (!userUrls) {
+  if (!userPaths) {
     const error = new Error('Autosave requires login');
     error.name = 'InvalidAutosaveKey';
     throw error;
   }
   const autosaveKey = characterId;
-  const autosavePathBase = autosaveKey
-    ? `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/${encodePath(autosaveKey)}/${ts}.json`
-    : `${(userUrls ? userUrls.autosavesUrl : urls.autosavesUrl)}/.json`;
-  const autosavePath = await withAuth(autosavePathBase);
+  const autosavePath = autosaveKey
+    ? `${userPaths.autosavesPath}/${encodePath(autosaveKey)}/${ts}`
+    : `${userPaths.autosavesPath}`;
   const payloadWithMeta = {
     ...payload,
     meta: {
@@ -1653,34 +1548,24 @@ export async function saveCloudAutosave(name, payload) {
       autosaveDebugLogged = true;
       console.info('Autosave debug path', { autosaveKey, autosavePath });
     }
-    const autosaveBase = userUrls ? userUrls.autosavesUrl : urls.autosavesUrl;
-    await saveHistoryEntry(autosaveBase, autosaveKey, payloadWithMeta, ts);
-    if (userUrls?.autosaveIndexUrl) {
+    await saveHistoryEntry(userPaths.autosavesPath, autosaveKey, payloadWithMeta, ts);
+    if (userPaths?.autosaveIndexPath) {
       const autosaveIndexPayload = {
         latestTs: ts,
         name: typeof name === 'string' ? name : '',
         updatedAt: Date.now(),
-        updatedAtServer: { '.sv': 'timestamp' },
+        updatedAtServer: getServerTimestampValue(),
       };
-      const autosaveIndexUrl = await withAuth(
-        `${userUrls.autosaveIndexUrl}/${encodePath(autosaveKey)}.json`
+      const autosaveIndexRef = await getDatabaseRef(
+        `${userPaths.autosaveIndexPath}/${encodePath(autosaveKey)}`
       );
-      const indexRes = await cloudFetch(autosaveIndexUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(autosaveIndexPayload),
-      });
-      if (!indexRes.ok) throw new Error(`HTTP ${indexRes.status}`);
+      await autosaveIndexRef.set(autosaveIndexPayload);
     }
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
     return ts;
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      disableCloudSync('fetch not supported');
-      return null;
-    }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
     if (shouldQueue && (await enqueueCloudSave(name, payloadWithMeta, ts, { kind: 'autosave' }))) {
       notifySaveQueued();
@@ -1697,21 +1582,16 @@ export async function saveCloudCharacter(uid, characterId, payload) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
   }
-  if (typeof fetch !== 'function') {
-    disableCloudSync('fetch not supported');
-    return 'disabled';
-  }
-  const urls = getUserUrls(uid);
-  if (!urls) throw new Error('Missing user id');
+  if (!getUserPaths(uid)) throw new Error('Missing user id');
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing character id');
   const payloadWithServerTime = {
     ...payload,
     meta: {
       ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
-      updatedAtServer: { '.sv': 'timestamp' },
+      updatedAtServer: getServerTimestampValue(),
     },
-    updatedAtServer: { '.sv': 'timestamp' },
+    updatedAtServer: getServerTimestampValue(),
   };
   const serialized = safeJsonStringify(payloadWithServerTime);
   if (!serialized.ok) {
@@ -1720,55 +1600,43 @@ export async function saveCloudCharacter(uid, characterId, payload) {
     error.cause = serialized.error;
     throw error;
   }
-  const url = await withAuth(`${targetPath}.json`);
-  const res = await cloudFetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(targetPath);
+  await ref.set(serialized.value);
   return 'saved';
 }
 
 export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing user id or character id');
-  const url = await withAuth(`${targetPath}.json`);
-  const res = await cloudFetch(url, { method: 'GET', signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const val = await res.json();
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const ref = await getDatabaseRef(targetPath);
+  const snapshot = await ref.once('value');
+  const val = snapshot.val();
   if (val !== null) return val;
   throw new Error('No character found');
 }
 
 export async function listCloudCharacters(uid) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getUserUrls(uid);
-    if (!urls) return [];
-    const url = await withAuth(`${urls.charactersUrl}.json`);
-    const res = await cloudFetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const paths = getUserPaths(uid);
+    if (!paths) return [];
+    const ref = await getDatabaseRef(paths.charactersPath);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (!val || typeof val !== 'object') return [];
     return Object.entries(val).map(([characterId, payload]) => ({
       characterId,
       payload,
     }));
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud character list failed', e);
     return [];
   }
 }
 
 export async function saveUserProfile(uid, profile) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const urls = getUserUrls(uid);
-  if (!urls) throw new Error('Missing user id');
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
   const serialized = safeJsonStringify(profile);
   if (!serialized.ok) {
     const error = new Error('Invalid JSON payload for profile');
@@ -1776,23 +1644,17 @@ export async function saveUserProfile(uid, profile) {
     error.cause = serialized.error;
     throw error;
   }
-  const url = await withAuth(`${urls.profileUrl}.json`);
-  const res = await cloudFetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(paths.profilePath);
+  await ref.set(serialized.value);
 }
 
 export async function saveCharacterIndexEntry(uid, characterId, entry) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const path = buildUserCharacterIndexPath(uid, characterId);
   if (!path) throw new Error('Missing user id or character id');
   const payload = {
     name: entry?.name || '',
     updatedAt: Number(entry?.updatedAt) || 0,
-    updatedAtServer: { '.sv': 'timestamp' },
+    updatedAtServer: getServerTimestampValue(),
   };
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
@@ -1801,19 +1663,13 @@ export async function saveCharacterIndexEntry(uid, characterId, entry) {
     error.cause = serialized.error;
     throw error;
   }
-  const url = await withAuth(`${path}.json`);
-  const res = await cloudFetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: serialized.json,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(path);
+  await ref.set(serialized.value);
 }
 
 export async function saveCloudConflictBackup(uid, characterId, payload, { label = '' } = {}) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const urls = getUserUrls(uid);
-  if (!urls) throw new Error('Missing user id');
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
   const safeLabel = typeof label === 'string' ? label.trim() : '';
   const entryPayload = {
     ...payload,
@@ -1824,28 +1680,24 @@ export async function saveCloudConflictBackup(uid, characterId, payload, { label
     },
   };
   const ts = nextHistoryTimestamp();
-  await saveHistoryEntry(`${urls.historyUrl}/${encodePath(characterId)}`, 'conflict', entryPayload, ts);
+  await saveHistoryEntry(`${paths.historyPath}/${encodePath(characterId)}`, 'conflict', entryPayload, ts);
   return ts;
 }
 
 export async function deleteCharacterIndexEntry(uid, characterId) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const path = buildUserCharacterIndexPath(uid, characterId);
   if (!path) throw new Error('Missing user id or character id');
-  const url = await withAuth(`${path}.json`);
-  const res = await cloudFetch(url, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(path);
+  await ref.remove();
 }
 
 export async function listCharacterIndex(uid) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getUserUrls(uid);
-    if (!urls) return [];
-    const url = await withAuth(`${urls.charactersIndexUrl}.json`);
-    const res = await cloudFetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const paths = getUserPaths(uid);
+    if (!paths) return [];
+    const ref = await getDatabaseRef(paths.charactersIndexPath);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (!val || typeof val !== 'object') return [];
     return Object.entries(val).map(([characterId, entry]) => ({
       characterId,
@@ -1854,78 +1706,55 @@ export async function listCharacterIndex(uid) {
       updatedAtServer: Number(entry?.updatedAtServer) || 0,
     }));
   } catch (err) {
-    if (err && err.message === 'fetch not supported') {
-      throw err;
-    }
     console.error('Character index list failed', err);
     return [];
   }
 }
 
 export async function deleteCloudCharacter(uid, characterId) {
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing user id or character id');
-  const url = await withAuth(`${targetPath}.json`);
-  const res = await cloudFetch(url, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ref = await getDatabaseRef(targetPath);
+  await ref.remove();
 }
 
 export async function loadCloud(name, { signal } = {}) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(
-      `${urls.savesUrl}/${encodePath(name)}.json`,
-      { method: 'GET', signal }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (val !== null) return val;
   } catch (e) {
     if (e?.name === 'AbortError') {
       throw e;
     }
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud load failed', e);
-    }
+    console.error('Cloud load failed', e);
   }
   throw new Error('No save found');
 }
 
 export async function deleteCloud(name) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(`${urls.savesUrl}/${encodePath(name)}.json`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+    await ref.remove();
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
     }
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud delete failed', e);
   }
 }
 
 export async function listCloudSaves() {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(`${urls.savesUrl}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(CLOUD_SAVES_PATH);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     // Keys in the realtime database are URL-encoded because we escape them when
     // saving. Decode them here so callers receive the original character names.
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud list failed', e);
     return [];
   }
@@ -1933,13 +1762,9 @@ export async function listCloudSaves() {
 
 export async function listCloudBackups(name) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(
-      `${urls.historyUrl}/${encodePath(name)}.json`
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(`${CLOUD_HISTORY_PATH}/${encodePath(name)}`);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     return val
       ? Object.keys(val)
           .map(k => Number(k))
@@ -1947,9 +1772,6 @@ export async function listCloudBackups(name) {
           .map(ts => ({ ts }))
       : [];
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud history list failed', e);
     return [];
   }
@@ -1957,18 +1779,14 @@ export async function listCloudBackups(name) {
 
 export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const uid = activeAuthUserId;
-    const userUrls = uid ? getUserUrls(uid) : null;
-    if (!userUrls) return [];
+    const userPaths = uid ? getUserPaths(uid) : null;
+    if (!userPaths) return [];
     const autosaveKey = characterId;
     if (!autosaveKey) return [];
-    const urls = userUrls;
-    const res = await cloudFetch(
-      await withAuth(`${urls.autosavesUrl}/${encodePath(autosaveKey)}.json`)
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(`${userPaths.autosavesPath}/${encodePath(autosaveKey)}`);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     return val
       ? Object.keys(val)
           .map(k => Number(k))
@@ -1976,9 +1794,6 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
           .map(ts => ({ ts }))
       : [];
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud autosave list failed', e);
     return [];
   }
@@ -1987,16 +1802,11 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
 
 export async function listCloudBackupNames() {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(`${urls.historyUrl}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(CLOUD_HISTORY_PATH);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud history names failed', e);
     return [];
   }
@@ -2004,14 +1814,12 @@ export async function listCloudBackupNames() {
 
 export async function listCloudAutosaveNames() {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const uid = activeAuthUserId;
-    const userUrls = uid ? getUserUrls(uid) : null;
-    if (!userUrls) return [];
-    const indexUrl = await withAuth(`${userUrls.autosaveIndexUrl}.json`);
-    const indexRes = await cloudFetch(indexUrl);
-    if (!indexRes.ok) throw new Error(`HTTP ${indexRes.status}`);
-    const indexVal = await indexRes.json();
+    const userPaths = uid ? getUserPaths(uid) : null;
+    if (!userPaths) return [];
+    const indexRef = await getDatabaseRef(userPaths.autosaveIndexPath);
+    const indexSnapshot = await indexRef.once('value');
+    const indexVal = indexSnapshot.val();
     if (indexVal && typeof indexVal === 'object') {
       const names = Object.values(indexVal)
         .map(entry => entry?.name)
@@ -2021,10 +1829,9 @@ export async function listCloudAutosaveNames() {
         return names;
       }
     }
-    const url = await withAuth(`${userUrls.autosavesUrl}.json`);
-    const res = await cloudFetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(userPaths.autosavesPath);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (!val || typeof val !== 'object') return [];
     const names = [];
     for (const entry of Object.values(val)) {
@@ -2041,9 +1848,6 @@ export async function listCloudAutosaveNames() {
     }
     return names;
   } catch (e) {
-    if (e && e.message === 'fetch not supported') {
-      throw e;
-    }
     console.error('Cloud autosave names failed', e);
     return [];
   }
@@ -2051,41 +1855,28 @@ export async function listCloudAutosaveNames() {
 
 export async function loadCloudBackup(name, ts) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const urls = getCloudUrls();
-    const res = await cloudFetch(
-      `${urls.historyUrl}/${encodePath(name)}/${ts}.json`,
-      { method: 'GET' }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(`${CLOUD_HISTORY_PATH}/${encodePath(name)}/${ts}`);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (val !== null) return val;
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud history load failed', e);
-    }
+    console.error('Cloud history load failed', e);
   }
   throw new Error('No backup found');
 }
 
 export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const uid = activeAuthUserId;
-    const urls = getUserUrls(uid);
+    const urls = getUserPaths(uid);
     const autosaveKey = characterId;
     if (!urls || !autosaveKey) throw new Error('Invalid autosave key');
-    const res = await cloudFetch(
-      await withAuth(`${urls.autosavesUrl}/${encodePath(autosaveKey)}/${ts}.json`),
-      { method: 'GET' }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const val = await res.json();
+    const ref = await getDatabaseRef(`${urls.autosavesPath}/${encodePath(autosaveKey)}/${ts}`);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
     if (val !== null) return val;
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud autosave load failed', e);
-    }
+    console.error('Cloud autosave load failed', e);
   }
   throw new Error('No backup found');
 }
@@ -2190,9 +1981,6 @@ export async function cacheCloudSaves(
             if (e?.name === 'AbortError' || signal?.aborted) {
               throw e;
             }
-            if (e && e.message === 'fetch not supported') {
-              throw e;
-            }
             if (e && e.message === 'No save found') {
               return;
             }
@@ -2212,9 +2000,6 @@ export async function cacheCloudSaves(
   } catch (e) {
     if (e?.name === 'AbortError') {
       return;
-    }
-    if (e && e.message === 'fetch not supported') {
-      throw e;
     }
     if (e && e.message === 'No save found') {
       return;
@@ -2236,27 +2021,27 @@ export async function cacheCloudSaves(
 // locally. This keeps all open tabs in sync without manual refreshes.
 export function subscribeCloudSaves(onChange = cacheCloudSaves) {
   try {
-    if (cloudSyncDisabled || typeof EventSource !== 'function') {
+    if (cloudSyncDisabled) {
       if (cloudSyncUnsupported) {
         showCloudSyncUnsupportedNotice();
       }
       return null;
     }
-
-    const urls = getCloudUrls();
-    const src = new EventSource(`${urls.savesUrl}.json`);
     const handler = () => onChange();
+    getDatabaseRef(CLOUD_SAVES_PATH)
+      .then(ref => {
+        ref.on('value', handler);
+      })
+      .catch(err => {
+        console.error('Failed to subscribe to cloud saves', err);
+      });
 
-    src.addEventListener('put', handler);
-    src.addEventListener('patch', handler);
-    src.onerror = () => {
-      try { src.close(); } catch {}
-      setTimeout(() => subscribeCloudSaves(onChange), 2000);
-    };
-
-    // Prime local cache immediately on subscription.
     onChange();
-    return src;
+    return () => {
+      getDatabaseRef(CLOUD_SAVES_PATH)
+        .then(ref => ref.off('value', handler))
+        .catch(() => {});
+    };
   } catch (e) {
     console.error('Failed to subscribe to cloud saves', e);
     return null;

@@ -150,8 +150,16 @@ function showToastMessage(message, { type = 'info', duration = 4000 } = {}) {
   }
 }
 
-const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
+import { getFirebaseDatabase } from '../scripts/auth.js';
+
+const CLOUD_MINI_GAMES_PATH = 'miniGames';
 const DEPLOYMENT_STATUS_VALUES = new Set(['pending', 'active', 'completed', 'cancelled', 'scheduled', 'expired']);
+
+async function getMiniGamesRef(path = '') {
+  const db = await getFirebaseDatabase();
+  const suffix = path ? `/${path}` : '';
+  return db.ref(`${CLOUD_MINI_GAMES_PATH}${suffix}`);
+}
 
 function showError(message) {
   if (!errorEl) return;
@@ -302,13 +310,9 @@ async function fetchDeploymentPayload(player, deploymentId) {
   const trimmedPlayer = sanitizePlayerName(player);
   const trimmedDeployment = String(deploymentId ?? '').trim();
   if (!trimmedPlayer || !trimmedDeployment) return null;
-  if (typeof fetch !== 'function') return null;
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}.json`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const data = await res.json();
+  const ref = await getMiniGamesRef(`${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}`);
+  const snapshot = await ref.once('value');
+  const data = snapshot.val();
   if (!data || typeof data !== 'object') return null;
   return data;
 }
@@ -348,16 +352,11 @@ async function patchDeploymentStatus(player, deploymentId, patch = {}) {
   const trimmedPlayer = sanitizePlayerName(player);
   const trimmedDeployment = String(deploymentId ?? '').trim();
   if (!trimmedPlayer || !trimmedDeployment) return false;
-  if (typeof fetch !== 'function') return false;
   const payload = stripUndefined({ ...patch, updatedAt: Date.now() });
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}.json`;
   try {
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return res.ok;
+    const ref = await getMiniGamesRef(`${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}`);
+    await ref.update(payload);
+    return true;
   } catch (err) {
     console.error('Failed to update deployment status', err);
     return false;

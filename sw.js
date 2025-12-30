@@ -142,10 +142,6 @@ async function precacheAll(cache, manifest) {
   }
 }
 
-const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
-const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
-const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
-const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 const SW_BUILD = 'autosave-key-v2';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
@@ -324,7 +320,10 @@ async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloud
     if (!autosaveKey) {
       throw new Error('Invalid autosave key');
     }
-    const autosaveBase = cloudUrls?.autosavesUrl || CLOUD_AUTOSAVES_URL;
+    const autosaveBase = cloudUrls?.autosavesUrl;
+    if (!autosaveBase) {
+      throw new Error('Missing autosave base URL');
+    }
     const autosaveRes = await fetch(`${autosaveBase}/${encodePath(autosaveKey)}/${ts}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -335,8 +334,11 @@ async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloud
   }
 
   const encoded = encodePath(name);
-  const savesBase = cloudUrls?.savesUrl || CLOUD_SAVES_URL;
-  const historyBase = cloudUrls?.historyUrl || CLOUD_HISTORY_URL;
+  const savesBase = cloudUrls?.savesUrl;
+  const historyBase = cloudUrls?.historyUrl;
+  if (!savesBase || !historyBase) {
+    throw new Error('Missing cloud save base URL');
+  }
   const res = await fetch(`${savesBase}/${encoded}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -363,15 +365,22 @@ async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloud
   }
 }
 
-async function pushQueuedPin({ name, hash, op }) {
+async function pushQueuedPin({ name, hash, op, pinsUrl }) {
   const encoded = encodePath(name);
+  const pinsBase = pinsUrl;
   if (op === 'delete') {
-    const res = await fetch(`${CLOUD_PINS_URL}/${encoded}.json`, { method: 'DELETE' });
+    if (!pinsBase) {
+      throw new Error('Missing pins base URL');
+    }
+    const res = await fetch(`${pinsBase}/${encoded}.json`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return;
   }
   if (op === 'set') {
-    const res = await fetch(`${CLOUD_PINS_URL}/${encoded}.json`, {
+    if (!pinsBase) {
+      throw new Error('Missing pins base URL');
+    }
+    const res = await fetch(`${pinsBase}/${encoded}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(hash ?? null),
@@ -638,6 +647,7 @@ self.addEventListener('message', event => {
         uid,
         characterId,
         queuedAt: data.queuedAt,
+        cloudUrls: data.cloudUrls || null,
       });
     } catch (err) {
       console.error('Failed to normalize cloud save entry', err);
@@ -662,11 +672,11 @@ self.addEventListener('message', event => {
       })()
     );
   } else if (data.type === 'queue-pin') {
-    const { name, hash = null, op } = data;
+    const { name, hash = null, op, pinsUrl } = data;
     if (!name || !op) return;
     let entry;
     try {
-      entry = createCloudPinOutboxEntry({ name, hash, op, queuedAt: data.queuedAt });
+      entry = createCloudPinOutboxEntry({ name, hash, op, queuedAt: data.queuedAt, pinsUrl });
     } catch (err) {
       console.error('Failed to normalize cloud pin entry', err);
       return;
