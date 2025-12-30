@@ -1,5 +1,5 @@
 const CLOUD_BASE_URL = 'https://ccapp-fb946-default-rtdb.firebaseio.com';
-const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId'];
+const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 
 let authInitPromise = null;
 let authInstance = null;
@@ -7,6 +7,13 @@ let firebaseApp = null;
 let firebaseDatabase = null;
 let firebaseFirestore = null;
 let firebaseNamespace = null;
+let authReady = false;
+let currentUser = null;
+let authReadyResolve = null;
+const authReadyPromise = new Promise(resolve => {
+  authReadyResolve = resolve;
+});
+const authStateListeners = new Set();
 let authState = {
   uid: '',
   user: null,
@@ -27,7 +34,6 @@ function getFirebaseConfig() {
   if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
     return {
       ...window.__CCCG_FIREBASE_CONFIG__,
-      databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
     };
   }
   return { databaseURL: CLOUD_BASE_URL };
@@ -40,11 +46,56 @@ function validateFirebaseConfig(config) {
   }
 }
 
+function warnIfProjectConfigMismatch(config) {
+  if (!config) return;
+  const projectId = config.projectId;
+  const databaseURL = config.databaseURL;
+  if (typeof projectId === 'string' && typeof databaseURL === 'string') {
+    try {
+      const url = new URL(databaseURL);
+      const host = url.hostname;
+      const isRtdbHost = host.endsWith('firebasedatabase.app') || host.endsWith('firebaseio.com');
+      const looksRelated = host.includes(projectId)
+        || host.startsWith(`${projectId}-`)
+        || host.startsWith(`${projectId}.`);
+      if (isRtdbHost && !looksRelated) {
+        console.warn('Firebase project/database may not match:', { projectId, databaseURL });
+      } else if (!isRtdbHost) {
+        console.warn('Firebase databaseURL does not look like RTDB:', { projectId, databaseURL });
+      }
+    } catch {
+      console.warn('Invalid Firebase databaseURL:', databaseURL);
+    }
+  }
+  if (typeof window !== 'undefined' && window?.location) {
+    const host = window.location.hostname;
+    const authDomain = config.authDomain;
+    const expectedDomains = new Set([
+      authDomain,
+      projectId ? `${projectId}.firebaseapp.com` : null,
+      projectId ? `${projectId}.web.app` : null,
+      'localhost',
+      '127.0.0.1'
+    ].filter(Boolean));
+    if (host && authDomain && !expectedDomains.has(host)) {
+      console.warn('Non-default hosting domain. Ensure this domain is added under Firebase Auth -> Authorized domains.', {
+        host,
+        authDomain
+      });
+    }
+  }
+}
+
 async function loadFirebaseCompat() {
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
     const authFn = () => ({
       currentUser: null,
-      onAuthStateChanged: () => {},
+      onAuthStateChanged: callback => {
+        if (typeof callback === 'function') {
+          callback(null);
+        }
+        return () => {};
+      },
       setPersistence: async () => {},
       signInWithEmailAndPassword: async () => ({ user: null }),
       createUserWithEmailAndPassword: async () => ({ user: null }),
@@ -106,10 +157,36 @@ export function usernameToEmail(username) {
   return `${normalized}@ccccg.local`;
 }
 
+export function waitForAuthReady() {
+  return authReadyPromise;
+}
+
+export function onAuthStateChange(listener) {
+  if (typeof listener !== 'function') return () => {};
+  authStateListeners.add(listener);
+  if (authReady) {
+    try {
+      listener(currentUser);
+    } catch (err) {
+      console.error('Auth state listener error', err);
+    }
+  }
+  return () => authStateListeners.delete(listener);
+}
+
+export function isSignedIn() {
+  return !!currentUser;
+}
+
+export function getCurrentUser() {
+  return currentUser;
+}
+
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const firebaseConfig = getFirebaseConfig();
   validateFirebaseConfig(firebaseConfig);
+  warnIfProjectConfigMismatch(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
   if (typeof process === 'undefined' || !process?.env?.JEST_WORKER_ID) {
     const projectId = app?.options?.projectId;
@@ -130,6 +207,20 @@ async function initializeAuthInternal() {
     console.warn('Failed to set auth persistence', err);
   }
   auth.onAuthStateChanged(async user => {
+    currentUser = user || null;
+    if (!authReady) {
+      authReady = true;
+      if (authReadyResolve) {
+        authReadyResolve(true);
+      }
+    }
+    authStateListeners.forEach(listener => {
+      try {
+        listener(currentUser);
+      } catch (err) {
+        console.error('Auth state listener error', err);
+      }
+    });
     let isDm = false;
     if (user && typeof user.getIdTokenResult === 'function') {
       try {

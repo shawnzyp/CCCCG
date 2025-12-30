@@ -4553,6 +4553,7 @@ body:not(.no-hover) .dm-mini-games__list button:hover{color:var(--accent)}
 .dm-mini-games__launch{align-self:flex-start;text-decoration:none;font-size:.85rem;padding:6px 10px;border-radius:var(--radius);color:var(--accent);transition:var(--transition)}
 body:not(.no-hover) .dm-mini-games__launch:hover{background:var(--accent);color:var(--text-on-accent)}
 .dm-mini-games__intro{margin:0 0 12px;font-size:.9rem;color:var(--muted);line-height:1.5}
+.dm-mini-games__notice{margin:0;padding:8px 10px;border-radius:var(--radius);background:rgba(248,113,113,.16);color:var(--error);font-size:.85rem;font-weight:600}
 .dm-mini-games__section{display:flex;flex-direction:column;gap:12px}
 .dm-mini-games__section-heading{margin:0;font-size:.85rem;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:.02em}
 .dm-mini-games__hint{margin:0;font-size:.8rem;color:var(--muted);line-height:1.4}

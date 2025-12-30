@@ -21,8 +21,9 @@
       }
     },
     "usernames": {
+      ".read": false,
       "$name": {
-        ".read": "auth != null",
+        ".read": true,
         ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)"
       }
     },
@@ -43,6 +44,10 @@
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
         ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
+    },
+    "miniGames": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.admin === true"
     }
   }
 }
