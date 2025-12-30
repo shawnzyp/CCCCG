@@ -19,6 +19,7 @@ import {
   areMiniGamesBlocked,
   onMiniGamesBlocked,
 } from './mini-games.js';
+import { isSignedIn, onAuthStateChange } from './auth.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
@@ -1746,12 +1747,13 @@ function initDMLogin(){
   const miniGamesFilterSearch = document.getElementById('dm-mini-games-filter-search');
   let miniGamesPermissionNotice = document.getElementById('dm-mini-games-permissions');
   let miniGamesPermissionsBlocked = areMiniGamesBlocked();
+  let miniGamesSignedIn = isSignedIn();
   const ensureMiniGamesPermissionNotice = () => {
     if (miniGamesPermissionNotice || !miniGamesModal) return;
     const notice = document.createElement('p');
     notice.id = 'dm-mini-games-permissions';
     notice.className = 'dm-mini-games__notice';
-    notice.textContent = 'Mini-games unavailable (permissions).';
+    notice.textContent = 'Mini-games unavailable.';
     notice.hidden = true;
     const target = miniGamesKnobsHint?.parentElement
       || miniGamesModal.querySelector('.dm-mini-games__content')
@@ -1762,9 +1764,17 @@ function initDMLogin(){
   const applyMiniGamesPermissionState = () => {
     ensureMiniGamesPermissionNotice();
     if (miniGamesPermissionNotice) {
-      miniGamesPermissionNotice.hidden = !miniGamesPermissionsBlocked;
+      if (!miniGamesSignedIn) {
+        miniGamesPermissionNotice.textContent = 'Sign in to access mini-games.';
+        miniGamesPermissionNotice.hidden = false;
+      } else if (miniGamesPermissionsBlocked) {
+        miniGamesPermissionNotice.textContent = 'Mini-games unavailable (permissions).';
+        miniGamesPermissionNotice.hidden = false;
+      } else {
+        miniGamesPermissionNotice.hidden = true;
+      }
     }
-    const disabled = miniGamesPermissionsBlocked;
+    const disabled = !miniGamesSignedIn || miniGamesPermissionsBlocked;
     [
       miniGamesDeployBtn,
       miniGamesRefreshBtn,
@@ -5407,14 +5417,20 @@ function initDMLogin(){
   const updateRecipientControlsState = () => {
     const hasRecipients = deploymentRecipients.size > 0;
     if (miniGamesDeployBtn) {
-      miniGamesDeployBtn.disabled = miniGamesPermissionsBlocked || !hasRecipients;
+      miniGamesDeployBtn.disabled = !miniGamesSignedIn || miniGamesPermissionsBlocked || !hasRecipients;
     }
     if (miniGamesClearRecipientsBtn) {
-      const disabled = miniGamesPermissionsBlocked || !hasRecipients;
+      const disabled = !miniGamesSignedIn || miniGamesPermissionsBlocked || !hasRecipients;
       miniGamesClearRecipientsBtn.disabled = disabled;
       miniGamesClearRecipientsBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     }
   };
+
+  onAuthStateChange(user => {
+    miniGamesSignedIn = !!user;
+    applyMiniGamesPermissionState();
+    updateRecipientControlsState();
+  });
 
   const renderRecipientList = () => {
     if (!miniGamesRecipientList) return;

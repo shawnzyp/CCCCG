@@ -7,6 +7,13 @@ let firebaseApp = null;
 let firebaseDatabase = null;
 let firebaseFirestore = null;
 let firebaseNamespace = null;
+let authReady = false;
+let currentUser = null;
+let authReadyResolve = null;
+const authReadyPromise = new Promise(resolve => {
+  authReadyResolve = resolve;
+});
+const authStateListeners = new Set();
 let authState = {
   uid: '',
   user: null,
@@ -139,6 +146,31 @@ export function usernameToEmail(username) {
   return `${normalized}@ccccg.local`;
 }
 
+export function waitForAuthReady() {
+  return authReadyPromise;
+}
+
+export function onAuthStateChange(listener) {
+  if (typeof listener !== 'function') return () => {};
+  authStateListeners.add(listener);
+  if (authReady) {
+    try {
+      listener(currentUser);
+    } catch (err) {
+      console.error('Auth state listener error', err);
+    }
+  }
+  return () => authStateListeners.delete(listener);
+}
+
+export function isSignedIn() {
+  return !!currentUser;
+}
+
+export function getCurrentUser() {
+  return currentUser;
+}
+
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const firebaseConfig = getFirebaseConfig();
@@ -164,6 +196,20 @@ async function initializeAuthInternal() {
     console.warn('Failed to set auth persistence', err);
   }
   auth.onAuthStateChanged(async user => {
+    currentUser = user || null;
+    if (!authReady) {
+      authReady = true;
+      if (authReadyResolve) {
+        authReadyResolve(true);
+      }
+    }
+    authStateListeners.forEach(listener => {
+      try {
+        listener(currentUser);
+      } catch (err) {
+        console.error('Auth state listener error', err);
+      }
+    });
     let isDm = false;
     if (user && typeof user.getIdTokenResult === 'function') {
       try {

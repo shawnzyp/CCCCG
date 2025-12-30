@@ -1,4 +1,10 @@
-import { getFirebaseDatabase } from './auth.js';
+import {
+  getFirebaseDatabase,
+  initFirebaseAuth,
+  isSignedIn,
+  onAuthStateChange,
+  waitForAuthReady,
+} from './auth.js';
 
 const MINI_GAMES = [
   {
@@ -262,6 +268,8 @@ let pollTimer = null;
 let pollPromise = null;
 let cachedDeployments = [];
 let miniGamesBlocked = false;
+let miniGamesAuthHooked = false;
+let miniGamesSignedIn = false;
 
 function cloneOptions(options) {
   if (!Array.isArray(options)) return undefined;
@@ -472,6 +480,31 @@ function notifyListeners() {
   });
 }
 
+function ensureAuthGate() {
+  if (miniGamesAuthHooked) return;
+  miniGamesAuthHooked = true;
+  initFirebaseAuth().catch(() => {});
+  waitForAuthReady()
+    .then(() => {
+      miniGamesSignedIn = isSignedIn();
+      onAuthStateChange(user => {
+        miniGamesSignedIn = !!user;
+        if (!miniGamesSignedIn) {
+          stopPolling();
+          pollPromise = null;
+          cachedDeployments = [];
+          notifyListeners();
+          return;
+        }
+        if (!miniGamesBlocked && listeners.size > 0) {
+          startPolling();
+          pollDeployments(true).catch(() => {});
+        }
+      });
+    })
+    .catch(() => {});
+}
+
 function isPermissionDenied(err) {
   const code = err?.code || err?.message || '';
   return typeof code === 'string'
@@ -511,6 +544,11 @@ export function areMiniGamesBlocked() {
 }
 
 async function pollDeployments(force = false) {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) {
+    return cachedDeployments;
+  }
   if (miniGamesBlocked) {
     return cachedDeployments;
   }
@@ -526,7 +564,7 @@ async function pollDeployments(force = false) {
       cachedDeployments = transformDeploymentData(raw);
       notifyListeners();
     } catch (err) {
-      if (isPermissionDenied(err)) {
+      if (miniGamesSignedIn && isPermissionDenied(err)) {
         disableMiniGames(err);
       } else {
         console.error('Failed to load mini-game deployments', err);
@@ -541,6 +579,8 @@ async function pollDeployments(force = false) {
 
 function startPolling() {
   if (pollTimer !== null) return;
+  ensureAuthGate();
+  if (!miniGamesSignedIn) return;
   if (miniGamesBlocked) return;
   pollDeployments(true).catch(() => {});
   if (!CAN_USE_INTERVAL) {
@@ -562,13 +602,16 @@ function stopPolling() {
 
 export function subscribeToDeployments(callback) {
   if (typeof callback !== 'function') return () => {};
+  ensureAuthGate();
   if (miniGamesBlocked) {
     callback([]);
     return () => {};
   }
   listeners.add(callback);
-  startPolling();
   callback(safeClone(cachedDeployments));
+  if (miniGamesSignedIn) {
+    startPolling();
+  }
   return () => {
     listeners.delete(callback);
     if (listeners.size === 0) {
@@ -578,6 +621,9 @@ export function subscribeToDeployments(callback) {
 }
 
 export async function refreshDeployments() {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) return cachedDeployments;
   if (miniGamesBlocked) return cachedDeployments;
   return pollDeployments(true);
 }
@@ -591,6 +637,9 @@ function sanitizePlayer(player = '') {
 }
 
 async function fetchPlayerDeployments(player) {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) return [];
   if (miniGamesBlocked) return [];
   const trimmed = sanitizePlayer(player);
   if (!trimmed) return [];
@@ -600,7 +649,7 @@ async function fetchPlayerDeployments(player) {
     const data = snapshot.val();
     return transformPlayerDeploymentData(trimmed, data || {});
   } catch (err) {
-    if (isPermissionDenied(err)) {
+    if (miniGamesSignedIn && isPermissionDenied(err)) {
       disableMiniGames(err);
       return [];
     }
@@ -614,7 +663,8 @@ export async function listPlayerDeployments(player) {
 
 export function subscribePlayerDeployments(player, callback, { intervalMs = PLAYER_POLL_INTERVAL_MS } = {}) {
   if (typeof callback !== 'function') return () => {};
-  if (miniGamesBlocked) {
+  ensureAuthGate();
+  if (!miniGamesSignedIn || miniGamesBlocked) {
     callback([]);
     return () => {};
   }
@@ -628,7 +678,7 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
 
   const poll = async () => {
     if (!active) return;
-    if (miniGamesBlocked) {
+    if (!miniGamesSignedIn || miniGamesBlocked) {
       active = false;
       return;
     }
@@ -641,7 +691,7 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
       }
     } finally {
       if (!active) return;
-      if (miniGamesBlocked) return;
+      if (!miniGamesSignedIn || miniGamesBlocked) return;
       timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));
     }
   };
@@ -666,6 +716,11 @@ export async function deployMiniGame({
   expiresAt = null,
   scheduledFor = null,
 } = {}) {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) {
+    throw new Error('Sign in required to deploy mini-games.');
+  }
   if (miniGamesBlocked) {
     throw new Error('Mini-games unavailable (permissions).');
   }
@@ -710,6 +765,11 @@ export async function deployMiniGame({
 }
 
 export async function updateDeployment(player, id, updates = {}) {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) {
+    throw new Error('Sign in required to update mini-games.');
+  }
   if (miniGamesBlocked) {
     throw new Error('Mini-games unavailable (permissions).');
   }
@@ -725,6 +785,11 @@ export async function updateDeployment(player, id, updates = {}) {
 }
 
 export async function deleteDeployment(player, id) {
+  ensureAuthGate();
+  await waitForAuthReady();
+  if (!miniGamesSignedIn) {
+    throw new Error('Sign in required to delete mini-games.');
+  }
   if (miniGamesBlocked) {
     throw new Error('Mini-games unavailable (permissions).');
   }
