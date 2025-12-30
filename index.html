@@ -2368,32 +2368,28 @@
         </svg>
       </button>
       <header class="dm-discord__header">
-        <p class="dm-discord__eyebrow">Telemetry Routes</p>
+        <p class="dm-discord__eyebrow">Discord Relay</p>
         <h3 id="dm-discord-title">Discord Broadcast</h3>
-        <p class="dm-discord__intro">Choose which Discord route to use for telemetry and send a quick test post.</p>
+        <p class="dm-discord__intro">Configure the worker endpoint and relay key, then send a test event.</p>
       </header>
       <div class="dm-discord__grid">
         <label class="dm-discord__field">
           <span class="dm-discord__label">Enable Discord telemetry</span>
           <input type="checkbox" id="dm-discord-enabled" />
         </label>
-        <label class="dm-discord__field" for="dm-discord-key">
-          <span class="dm-discord__label">Proxy key</span>
-          <input type="password" id="dm-discord-key" autocomplete="off" spellcheck="false" />
-          <p class="dm-discord__hint">Required when your proxy enforces an app key (recommended). Stored only for this session.</p>
+        <label class="dm-discord__field" for="dm-discord-endpoint">
+          <span class="dm-discord__label">Worker Endpoint URL</span>
+          <input type="url" id="dm-discord-endpoint" autocomplete="off" spellcheck="false" />
+          <p class="dm-discord__hint">Defaults to the production worker URL and can be overridden for testing.</p>
         </label>
-        <label class="dm-discord__field" for="dm-discord-route">
-          <span class="dm-discord__label">Route</span>
-          <select id="dm-discord-route">
-            <option value="dice">Dice</option>
-            <option value="session">Session Log</option>
-            <option value="loot">Loot</option>
-          </select>
-          <p class="dm-discord__hint">Routes map to server-side webhooks so URLs stay hidden from players.</p>
+        <label class="dm-discord__field" for="dm-discord-key">
+          <span class="dm-discord__label">Discord Relay Key</span>
+          <input type="password" id="dm-discord-key" autocomplete="off" spellcheck="false" />
+          <p class="dm-discord__hint">Stored only for this session and never synced.</p>
         </label>
         <div class="dm-discord__field dm-discord__actions" role="group" aria-label="Discord telemetry actions">
           <button type="button" id="dm-discord-test" class="btn-sm">Send test message</button>
-          <p class="dm-discord__hint">Posts a single test roll to verify the configured route.</p>
+          <p class="dm-discord__hint">Posts a single test event to verify the relay.</p>
         </div>
       </div>
     </section>

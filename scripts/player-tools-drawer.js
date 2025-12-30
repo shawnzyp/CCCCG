@@ -1,5 +1,5 @@
 import * as Characters from './characters.js';
-import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
+import { sendCoinFlipEvent, sendDiceRollEvent, sendInitiativeEvent } from './discord-events.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
@@ -48,6 +48,26 @@ const getActiveCharacterName = () => {
     if (name && String(name).trim().length) return String(name).trim();
   } catch (_) {}
   return 'Player';
+};
+
+const getDiscordCharacter = () => {
+  const doc = getDocument();
+  const vigilanteName = doc?.getElementById('superhero')?.value?.trim() || '';
+  const playerName = doc?.getElementById('secret')?.value?.trim() || '';
+  const fallbackName = vigilanteName || getActiveCharacterName();
+  const payload = { character: {} };
+  let characterId = '';
+  try {
+    characterId = typeof Characters.ensureCharacterId === 'function'
+      ? Characters.ensureCharacterId(payload, fallbackName)
+      : '';
+  } catch (_) {}
+  const resolvedId = payload.character?.characterId || characterId || fallbackName;
+  return {
+    id: resolvedId,
+    vigilanteName: vigilanteName || fallbackName,
+    playerName: playerName || '',
+  };
 };
 
 // Global singleton key: prevents double-init if this module is loaded twice
@@ -530,11 +550,13 @@ function createPlayerToolsDrawer() {
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
 
-      emitInitiativeRollMessage({
-        who: getActiveCharacterName(),
-        formula: `1d20${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+      void sendInitiativeEvent({
+        character: getDiscordCharacter(),
+        initiative: {
+          formula: `1d20${formatBonus(bonus)}`.trim(),
+          total,
+          breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+        },
       });
     });
   };
@@ -556,12 +578,14 @@ function createPlayerToolsDrawer() {
       const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
 
-      emitDiceRollMessage({
-        who: getActiveCharacterName(),
-        rollType: `${count}d${labelSides}`,
-        formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: formatDiceBreakdown(rolls, bonus),
+      void sendDiceRollEvent({
+        character: getDiscordCharacter(),
+        roll: {
+          formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
+          total,
+          breakdown: formatDiceBreakdown(rolls, bonus),
+          advantageState: 'normal',
+        },
       });
     });
   };
@@ -572,6 +596,10 @@ function createPlayerToolsDrawer() {
       const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
       updateResult(coinResultEl, result);
       addHistoryEntryInternal({ label: 'Coin', value: result });
+      void sendCoinFlipEvent({
+        character: getDiscordCharacter(),
+        coin: { result },
+      });
     });
   };
 

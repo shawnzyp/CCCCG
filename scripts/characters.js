@@ -977,6 +977,7 @@ export function currentCharacter() {
 }
 
 export function setCurrentCharacter(name) {
+  const previousName = currentName;
   const displayName = name === null ? null : displayCharacterName(name);
   currentName = displayName;
   const storageName = name === null ? null : normalizedCharacterName(name);
@@ -987,6 +988,17 @@ export function setCurrentCharacter(name) {
       writeLastSaveName(storageName);
     }
   } catch {}
+  if (typeof document !== 'undefined' && previousName !== displayName) {
+    try {
+      document.dispatchEvent(new CustomEvent('cc:active-character-changed', {
+        detail: {
+          previousName,
+          currentName: displayName,
+          timestamp: Date.now(),
+        },
+      }));
+    } catch {}
+  }
 }
 
 function resolveUpdatedAt(payload) {

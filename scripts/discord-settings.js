@@ -1,6 +1,8 @@
 const ENABLE_KEY = 'cc:discord:enabled';
+const ENDPOINT_KEY = 'cc:discord:endpoint';
 const ROUTE_KEY = 'cc:discord:route';
 const PROXY_KEY = 'cc:discord:proxy-key';
+export const DEFAULT_DISCORD_ENDPOINT = 'https://cccg-error-inbox.shawnpeiris22.workers.dev';
 
 export function isDiscordEnabled() {
   try {
@@ -13,6 +15,28 @@ export function isDiscordEnabled() {
 export function setDiscordEnabled(enabled) {
   try {
     localStorage.setItem(ENABLE_KEY, enabled ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getDiscordEndpoint() {
+  try {
+    const stored = (localStorage.getItem(ENDPOINT_KEY) || '').trim();
+    return stored || DEFAULT_DISCORD_ENDPOINT;
+  } catch {
+    return DEFAULT_DISCORD_ENDPOINT;
+  }
+}
+
+export function setDiscordEndpoint(endpoint) {
+  try {
+    const value = String(endpoint || '').trim();
+    if (!value) {
+      localStorage.removeItem(ENDPOINT_KEY);
+      return;
+    }
+    localStorage.setItem(ENDPOINT_KEY, value);
   } catch {
     /* ignore */
   }

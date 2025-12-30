@@ -96,6 +96,12 @@ import {
   open as openPlayerToolsDrawer,
   close as closePlayerToolsDrawer,
 } from './player-tools-drawer.js';
+import {
+  sendCharacterUpdateEvent,
+  sendCoinFlipEvent,
+  sendDiceRollEvent,
+  sendInitiativeEvent,
+} from './discord-events.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -5959,15 +5965,28 @@ if (statusGrid) {
     }
     if (cb) {
       cb.addEventListener('change', () => {
+        const beforeStatuses = Array.from(activeStatuses);
         if (cb.checked) {
           activeStatuses.add(s.name);
           toast(`${s.name} gained. Tap the info button for mechanics.`, { type: 'info', duration: 4000 });
           logAction(`Status effect gained: ${s.name}`);
           applyStatusEffectBonuses(s.id, true);
+          sendImmediateCharacterUpdate(
+            'status',
+            { active: beforeStatuses },
+            { active: Array.from(activeStatuses) },
+            `Status gained: ${s.name}`,
+          );
         } else {
           activeStatuses.delete(s.name);
           logAction(`Status effect removed: ${s.name}`);
           applyStatusEffectBonuses(s.id, false);
+          sendImmediateCharacterUpdate(
+            'status',
+            { active: beforeStatuses },
+            { active: Array.from(activeStatuses) },
+            `Status removed: ${s.name}`,
+          );
         }
       });
     }
@@ -7801,6 +7820,31 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
         elInitiativeRollResult.classList.add('initiative-roll--crit-high');
       } else if (rollDetails.roll === 1) {
         elInitiativeRollResult.classList.add('initiative-roll--crit-low');
+      }
+      const formula = resolvedModifier
+        ? `1d20${resolvedModifier >= 0 ? '+' : ''}${resolvedModifier}`
+        : '1d20';
+      const rollEntry = Array.isArray(rollDetails.rolls) ? rollDetails.rolls[0] : null;
+      const rollSet = Array.isArray(rollEntry?.rolls) ? rollEntry.rolls : [];
+      const rollSummary = rollSet.length
+        ? rollDetails.rollMode === 'advantage' || rollDetails.rollMode === 'disadvantage'
+          ? `d20 (${rollSet.join(' / ')}) => ${rollEntry?.chosen ?? rollDetails.roll}`
+          : `d20 (${rollSet.join(', ')})`
+        : `d20 (${rollDetails.roll})`;
+      const breakdownParts = [rollSummary];
+      if (Array.isArray(rollDetails.breakdown) && rollDetails.breakdown.length) {
+        breakdownParts.push(rollDetails.breakdown.join(' | '));
+      }
+      const character = getDiscordCharacterPayload();
+      if (character) {
+        void sendInitiativeEvent({
+          character,
+          initiative: {
+            formula,
+            total: rollDetails.total,
+            breakdown: breakdownParts.filter(Boolean).join(' | '),
+          },
+        });
       }
     }
 
@@ -10674,10 +10718,95 @@ if (isElement(elCreditsModeToggle, HTMLElement) && isElement(elCreditsModeSelect
 }
 
 
+/* ========= Discord Relay helpers ========= */
+const DISCORD_UPDATE_DEBOUNCE_MS = 750;
+const pendingDiscordUpdates = new Map();
+
+function getDiscordCharacterPayload() {
+  const vigilanteName = $('superhero')?.value?.trim() || '';
+  const playerName = $('secret')?.value?.trim() || '';
+  const fallbackName = vigilanteName || currentCharacter() || playerName;
+  if (!fallbackName) return null;
+  const payload = { character: {} };
+  let characterId = '';
+  try {
+    characterId = ensureCharacterId(payload, fallbackName);
+  } catch {}
+  const resolvedId = payload.character?.characterId || characterId || fallbackName;
+  return {
+    id: resolvedId,
+    vigilanteName: vigilanteName || fallbackName,
+    playerName: playerName || '',
+  };
+}
+
+function queueDiscordCharacterUpdate(type, before, after, reason) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  const existing = pendingDiscordUpdates.get(type);
+  const update = existing || { before, after, reason, timeout: null };
+  if (!existing) {
+    update.before = before;
+  }
+  update.after = after;
+  update.reason = reason || update.reason;
+  if (update.timeout) {
+    clearTimeout(update.timeout);
+  }
+  update.timeout = setTimeout(() => {
+    pendingDiscordUpdates.delete(type);
+    void sendCharacterUpdateEvent({
+      character,
+      update: {
+        type,
+        before: update.before,
+        after: update.after,
+        reason: update.reason,
+      },
+    });
+  }, DISCORD_UPDATE_DEBOUNCE_MS);
+  pendingDiscordUpdates.set(type, update);
+}
+
+function sendImmediateCharacterUpdate(type, before, after, reason) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  void sendCharacterUpdateEvent({
+    character,
+    update: { type, before, after, reason },
+  });
+}
+
+function isActiveCharacterName(name) {
+  if (!name) return false;
+  const vigilanteName = $('superhero')?.value?.trim() || '';
+  const currentName = currentCharacter() || '';
+  return name === vigilanteName || name === currentName;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('cc:active-character-changed', (event) => {
+    const detail = event?.detail || {};
+    if (!detail.currentName) return;
+    sendImmediateCharacterUpdate(
+      'activeCharacter',
+      { name: detail.previousName || '' },
+      { name: detail.currentName || '' },
+      'Active character changed',
+    );
+  });
+}
+
+
 /* ========= HP/SP controls ========= */
 function setHP(v){
   if (deathState === 'dead') return false;
   const prev = num(elHPBar.value);
+  const beforeSnapshot = {
+    current: prev,
+    max: num(elHPBar.max),
+    temp: elHPTemp ? num(elHPTemp.value) : 0,
+  };
   const next = Math.max(0, Math.min(num(elHPBar.max), v));
   const wasAboveZero = prev > 0;
   elHPBar.value = next;
@@ -10698,6 +10827,16 @@ function setHP(v){
     }
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`, { actionScope: 'minor' });
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+    queueDiscordCharacterUpdate(
+      'hp',
+      beforeSnapshot,
+      {
+        current,
+        max: num(elHPBar.max),
+        temp: elHPTemp ? num(elHPTemp.value) : 0,
+      },
+      diff > 0 ? 'HP gained' : 'HP lost',
+    );
   }
   const down = wasAboveZero && current === 0;
   if(down){
@@ -10720,6 +10859,11 @@ function notifyInsufficientSp(message = "You don't have enough SP for that.") {
 
 async function setSP(v){
   const prev = num(elSPBar.value);
+  const beforeSnapshot = {
+    current: prev,
+    max: num(elSPBar.max),
+    temp: elSPTemp ? num(elSPTemp.value) : 0,
+  };
   const target = num(v);
   if (target < 0) {
     notifyInsufficientSp();
@@ -10739,6 +10883,16 @@ async function setSP(v){
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
     pushHistory();
+    queueDiscordCharacterUpdate(
+      'sp',
+      beforeSnapshot,
+      {
+        current,
+        max: num(elSPBar.max),
+        temp: elSPTemp ? num(elSPTemp.value) : 0,
+      },
+      diff > 0 ? 'SP gained' : 'SP lost',
+    );
   }
   if(prev > 0 && current === 0) {
     playActionCue('sp-empty');
@@ -11647,6 +11801,23 @@ if (rollDiceButton) {
       : `${total}`;
     const message = `${headerWithModifier}: ${breakdownDisplay.join(', ')} = ${arithmetic}`;
     logAction(message);
+    const formulaModifier = hasModifier ? `${modifier >= 0 ? '+' : ''}${modifier}` : '';
+    const breakdownDetail = [
+      breakdownDisplay.join(', '),
+      hasModifier ? `${modifier >= 0 ? '+' : '-'}${Math.abs(modifier)} mod` : '',
+    ].filter(Boolean).join(', ');
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      void sendDiceRollEvent({
+        character,
+        roll: {
+          formula: `${count}d${sides}${formulaModifier}`.trim(),
+          total,
+          breakdown: breakdownDetail,
+          advantageState: normalizedMode,
+        },
+      });
+    }
     window.dmNotify?.(`Rolled ${message}`, { actionScope: 'minor' });
   });
 }
@@ -11665,6 +11836,13 @@ if (coinFlipButton) {
       : coinFlipButton.dataset?.actionCueTails || 'coin-tails';
     playActionCue(actionKey, 'coin-flip');
     logAction(`Coin flip: ${v}`);
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      void sendCoinFlipEvent({
+        character,
+        coin: { result: v },
+      });
+    }
     window.dmNotify?.(`Coin flip: ${v}`, { actionScope: 'minor' });
   });
 }
@@ -21481,14 +21659,31 @@ function bindCombatantRow(row, combatant, idx) {
       checkbox.checked = combatant.conditions.includes(effect.id);
       checkbox.addEventListener('change', () => {
         const name = combatant.name ? combatant.name : 'Unnamed combatant';
+        const beforeConditions = combatant.conditions.slice();
         if (checkbox.checked) {
           if (!combatant.conditions.includes(effect.id)) combatant.conditions.push(effect.id);
           toast(`${name} gains ${effect.name}`, 'info');
           logAction(`${name} gains ${effect.name}`);
+          if (isActiveCharacterName(combatant.name)) {
+            sendImmediateCharacterUpdate(
+              'conditions',
+              { active: beforeConditions },
+              { active: combatant.conditions.slice() },
+              `Condition gained: ${effect.name}`,
+            );
+          }
         } else {
           combatant.conditions = combatant.conditions.filter(id => id !== effect.id);
           toast(`${name} is no longer ${effect.name}`, 'info');
           logAction(`${name} is no longer ${effect.name}`);
+          if (isActiveCharacterName(combatant.name)) {
+            sendImmediateCharacterUpdate(
+              'conditions',
+              { active: beforeConditions },
+              { active: combatant.conditions.slice() },
+              `Condition removed: ${effect.name}`,
+            );
+          }
         }
         updateCombatantConditionsSummary(row, combatant);
         saveEnc();

@@ -23,14 +23,15 @@ import { toast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
 import {
+  DEFAULT_DISCORD_ENDPOINT,
+  getDiscordEndpoint,
   getDiscordProxyKey,
-  getDiscordRoute,
   isDiscordEnabled,
+  setDiscordEndpoint,
   setDiscordEnabled,
   setDiscordProxyKey,
-  setDiscordRoute,
 } from './discord-settings.js';
-import { emitDiceRollMessage, hasDiscordProxy } from './discord-webhooks.js';
+import { canSendDiscordEvents, sendCharacterUpdateEvent } from './discord-events.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -1857,8 +1858,8 @@ function initDMLogin(){
   const discordModal = document.getElementById('dm-discord-modal');
   const discordClose = document.getElementById('dm-discord-close');
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
+  const discordEndpointInput = document.getElementById('dm-discord-endpoint');
   const discordKeyInput = document.getElementById('dm-discord-key');
-  const discordRouteSelect = document.getElementById('dm-discord-route');
   const discordTestBtn = document.getElementById('dm-discord-test');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
@@ -5266,26 +5267,24 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
-      const proxyReady = hasDiscordProxy();
-      const enabled = proxyReady && isDiscordEnabled();
+      const endpoint = getDiscordEndpoint();
+      const endpointReady = typeof endpoint === 'string' && endpoint.trim().length > 0;
+      const enabled = isDiscordEnabled();
+      const relayReady = canSendDiscordEvents();
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
-        discordEnabledInput.disabled = !proxyReady;
+        discordEnabledInput.disabled = !endpointReady;
+      }
+      if (discordEndpointInput) {
+        discordEndpointInput.value = endpoint || DEFAULT_DISCORD_ENDPOINT;
+        discordEndpointInput.disabled = !endpointReady && !endpoint;
       }
       if (discordKeyInput) {
         discordKeyInput.value = getDiscordProxyKey();
-        discordKeyInput.disabled = !proxyReady;
-      }
-      if (discordRouteSelect) {
-        const storedRoute = getDiscordRoute() || 'dice';
-        if (!getDiscordRoute()) {
-          setDiscordRoute(storedRoute);
-        }
-        discordRouteSelect.value = storedRoute;
-        discordRouteSelect.disabled = !proxyReady;
+        discordKeyInput.disabled = !endpointReady;
       }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !proxyReady || !enabled;
+        discordTestBtn.disabled = !relayReady || !enabled;
       }
     }
 
@@ -5311,23 +5310,34 @@ function initDMLogin(){
     }
 
     async function sendDiscordTestMessage() {
-      if (!hasDiscordProxy()) {
-        toast('Discord proxy not configured.', 'warn');
-        return;
-      }
       if (!isDiscordEnabled()) {
-        toast('Enable Discord telemetry before sending a test.', 'warn');
+        toast('Enable Discord relay before sending a test.', 'warn');
         return;
       }
-      const ok = await emitDiceRollMessage({
-        who: 'System',
-        rollType: 'Test',
-        formula: '1d20',
-        total: 20,
-        breakdown: 'd20 (20)',
-        outcome: 'HIT',
+      if (!canSendDiscordEvents()) {
+        toast('Discord relay is not fully configured.', 'warn');
+        return;
+      }
+      const response = await sendCharacterUpdateEvent({
+        character: { id: 'test', vigilanteName: 'System', playerName: 'DM' },
+        update: {
+          type: 'note',
+          before: { message: 'Discord relay test' },
+          after: { message: 'Discord relay test' },
+          reason: 'Relay test event',
+        },
       });
-      toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
+      if (response.ok) {
+        toast('Test message sent to Discord.', 'success');
+      } else if (response.status === 401) {
+        toast('Discord relay rejected the key.', 'warn');
+      } else if (response.status === 403) {
+        toast('Discord relay blocked this origin.', 'warn');
+      } else if (response.status === 429) {
+        toast('Discord relay rate limited the request.', 'warn');
+      } else {
+        toast('Discord test failed to send.', 'warn');
+      }
     }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
@@ -10673,8 +10683,8 @@ function initDMLogin(){
       setDiscordProxyKey(discordKeyInput.value);
     });
 
-    discordRouteSelect?.addEventListener('change', () => {
-      setDiscordRoute(discordRouteSelect.value);
+    discordEndpointInput?.addEventListener('input', () => {
+      setDiscordEndpoint(discordEndpointInput.value);
       syncDiscordSettingsUi();
     });
 
