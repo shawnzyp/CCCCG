@@ -312,6 +312,7 @@ body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
   margin:0;
 }
 body.launching .app-shell{opacity:0}
+body.offline-blank .app-shell{display:none}
 html.player-tools-open{overflow:hidden;overscroll-behavior:none}
 body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
@@ -4783,7 +4784,7 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   border-color:color-mix(in srgb,var(--surface) 48%,rgba(0,0,0,.15));
 }
 #modal-welcome,
-#modal-claim-characters{align-items:start;justify-content:center}
+#modal-claim-characters{align-items:center;justify-content:center}
 .modal--welcome{
   width:min(520px,92vw);
   max-height:calc(var(--cc-vh, 1vh) * 100 - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
@@ -4835,9 +4836,10 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 .modal--welcome .modal__actions{
   padding:10px 16px 12px;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr;
   gap:10px;
 }
+.modal--welcome .modal__actions .cc-btn{width:100%}
 .modal--welcome .modal__footer{
   padding:0 16px 14px;
   color:color-mix(in srgb, var(--muted) 85%, transparent);
@@ -10185,10 +10187,24 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .dm-discord__label{font-weight:600}
 .dm-discord__hint{margin:0;color:var(--muted);font-size:.9rem}
 .dm-discord__actions{gap:10px}
-.modal--auth .auth-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .modal--auth .auth-panel{display:flex;flex-direction:column;gap:10px}
 .modal--auth .auth-panel input{width:100%}
 .modal--auth .auth-panel button{align-self:flex-start}
+.modal--auth .auth-panel__switch{
+  align-self:flex-start;
+  font-size:.85rem;
+}
+.modal--auth .auth-panel__status{
+  margin:0;
+  font-size:.82rem;
+  color:var(--muted);
+}
+.auth-username-status{
+  min-height:1.2em;
+}
+.auth-username-status.is-available{color:var(--green)}
+.auth-username-status.is-unavailable{color:var(--red)}
+.auth-username-status.is-checking{color:var(--muted)}
 .password-policy{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:0.85rem;color:rgba(255,255,255,0.7)}
 .password-policy__item{display:flex;align-items:center;gap:8px}
 .password-policy__item::before{content:"✗";color:var(--red);font-weight:600}
