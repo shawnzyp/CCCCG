@@ -196,6 +196,30 @@ Use the following database rules. These match `firebase.rules.json`.
 }
 ```
 
+## Firestore Rules Example
+
+Use the following Firestore rules for account creation and username reservation. These match `firestore.rules`.
+
+```firestore
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /usernames/{username} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.username == username
+        && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+Note: Realtime Database rules are configured separately from Firestore rules. If you still see "Missing or insufficient permissions," confirm the app is pointed at the correct Firebase project in the Firebase console.
+
 ## Developer Notes
 
 ### DM tools access
