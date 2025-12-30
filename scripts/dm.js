@@ -16,6 +16,8 @@ import {
   MINI_GAME_STATUS_OPTIONS,
   summarizeConfig,
   getStatusLabel,
+  areMiniGamesBlocked,
+  onMiniGamesBlocked,
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
@@ -1742,6 +1744,49 @@ function initDMLogin(){
   const miniGamesFilterStatus = document.getElementById('dm-mini-games-filter-status');
   const miniGamesFilterAssignee = document.getElementById('dm-mini-games-filter-assignee');
   const miniGamesFilterSearch = document.getElementById('dm-mini-games-filter-search');
+  let miniGamesPermissionNotice = document.getElementById('dm-mini-games-permissions');
+  let miniGamesPermissionsBlocked = areMiniGamesBlocked();
+  const ensureMiniGamesPermissionNotice = () => {
+    if (miniGamesPermissionNotice || !miniGamesModal) return;
+    const notice = document.createElement('p');
+    notice.id = 'dm-mini-games-permissions';
+    notice.className = 'dm-mini-games__notice';
+    notice.textContent = 'Mini-games unavailable (permissions).';
+    notice.hidden = true;
+    const target = miniGamesKnobsHint?.parentElement
+      || miniGamesModal.querySelector('.dm-mini-games__content')
+      || miniGamesModal;
+    target.insertBefore(notice, target.firstChild);
+    miniGamesPermissionNotice = notice;
+  };
+  const applyMiniGamesPermissionState = () => {
+    ensureMiniGamesPermissionNotice();
+    if (miniGamesPermissionNotice) {
+      miniGamesPermissionNotice.hidden = !miniGamesPermissionsBlocked;
+    }
+    const disabled = miniGamesPermissionsBlocked;
+    [
+      miniGamesDeployBtn,
+      miniGamesRefreshBtn,
+      miniGamesRefreshPlayers,
+      miniGamesAddRecipientBtn,
+      miniGamesAddCustomBtn,
+      miniGamesClearRecipientsBtn,
+      miniGamesPlayerSelect,
+      miniGamesPlayerCustom,
+      miniGamesScheduledFor,
+      miniGamesExpiry,
+      miniGamesNotes
+    ].forEach(control => {
+      if (!control) return;
+      control.disabled = disabled;
+      if (disabled) {
+        control.setAttribute('aria-disabled', 'true');
+      } else {
+        control.removeAttribute('aria-disabled');
+      }
+    });
+  };
   const rewardsBtn = document.getElementById('dm-tools-rewards');
   const discordBtn = document.getElementById('dm-tools-discord');
   const rewardsModal = document.getElementById('dm-rewards-modal');
@@ -5303,6 +5348,7 @@ function initDMLogin(){
   }
 
   const miniGamesLibrary = listMiniGames();
+  applyMiniGamesPermissionState();
   const knobStateByGame = new Map();
   const knobPresetsByGame = new Map();
   const KNOB_STATE_STORAGE_PREFIX = 'cc:mini-game:preset:';
@@ -5361,11 +5407,12 @@ function initDMLogin(){
   const updateRecipientControlsState = () => {
     const hasRecipients = deploymentRecipients.size > 0;
     if (miniGamesDeployBtn) {
-      miniGamesDeployBtn.disabled = !hasRecipients;
+      miniGamesDeployBtn.disabled = miniGamesPermissionsBlocked || !hasRecipients;
     }
     if (miniGamesClearRecipientsBtn) {
-      miniGamesClearRecipientsBtn.disabled = !hasRecipients;
-      miniGamesClearRecipientsBtn.setAttribute('aria-disabled', hasRecipients ? 'false' : 'true');
+      const disabled = miniGamesPermissionsBlocked || !hasRecipients;
+      miniGamesClearRecipientsBtn.disabled = disabled;
+      miniGamesClearRecipientsBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     }
   };
 
@@ -7110,6 +7157,7 @@ function initDMLogin(){
 
   async function openMiniGames() {
     if (!miniGamesModal) return;
+    applyMiniGamesPermissionState();
     ensureMiniGameSubscription();
     buildMiniGamesList();
     updateMiniGamesListSelection();
@@ -10766,6 +10814,17 @@ function initDMLogin(){
 
   miniGamesFilterSearch?.addEventListener('input', handleMiniGameFilterQuery);
   miniGamesFilterSearch?.addEventListener('search', handleMiniGameFilterQuery);
+
+  onMiniGamesBlocked(() => {
+    miniGamesPermissionsBlocked = true;
+    applyMiniGamesPermissionState();
+    if (miniGamesKnobs) {
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">Mini-games unavailable (permissions).</p>';
+    }
+    if (miniGamesDeployments) {
+      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">Mini-games unavailable (permissions).</li>';
+    }
+  });
 
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });

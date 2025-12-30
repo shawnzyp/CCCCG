@@ -43,6 +43,10 @@
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
         ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
+    },
+    "miniGames": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.admin === true"
     }
   }
 }

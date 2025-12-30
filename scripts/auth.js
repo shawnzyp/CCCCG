@@ -40,6 +40,39 @@ function validateFirebaseConfig(config) {
   }
 }
 
+function warnIfProjectConfigMismatch(config) {
+  if (!config) return;
+  const projectId = config.projectId;
+  const databaseURL = config.databaseURL;
+  if (typeof projectId === 'string' && typeof databaseURL === 'string') {
+    try {
+      const url = new URL(databaseURL);
+      if (!url.hostname.includes(projectId)) {
+        console.warn('Firebase project/database mismatch:', { projectId, databaseURL });
+      }
+    } catch {
+      console.warn('Invalid Firebase databaseURL:', databaseURL);
+    }
+  }
+  if (typeof window !== 'undefined' && window?.location) {
+    const host = window.location.hostname;
+    const authDomain = config.authDomain;
+    const expectedDomains = new Set([
+      authDomain,
+      projectId ? `${projectId}.firebaseapp.com` : null,
+      projectId ? `${projectId}.web.app` : null,
+      'localhost',
+      '127.0.0.1'
+    ].filter(Boolean));
+    if (host && authDomain && !expectedDomains.has(host)) {
+      console.warn('Firebase auth domain not in expected list. Ensure it is authorized in Firebase Auth.', {
+        host,
+        authDomain
+      });
+    }
+  }
+}
+
 async function loadFirebaseCompat() {
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
     const authFn = () => ({
@@ -110,6 +143,7 @@ async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const firebaseConfig = getFirebaseConfig();
   validateFirebaseConfig(firebaseConfig);
+  warnIfProjectConfigMismatch(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
   if (typeof process === 'undefined' || !process?.env?.JEST_WORKER_ID) {
     const projectId = app?.options?.projectId;
