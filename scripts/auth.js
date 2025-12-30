@@ -1,5 +1,5 @@
 const CLOUD_BASE_URL = 'https://ccapp-fb946-default-rtdb.firebaseio.com';
-const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId'];
+const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 
 let authInitPromise = null;
 let authInstance = null;
@@ -34,7 +34,6 @@ function getFirebaseConfig() {
   if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
     return {
       ...window.__CCCG_FIREBASE_CONFIG__,
-      databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
     };
   }
   return { databaseURL: CLOUD_BASE_URL };

@@ -21,8 +21,9 @@
       }
     },
     "usernames": {
+      ".read": false,
       "$name": {
-        ".read": "auth != null",
+        ".read": true,
         ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)"
       }
     },
