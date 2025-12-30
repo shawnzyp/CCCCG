@@ -1,7 +1,8 @@
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
+import { getFirebaseDatabase } from './auth.js';
 
 const KEY_PREFIX = 'pin:';
-const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
+const CLOUD_PINS_PATH = 'pins';
 
 function key(name) {
   const n = canonicalCharacterKey(name);
@@ -77,42 +78,23 @@ async function hashPin(pin) {
 async function saveCloudPin(name, hash) {
   const normalized = canonicalCharacterKey(name);
   if (!normalized) throw new Error('Missing pin name');
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(hash)
-  });
-  if (!res || typeof res.ok !== 'boolean') {
-    throw new TypeError('invalid response');
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_PINS_PATH}/${encodeName(normalized)}`).set(hash);
 }
 
 async function loadCloudPin(name) {
   const normalized = canonicalCharacterKey(name);
   if (!normalized) throw new Error('Missing pin name');
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, {
-    cache: 'no-store',
-    headers: { 'Cache-Control': 'no-cache' },
-  });
-  if (!res || typeof res.ok !== 'boolean') {
-    throw new TypeError('invalid response');
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const db = await getFirebaseDatabase();
+  const snapshot = await db.ref(`${CLOUD_PINS_PATH}/${encodeName(normalized)}`).once('value');
+  return snapshot.val();
 }
 
 async function deleteCloudPin(name) {
   const normalized = canonicalCharacterKey(name);
   if (!normalized) throw new Error('Missing pin name');
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, { method: 'DELETE' });
-  if (!res || typeof res.ok !== 'boolean') {
-    throw new TypeError('invalid response');
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_PINS_PATH}/${encodeName(normalized)}`).remove();
 }
 
 function isNavigatorOffline() {
@@ -123,17 +105,26 @@ function isNavigatorOffline() {
   );
 }
 
+async function getPinsBaseUrl() {
+  const db = await getFirebaseDatabase();
+  const base = db?.app?.options?.databaseURL;
+  if (!base) return '';
+  return `${base.replace(/\/$/, '')}/${CLOUD_PINS_PATH}`;
+}
+
 async function enqueueCloudPin(op, name, hash = null) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
   try {
     const ready = await navigator.serviceWorker.ready;
     const controller = navigator.serviceWorker.controller || ready.active;
     if (!controller) return false;
+    const pinsUrl = await getPinsBaseUrl();
     controller.postMessage({
       type: 'queue-pin',
       op,
       name,
       hash: hash ?? null,
+      pinsUrl,
       queuedAt: Date.now(),
     });
     if (ready.sync && typeof ready.sync.register === 'function') {
@@ -181,9 +172,7 @@ export async function syncPin(name, { force = false } = {}) {
     }
     return safeLocalStorageSet(key(name), hash);
   } catch (e) {
-    if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
-      console.error('Cloud pin load failed', e);
-    }
+    console.error('Cloud pin load failed', e);
   }
   return false;
 }
@@ -198,7 +187,6 @@ export async function setPin(name, pin) {
     try {
       await saveCloudPin(name, hash);
     } catch (e) {
-      if (e && e.message === 'fetch not supported') return stored;
       const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', name, hash));
       if (!queued && (e && e.name !== 'TypeError')) {
         console.error('Cloud pin save failed', e);
@@ -239,7 +227,6 @@ export async function clearPin(name) {
   try {
     await deleteCloudPin(name);
   } catch (e) {
-    if (e && e.message === 'fetch not supported') return removed;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', name));
     if (!queued && (e && e.name !== 'TypeError')) {
       console.error('Cloud pin delete failed', e);
@@ -269,21 +256,17 @@ export async function movePin(oldName, newName) {
     try {
       await saveCloudPin(newName, val);
     } catch (e) {
-      if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
-        const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', newName, val));
-        if (!queued) {
-          console.error('Cloud pin move failed', e);
-        }
+      const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', newName, val));
+      if (!queued) {
+        console.error('Cloud pin move failed', e);
       }
     }
     try {
       await deleteCloudPin(oldName);
     } catch (e) {
-      if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
-        const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', oldName));
-        if (!queued) {
-          console.error('Cloud pin move failed', e);
-        }
+      const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', oldName));
+      if (!queued) {
+        console.error('Cloud pin move failed', e);
       }
     }
     return true;
@@ -317,9 +300,7 @@ export async function ensureAuthoritativePinState(name, { force = false } = {}) 
     }
     return fallback();
   } catch (err) {
-    if (err && err.message !== 'fetch not supported' && err.name !== 'TypeError') {
-      console.error('Authoritative PIN sync failed', err);
-    }
+    console.error('Authoritative PIN sync failed', err);
     return fallback();
   }
 }

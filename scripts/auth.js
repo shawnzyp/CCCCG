@@ -24,19 +24,11 @@ function getFirebaseConfig() {
       databaseURL: CLOUD_BASE_URL,
     };
   }
-  if (typeof window !== 'undefined') {
-    if (window.__CCCG_FIREBASE_CONFIG__) {
-      return {
-        ...window.__CCCG_FIREBASE_CONFIG__,
-        databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
-      };
-    }
-    if (window.CCCG_FIREBASE_CONFIG) {
-      return {
-        ...window.CCCG_FIREBASE_CONFIG,
-        databaseURL: window.CCCG_FIREBASE_CONFIG.databaseURL || CLOUD_BASE_URL,
-      };
-    }
+  if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
+    return {
+      ...window.__CCCG_FIREBASE_CONFIG__,
+      databaseURL: window.__CCCG_FIREBASE_CONFIG__.databaseURL || CLOUD_BASE_URL,
+    };
   }
   return { databaseURL: CLOUD_BASE_URL };
 }
@@ -119,6 +111,12 @@ async function initializeAuthInternal() {
   const firebaseConfig = getFirebaseConfig();
   validateFirebaseConfig(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  if (typeof process === 'undefined' || !process?.env?.JEST_WORKER_ID) {
+    const projectId = app?.options?.projectId;
+    if (projectId && projectId !== 'ccapp-fb946') {
+      console.warn('Firebase project mismatch:', projectId);
+    }
+  }
   const auth = firebase.auth(app);
   const db = firebase.database(app);
   const firestore = firebase.firestore(app);

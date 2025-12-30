@@ -1,3 +1,5 @@
+import { getFirebaseDatabase } from './auth.js';
+
 const MINI_GAMES = [
   {
     id: 'clue-tracker',
@@ -246,7 +248,7 @@ const STATUS_OPTIONS = [
 
 const README_BASE_PATH = 'SuperheroMiniGames';
 const README_FILENAME = 'README.txt';
-const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
+const CLOUD_MINI_GAMES_PATH = 'miniGames';
 const POLL_INTERVAL_MS = 15000;
 const PLAYER_POLL_INTERVAL_MS = 7000;
 const USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
@@ -405,10 +407,9 @@ export async function loadMiniGameReadme(id) {
 }
 
 async function fetchDeploymentsFromCloud() {
-  const res = await fetch(`${CLOUD_MINI_GAMES_URL}.json`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return data || {};
+  const db = await getFirebaseDatabase();
+  const snapshot = await db.ref(CLOUD_MINI_GAMES_PATH).once('value');
+  return snapshot.val() || {};
 }
 
 function sortDeployments(entries) {
@@ -539,12 +540,9 @@ function sanitizePlayer(player = '') {
 async function fetchPlayerDeployments(player) {
   const trimmed = sanitizePlayer(player);
   if (!trimmed) return [];
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmed)}.json`;
-  if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(url);
-  if (!res || typeof res.ok !== 'boolean') throw new TypeError('invalid response');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const db = await getFirebaseDatabase();
+  const snapshot = await db.ref(`${CLOUD_MINI_GAMES_PATH}/${encodePath(trimmed)}`).once('value');
+  const data = snapshot.val();
   return transformPlayerDeploymentData(trimmed, data || {});
 }
 
@@ -568,9 +566,7 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
       const entries = await fetchPlayerDeployments(trimmed);
       callback(entries);
     } catch (err) {
-      if (!err || (err.message !== 'fetch not supported' && err.name !== 'TypeError')) {
-        console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
-      }
+      console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
     } finally {
       if (!active) return;
       timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));
@@ -631,13 +627,8 @@ export async function deployMiniGame({
   if (validExpiresAt) {
     payload.expiresAt = validExpiresAt;
   }
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(deploymentId)}.json`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_MINI_GAMES_PATH}/${encodePath(trimmedPlayer)}/${encodePath(deploymentId)}`).set(payload);
   await pollDeployments(true);
   return payload;
 }
@@ -649,21 +640,15 @@ export async function updateDeployment(player, id, updates = {}) {
     ...updates,
     updatedAt: Date.now()
   };
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(id)}.json`;
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch)
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_MINI_GAMES_PATH}/${encodePath(trimmedPlayer)}/${encodePath(id)}`).update(patch);
   await pollDeployments(true);
 }
 
 export async function deleteDeployment(player, id) {
   const trimmedPlayer = sanitizePlayer(player);
   if (!trimmedPlayer || !id) throw new Error('Invalid deployment reference');
-  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(id)}.json`;
-  const res = await fetch(url, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_MINI_GAMES_PATH}/${encodePath(trimmedPlayer)}/${encodePath(id)}`).remove();
   await pollDeployments(true);
 }

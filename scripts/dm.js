@@ -30,11 +30,12 @@ import {
 } from './discord-settings.js';
 import { sendEventToDiscordWorker } from './discord-events.js';
 import { getActiveUserId } from './storage.js';
+import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
-const CLOUD_DM_NOTIFICATIONS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dm-notifications';
+const CLOUD_DM_NOTIFICATIONS_PATH = 'dm-notifications';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
 const DM_LOGIN_AT_KEY = 'dmLoggedInAt';
@@ -46,7 +47,7 @@ const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
 const DM_PERSISTENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const CLOUD_DM_SESSIONS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dm-sessions';
+const CLOUD_DM_SESSIONS_PATH = 'dm-sessions';
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
@@ -267,76 +268,30 @@ function generatePersistentSessionToken() {
 }
 
 async function putPersistentSessionRecord(token, payload) {
-  if (!token || typeof fetch !== 'function') return null;
-  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res?.ok) {
-    const status = typeof res?.status === 'number' ? res.status : 'unknown';
-    throw new Error(`HTTP ${status}`);
-  }
-  if (typeof res.json === 'function') {
-    try {
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-  return null;
+  if (!token) return null;
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).set(payload);
+  return payload;
 }
 
 async function patchPersistentSessionRecord(token, updates) {
-  if (!token || typeof fetch !== 'function') return null;
-  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
-  if (!res?.ok) {
-    const status = typeof res?.status === 'number' ? res.status : 'unknown';
-    throw new Error(`HTTP ${status}`);
-  }
-  if (typeof res.json === 'function') {
-    try {
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-  return null;
+  if (!token) return null;
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).update(updates);
+  return updates;
 }
 
 async function deletePersistentSessionRecord(token) {
-  if (!token || typeof fetch !== 'function') return;
-  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
-  const res = await fetch(url, { method: 'DELETE' });
-  if (!res?.ok && res?.status !== 404) {
-    const status = typeof res?.status === 'number' ? res.status : 'unknown';
-    throw new Error(`HTTP ${status}`);
-  }
+  if (!token) return;
+  const db = await getFirebaseDatabase();
+  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).remove();
 }
 
 async function fetchPersistentSessionRecord(token) {
-  if (!token || typeof fetch !== 'function') return null;
-  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
-  const res = await fetch(url);
-  if (!res?.ok) {
-    if (res?.status === 404) return null;
-    const status = typeof res?.status === 'number' ? res.status : 'unknown';
-    throw new Error(`HTTP ${status}`);
-  }
-  if (typeof res.json === 'function') {
-    try {
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-  return null;
+  if (!token) return null;
+  const db = await getFirebaseDatabase();
+  const snapshot = await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).once('value');
+  return snapshot.val();
 }
 
 async function registerPersistentSession(username) {
@@ -8211,7 +8166,10 @@ function initDMLogin(){
     });
     rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
     try {
-      await Promise.all(removed.map(([id]) => fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(id)}.json`, { method: 'DELETE' })));
+      const db = await getFirebaseDatabase();
+      await Promise.all(
+        removed.map(([id]) => db.ref(`${CLOUD_DM_NOTIFICATIONS_PATH}/${encodeURIComponent(id)}`).remove())
+      );
     } catch (err) {
       console.error('Failed to trim DM notifications in cloud', err);
       removed.forEach(([id, record]) => {
@@ -8224,7 +8182,7 @@ function initDMLogin(){
   }
 
   async function pushCloudNotification(entry) {
-    if (!cloudNotificationsState.available || typeof fetch !== 'function') return null;
+    if (!cloudNotificationsState.available) return null;
     if (!entry || typeof entry.detail !== 'string') return null;
     const createdAt = Number.isFinite(entry.createdAt) ? entry.createdAt : Date.now();
     entry.createdAt = createdAt;
@@ -8238,18 +8196,10 @@ function initDMLogin(){
     if (typeof entry.severity === 'string' && entry.severity) payload.severity = entry.severity;
     if (typeof entry.html === 'string' && entry.html) payload.html = entry.html;
     try {
-      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const ok = typeof res?.ok === 'boolean' ? res.ok : true;
-      if (!ok) {
-        const status = typeof res?.status === 'number' ? res.status : 'unknown';
-        throw new Error(`HTTP ${status}`);
-      }
-      const data = typeof res?.json === 'function' ? await res.json() : null;
-      const id = typeof data?.name === 'string' ? data.name : null;
+      const db = await getFirebaseDatabase();
+      const ref = db.ref(CLOUD_DM_NOTIFICATIONS_PATH).push();
+      await ref.set(payload);
+      const id = ref.key;
       if (id) {
         const normalized = normalizeStoredNotification(payload, { id, fallbackCreatedAt: createdAt });
         if (normalized) {
@@ -8269,13 +8219,12 @@ function initDMLogin(){
   }
 
   async function updateCloudNotification(entry) {
-    if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
+    if (!cloudNotificationsState.available) return;
     if (!entry?.id) return;
     try {
-      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(entry.id)}.json`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolved: entry.resolved === true }),
+      const db = await getFirebaseDatabase();
+      await db.ref(`${CLOUD_DM_NOTIFICATIONS_PATH}/${encodeURIComponent(entry.id)}`).update({
+        resolved: entry.resolved === true,
       });
       const cached = cloudNotificationsState.cache.get(entry.id);
       if (cached) {
@@ -8289,9 +8238,10 @@ function initDMLogin(){
   }
 
   async function clearCloudNotificationsRemote() {
-    if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
+    if (!cloudNotificationsState.available) return;
     try {
-      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, { method: 'DELETE' });
+      const db = await getFirebaseDatabase();
+      await db.ref(CLOUD_DM_NOTIFICATIONS_PATH).remove();
     } catch (err) {
       console.error('Failed to clear DM notifications in cloud', err);
     } finally {
@@ -8301,16 +8251,13 @@ function initDMLogin(){
 
   function subscribeToCloudNotifications() {
     if (!cloudNotificationsState.available) return null;
-    if (cloudNotificationsState.subscription || typeof EventSource !== 'function') {
+    if (cloudNotificationsState.subscription) {
       return cloudNotificationsState.subscription;
     }
     try {
-      const src = new EventSource(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
-      const handler = event => {
+      const handler = snapshot => {
         try {
-          const payload = JSON.parse(event.data);
-          if (!payload) return;
-          applyCloudDelta(payload.path, payload.data);
+          applyCloudSnapshot(snapshot.val(), { fallback: notifications.slice() });
           enforceCloudNotificationLimit().catch(err => {
             console.error('Failed to enforce DM notification limit', err);
           });
@@ -8318,19 +8265,16 @@ function initDMLogin(){
           console.error('Failed to process DM notification update', err);
         }
       };
-      src.addEventListener('put', handler);
-      src.addEventListener('patch', handler);
-      src.onerror = () => {
-        try { src.close(); } catch {}
-        cloudNotificationsState.subscription = null;
-        setTimeout(() => {
-          if (cloudNotificationsState.available) {
-            subscribeToCloudNotifications();
-          }
-        }, 2000);
-      };
-      cloudNotificationsState.subscription = src;
-      return src;
+      getFirebaseDatabase()
+        .then(db => {
+          const ref = db.ref(CLOUD_DM_NOTIFICATIONS_PATH);
+          ref.on('value', handler);
+          cloudNotificationsState.subscription = { ref, handler };
+        })
+        .catch(err => {
+          console.error('Failed to subscribe to DM notifications', err);
+        });
+      return cloudNotificationsState.subscription;
     } catch (err) {
       console.error('Failed to subscribe to DM notifications', err);
       return null;
@@ -8365,20 +8309,15 @@ function initDMLogin(){
   async function initializeCloudNotifications() {
     if (!cloudNotificationsState.enabled) return;
     if (cloudNotificationsState.initializing) return;
-    if (typeof fetch !== 'function') return;
     cloudNotificationsState.initializing = true;
     const fallbackSnapshot = notifications.slice();
     const legacyEntries = notifications.filter(entry => !entry?.id).map(entry => ({ ...entry }));
     try {
-      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
-      const ok = typeof res?.ok === 'boolean' ? res.ok : true;
-      if (!ok) {
-        const status = typeof res?.status === 'number' ? res.status : 'unknown';
-        throw new Error(`HTTP ${status}`);
-      }
-      const snapshot = typeof res?.json === 'function' ? await res.json() : null;
+      const db = await getFirebaseDatabase();
+      const snapshot = await db.ref(CLOUD_DM_NOTIFICATIONS_PATH).once('value');
+      const data = snapshot.val();
       cloudNotificationsState.available = true;
-      applyCloudSnapshot(snapshot, { fallback: fallbackSnapshot });
+      applyCloudSnapshot(data, { fallback: fallbackSnapshot });
       await enforceCloudNotificationLimit();
       if (legacyEntries.length) {
         await migrateLegacyNotificationsToCloud(legacyEntries);
