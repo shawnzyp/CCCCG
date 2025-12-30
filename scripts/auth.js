@@ -54,7 +54,12 @@ function warnIfProjectConfigMismatch(config) {
   if (typeof projectId === 'string' && typeof databaseURL === 'string') {
     try {
       const url = new URL(databaseURL);
-      if (!url.hostname.includes(projectId)) {
+      const host = url.hostname;
+      const isRtdbHost = host.includes('firebasedatabase.app') || host.includes('firebaseio.com');
+      const looksRelated = host.includes(projectId)
+        || host.startsWith(`${projectId}-`)
+        || host.startsWith(`${projectId}.`);
+      if (!isRtdbHost || !looksRelated) {
         console.warn('Firebase project/database mismatch:', { projectId, databaseURL });
       }
     } catch {
@@ -84,7 +89,11 @@ async function loadFirebaseCompat() {
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
     const authFn = () => ({
       currentUser: null,
-      onAuthStateChanged: () => {},
+      onAuthStateChanged: callback => {
+        if (typeof callback === 'function') {
+          callback(null);
+        }
+      },
       setPersistence: async () => {},
       signInWithEmailAndPassword: async () => ({ user: null }),
       createUserWithEmailAndPassword: async () => ({ user: null }),
