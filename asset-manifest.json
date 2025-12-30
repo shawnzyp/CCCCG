@@ -120,6 +120,7 @@
     "./scripts/cloud-outbox.js",
     "./scripts/crash-handler.js",
     "./scripts/dice-result.js",
+    "./scripts/discord-events.js",
     "./scripts/discord-settings.js",
     "./scripts/discord-webhooks.js",
     "./scripts/dm-catalog-sync.js",

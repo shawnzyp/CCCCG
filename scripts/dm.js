@@ -1,4 +1,4 @@
-import { listCharacters, loadCharacter } from './characters.js';
+import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
 import { verifyDmCredential, upsertDmCredentialPin, getDmCredential } from './dm-pin.js';
 import { show, hide, openDmAuthModal } from './modal.js';
 import { dmIsUnlocked, dmLock, getDmUsername } from './dm-auth.js';
@@ -24,13 +24,12 @@ import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
 import {
   getDiscordProxyKey,
-  getDiscordRoute,
   isDiscordEnabled,
   setDiscordEnabled,
   setDiscordProxyKey,
-  setDiscordRoute,
 } from './discord-settings.js';
-import { emitDiceRollMessage, hasDiscordProxy } from './discord-webhooks.js';
+import { sendEventToDiscordWorker } from './discord-events.js';
+import { getActiveUserId } from './storage.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -1858,7 +1857,6 @@ function initDMLogin(){
   const discordClose = document.getElementById('dm-discord-close');
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
   const discordKeyInput = document.getElementById('dm-discord-key');
-  const discordRouteSelect = document.getElementById('dm-discord-route');
   const discordTestBtn = document.getElementById('dm-discord-test');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
@@ -5266,26 +5264,16 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
-      const proxyReady = hasDiscordProxy();
-      const enabled = proxyReady && isDiscordEnabled();
+      const enabled = isDiscordEnabled();
+      const relayReady = enabled && !!getDiscordProxyKey();
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
-        discordEnabledInput.disabled = !proxyReady;
       }
       if (discordKeyInput) {
         discordKeyInput.value = getDiscordProxyKey();
-        discordKeyInput.disabled = !proxyReady;
-      }
-      if (discordRouteSelect) {
-        const storedRoute = getDiscordRoute() || 'dice';
-        if (!getDiscordRoute()) {
-          setDiscordRoute(storedRoute);
-        }
-        discordRouteSelect.value = storedRoute;
-        discordRouteSelect.disabled = !proxyReady;
       }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !proxyReady || !enabled;
+        discordTestBtn.disabled = !relayReady || !enabled;
       }
     }
 
@@ -5311,21 +5299,26 @@ function initDMLogin(){
     }
 
     async function sendDiscordTestMessage() {
-      if (!hasDiscordProxy()) {
-        toast('Discord proxy not configured.', 'warn');
-        return;
-      }
       if (!isDiscordEnabled()) {
-        toast('Enable Discord telemetry before sending a test.', 'warn');
+        toast('Enable Discord relay before sending a test.', 'warn');
         return;
       }
-      const ok = await emitDiceRollMessage({
-        who: 'System',
-        rollType: 'Test',
-        formula: '1d20',
-        total: 20,
-        breakdown: 'd20 (20)',
-        outcome: 'HIT',
+      if (!getDiscordProxyKey()) {
+        toast('Discord relay is not fully configured.', 'warn');
+        return;
+      }
+      const actorName = $('superhero')?.value?.trim() || currentCharacter() || 'System';
+      const uid = getActiveUserId();
+      const ok = await sendEventToDiscordWorker({
+        type: 'character.update',
+        actor: { vigilanteName: actorName, uid },
+        detail: {
+          updateType: 'note',
+          before: { message: 'Discord relay test' },
+          after: { message: 'Discord relay test' },
+          reason: 'Relay test event',
+        },
+        ts: Date.now(),
       });
       toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
     }
@@ -10671,11 +10664,6 @@ function initDMLogin(){
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
-    });
-
-    discordRouteSelect?.addEventListener('change', () => {
-      setDiscordRoute(discordRouteSelect.value);
-      syncDiscordSettingsUi();
     });
 
     discordTestBtn?.addEventListener('click', () => {

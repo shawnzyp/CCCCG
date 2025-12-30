@@ -1,5 +1,6 @@
 import * as Characters from './characters.js';
-import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
+import { getActiveUserId } from './storage.js';
+import { sendEventToDiscordWorker } from './discord-events.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
@@ -48,6 +49,28 @@ const getActiveCharacterName = () => {
     if (name && String(name).trim().length) return String(name).trim();
   } catch (_) {}
   return 'Player';
+};
+
+const getDiscordActor = () => {
+  const doc = getDocument();
+  const vigilanteName = doc?.getElementById('superhero')?.value?.trim() || '';
+  const playerName = doc?.getElementById('secret')?.value?.trim() || '';
+  const fallbackName = vigilanteName || getActiveCharacterName();
+  const payload = { character: {} };
+  let characterId = '';
+  try {
+    characterId = typeof Characters.ensureCharacterId === 'function'
+      ? Characters.ensureCharacterId(payload, fallbackName)
+      : '';
+  } catch (_) {}
+  const resolvedId = payload.character?.characterId || characterId || fallbackName;
+  const uid = getActiveUserId();
+  return {
+    vigilanteName: vigilanteName || fallbackName,
+    uid,
+    characterId: resolvedId,
+    playerName: playerName || '',
+  };
 };
 
 // Global singleton key: prevents double-init if this module is loaded twice
@@ -474,7 +497,6 @@ function createPlayerToolsDrawer() {
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
 
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
     if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     if (scrim) {
@@ -530,11 +552,18 @@ function createPlayerToolsDrawer() {
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
 
-      emitInitiativeRollMessage({
-        who: getActiveCharacterName(),
-        formula: `1d20${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'initiative.roll',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
+          formula: `1d20${formatBonus(bonus)}`.trim(),
+          total,
+          breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+          characterId: actor.characterId,
+          playerName: actor.playerName,
+        },
+        ts: Date.now(),
       });
     });
   };
@@ -556,12 +585,19 @@ function createPlayerToolsDrawer() {
       const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
 
-      emitDiceRollMessage({
-        who: getActiveCharacterName(),
-        rollType: `${count}d${labelSides}`,
-        formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: formatDiceBreakdown(rolls, bonus),
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'dice.roll',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
+          formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
+          total,
+          breakdown: formatDiceBreakdown(rolls, bonus),
+          advantageState: 'normal',
+          characterId: actor.characterId,
+          playerName: actor.playerName,
+        },
+        ts: Date.now(),
       });
     });
   };
@@ -572,6 +608,17 @@ function createPlayerToolsDrawer() {
       const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
       updateResult(coinResultEl, result);
       addHistoryEntryInternal({ label: 'Coin', value: result });
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'coin.flip',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
+          result,
+          characterId: actor.characterId,
+          playerName: actor.playerName,
+        },
+        ts: Date.now(),
+      });
     });
   };
 

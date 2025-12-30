@@ -18,6 +18,14 @@ export function setDiscordEnabled(enabled) {
   }
 }
 
+export function clearDiscordProxyKey() {
+  try {
+    sessionStorage.removeItem(PROXY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function getDiscordRoute() {
   try {
     return (localStorage.getItem(ROUTE_KEY) || '').trim();
