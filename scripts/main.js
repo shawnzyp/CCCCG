@@ -61,6 +61,7 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
+  saveUserProfile,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
@@ -24686,7 +24687,19 @@ async function handleAuthSubmit(mode) {
         return;
       }
       pendingPostAuthChoice = true;
-      await createAccountWithUsernamePassword(username, password);
+      const credential = await createAccountWithUsernamePassword(username, password);
+      const uid = credential?.user?.uid || getAuthState().uid;
+      if (uid) {
+        try {
+          await saveUserProfile(uid, {
+            username: normalized,
+            displayName: username,
+            createdAt: Date.now(),
+          });
+        } catch (profileErr) {
+          console.error('Failed to save user profile to cloud', profileErr);
+        }
+      }
     } else {
       const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';

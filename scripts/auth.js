@@ -383,12 +383,17 @@ export async function createAccountWithUsernamePassword(username, password) {
     const firestore = await getFirebaseFirestore();
     await reserveUsernameAndProfile(firestore, normalized, uid);
   } catch (err) {
-    try {
-      await credential?.user?.delete?.();
-    } catch (cleanupErr) {
-      console.error('Failed to clean up auth user after claim failure', cleanupErr);
+    const isPermissionError = err?.code === 'permission-denied' || /permission/i.test(err?.message || '');
+    if (isPermissionError) {
+      console.warn('Username reservation skipped due to permissions. Proceeding with account creation.', err);
+    } else {
+      try {
+        await credential?.user?.delete?.();
+      } catch (cleanupErr) {
+        console.error('Failed to clean up auth user after claim failure', cleanupErr);
+      }
+      throw err;
     }
-    throw err;
   }
   return credential;
 }
