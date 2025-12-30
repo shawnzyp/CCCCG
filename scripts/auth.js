@@ -1,4 +1,4 @@
-const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const CLOUD_BASE_URL = 'https://ccapp-fb946-default-rtdb.firebaseio.com';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId'];
 
 let authInitPromise = null;
