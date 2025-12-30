@@ -245,6 +245,11 @@ async function initializeAuthInternal() {
         console.error('Auth state listener failed', err);
       }
     });
+    if (user) {
+      syncProfileUsernameToFirestore(user).catch(err => {
+        console.warn('Failed to sync profile username', err);
+      });
+    }
   });
   authInstance = auth;
   return auth;
@@ -331,6 +336,31 @@ async function ensureUsernameReservation(firestore, normalizedUsername, uid) {
   return reserveUsernameAndProfile(firestore, normalizedUsername, uid);
 }
 
+async function syncProfileUsernameToFirestore(user) {
+  if (!user || !firebaseDatabase) return;
+  const uid = user.uid || '';
+  if (!uid) return;
+  const profileRef = firebaseDatabase.ref(`users/${uid}/profile`);
+  const snapshot = await profileRef.once('value');
+  const profile = snapshot?.val?.() || snapshot?.val || {};
+  if (!profile || typeof profile !== 'object') return;
+  if (profile.firestoreSyncedAt) return;
+  const normalizedUsername = normalizeUsername(profile.username || profile.displayName || '');
+  if (!normalizedUsername) return;
+  try {
+    const firestore = await getFirebaseFirestore();
+    await reserveUsernameAndProfile(firestore, normalizedUsername, uid);
+    await profileRef.update({
+      firestoreSyncedAt: Date.now(),
+    });
+  } catch (err) {
+    const isPermissionError = err?.code === 'permission-denied' || /permission/i.test(err?.message || '');
+    if (!isPermissionError) {
+      console.warn('Failed to migrate profile username to Firestore', err);
+    }
+  }
+}
+
 export async function checkUsernameAvailability(username) {
   const normalized = normalizeUsername(username);
   if (!normalized) {
@@ -383,12 +413,17 @@ export async function createAccountWithUsernamePassword(username, password) {
     const firestore = await getFirebaseFirestore();
     await reserveUsernameAndProfile(firestore, normalized, uid);
   } catch (err) {
-    try {
-      await credential?.user?.delete?.();
-    } catch (cleanupErr) {
-      console.error('Failed to clean up auth user after claim failure', cleanupErr);
+    const isPermissionError = err?.code === 'permission-denied' || /permission/i.test(err?.message || '');
+    if (isPermissionError) {
+      console.warn('Username reservation skipped due to permissions. Proceeding with account creation.', err);
+    } else {
+      try {
+        await credential?.user?.delete?.();
+      } catch (cleanupErr) {
+        console.error('Failed to clean up auth user after claim failure', cleanupErr);
+      }
+      throw err;
     }
-    throw err;
   }
   return credential;
 }

@@ -61,6 +61,7 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
+  saveUserProfile,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
@@ -24286,7 +24287,7 @@ function updateCreateSubmitState() {
   const normalized = normalizeUsername(username);
   const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
   const passwordsMatch = !!password && password === confirm;
-  const usernameReady = !!normalized && usernameAvailabilityState === 'available';
+  const usernameReady = !!normalized && (usernameAvailabilityState === 'available' || usernameAvailabilityState === 'unchecked');
   const ready = usernameReady && !unmetRules.length && passwordsMatch;
   authCreateSubmit.disabled = !ready;
   authCreateSubmit.setAttribute('aria-disabled', ready ? 'false' : 'true');
@@ -24354,11 +24355,20 @@ async function refreshUsernameAvailability() {
     }
   } catch (err) {
     if (token !== lastUsernameCheckToken) return;
-    setUsernameAvailabilityStatus({
-      state: 'unavailable',
-      message: err?.message || 'Unable to check username.',
-    });
-    setAuthError(err?.message || 'Firebase failed to initialize.', 'create');
+    const isPermissionError = err?.code === 'permission-denied' || /permission/i.test(err?.message || '');
+    if (isPermissionError) {
+      setUsernameAvailabilityStatus({
+        state: 'unchecked',
+        message: 'Unable to verify availability. We’ll check on signup.',
+      });
+      setAuthError('', 'create');
+    } else {
+      setUsernameAvailabilityStatus({
+        state: 'unavailable',
+        message: err?.message || 'Unable to check username.',
+      });
+      setAuthError(err?.message || 'Firebase failed to initialize.', 'create');
+    }
   } finally {
     updateCreateSubmitState();
   }
@@ -24657,7 +24667,7 @@ async function handleAuthSubmit(mode) {
         setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'create');
         return;
       }
-      if (usernameAvailabilityState !== 'available') {
+      if (!['available', 'unchecked'].includes(usernameAvailabilityState)) {
         setAuthError('That username is not available yet.', 'create');
         return;
       }
@@ -24677,7 +24687,19 @@ async function handleAuthSubmit(mode) {
         return;
       }
       pendingPostAuthChoice = true;
-      await createAccountWithUsernamePassword(username, password);
+      const credential = await createAccountWithUsernamePassword(username, password);
+      const uid = credential?.user?.uid || getAuthState().uid;
+      if (uid) {
+        try {
+          await saveUserProfile(uid, {
+            username: normalized,
+            displayName: username,
+            createdAt: Date.now(),
+          });
+        } catch (profileErr) {
+          console.error('Failed to save user profile to cloud', profileErr);
+        }
+      }
     } else {
       const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';
