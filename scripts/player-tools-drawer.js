@@ -497,7 +497,6 @@ function createPlayerToolsDrawer() {
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
 
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
     if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     if (scrim) {

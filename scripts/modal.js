@@ -205,6 +205,22 @@ export function hide(id) {
     const el = $(id);
     if (!el || el.classList.contains('hidden')) return false;
     cancelModalStyleReset(el);
+    removeTrapFocus(el);
+    const activeElement = document.activeElement;
+    if (activeElement && el.contains(activeElement) && typeof activeElement.blur === 'function') {
+      try {
+        activeElement.blur();
+      } catch (err) {
+        console.error('Failed to blur active element before hiding modal', err);
+      }
+    }
+    if (lastFocus && typeof lastFocus.focus === 'function') {
+      try {
+        lastFocus.focus();
+      } catch (err) {
+        console.error('Failed to restore focus after closing modal', err);
+      }
+    }
     const onEnd = (e) => {
       if (e.target === el && e.propertyName === 'opacity') {
         el.style.display = 'none';
@@ -220,14 +236,6 @@ export function hide(id) {
     }, 400);
     el.classList.add('hidden');
     el.setAttribute('aria-hidden', 'true');
-    removeTrapFocus(el);
-    if (lastFocus && typeof lastFocus.focus === 'function') {
-      try {
-        lastFocus.focus();
-      } catch (err) {
-        console.error('Failed to restore focus after closing modal', err);
-      }
-    }
     openModals = Math.max(0, openModals - 1);
     if (openModals === 0) {
       releaseFloatingLauncher();

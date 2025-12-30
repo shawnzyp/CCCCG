@@ -2302,7 +2302,6 @@ function setPlayerToolsTabHidden(hidden) {
   if (tab.hidden !== hidden) {
     tab.hidden = hidden;
   }
-  tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
 }
 
 function getWelcomeSeenKey() {
