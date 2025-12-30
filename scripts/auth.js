@@ -55,12 +55,14 @@ function warnIfProjectConfigMismatch(config) {
     try {
       const url = new URL(databaseURL);
       const host = url.hostname;
-      const isRtdbHost = host.includes('firebasedatabase.app') || host.includes('firebaseio.com');
+      const isRtdbHost = host.endsWith('firebasedatabase.app') || host.endsWith('firebaseio.com');
       const looksRelated = host.includes(projectId)
         || host.startsWith(`${projectId}-`)
         || host.startsWith(`${projectId}.`);
-      if (!isRtdbHost || !looksRelated) {
-        console.warn('Firebase project/database mismatch:', { projectId, databaseURL });
+      if (isRtdbHost && !looksRelated) {
+        console.warn('Firebase project/database may not match:', { projectId, databaseURL });
+      } else if (!isRtdbHost) {
+        console.warn('Firebase databaseURL does not look like RTDB:', { projectId, databaseURL });
       }
     } catch {
       console.warn('Invalid Firebase databaseURL:', databaseURL);
@@ -77,7 +79,7 @@ function warnIfProjectConfigMismatch(config) {
       '127.0.0.1'
     ].filter(Boolean));
     if (host && authDomain && !expectedDomains.has(host)) {
-      console.warn('Firebase auth domain not in expected list. Ensure it is authorized in Firebase Auth.', {
+      console.warn('Non-default hosting domain. Ensure this domain is added under Firebase Auth -> Authorized domains.', {
         host,
         authDomain
       });
@@ -93,6 +95,7 @@ async function loadFirebaseCompat() {
         if (typeof callback === 'function') {
           callback(null);
         }
+        return () => {};
       },
       setPersistence: async () => {},
       signInWithEmailAndPassword: async () => ({ user: null }),
