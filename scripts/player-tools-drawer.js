@@ -1,5 +1,6 @@
 import * as Characters from './characters.js';
-import { sendCoinFlipEvent, sendDiceRollEvent, sendInitiativeEvent } from './discord-events.js';
+import { getActiveUserId } from './storage.js';
+import { sendEventToDiscordWorker } from './discord-events.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
@@ -50,7 +51,7 @@ const getActiveCharacterName = () => {
   return 'Player';
 };
 
-const getDiscordCharacter = () => {
+const getDiscordActor = () => {
   const doc = getDocument();
   const vigilanteName = doc?.getElementById('superhero')?.value?.trim() || '';
   const playerName = doc?.getElementById('secret')?.value?.trim() || '';
@@ -63,9 +64,11 @@ const getDiscordCharacter = () => {
       : '';
   } catch (_) {}
   const resolvedId = payload.character?.characterId || characterId || fallbackName;
+  const uid = getActiveUserId();
   return {
-    id: resolvedId,
     vigilanteName: vigilanteName || fallbackName,
+    uid,
+    characterId: resolvedId,
     playerName: playerName || '',
   };
 };
@@ -550,13 +553,18 @@ function createPlayerToolsDrawer() {
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
 
-      void sendInitiativeEvent({
-        character: getDiscordCharacter(),
-        initiative: {
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'initiative.roll',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
           formula: `1d20${formatBonus(bonus)}`.trim(),
           total,
           breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+          characterId: actor.characterId,
+          playerName: actor.playerName,
         },
+        ts: Date.now(),
       });
     });
   };
@@ -578,14 +586,19 @@ function createPlayerToolsDrawer() {
       const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
 
-      void sendDiceRollEvent({
-        character: getDiscordCharacter(),
-        roll: {
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'dice.roll',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
           formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
           total,
           breakdown: formatDiceBreakdown(rolls, bonus),
           advantageState: 'normal',
+          characterId: actor.characterId,
+          playerName: actor.playerName,
         },
+        ts: Date.now(),
       });
     });
   };
@@ -596,9 +609,16 @@ function createPlayerToolsDrawer() {
       const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
       updateResult(coinResultEl, result);
       addHistoryEntryInternal({ label: 'Coin', value: result });
-      void sendCoinFlipEvent({
-        character: getDiscordCharacter(),
-        coin: { result },
+      const actor = getDiscordActor();
+      void sendEventToDiscordWorker({
+        type: 'coin.flip',
+        actor: { vigilanteName: actor.vigilanteName, uid: actor.uid },
+        detail: {
+          result,
+          characterId: actor.characterId,
+          playerName: actor.playerName,
+        },
+        ts: Date.now(),
       });
     });
   };

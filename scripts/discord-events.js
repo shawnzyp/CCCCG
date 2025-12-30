@@ -1,140 +1,54 @@
-import {
-  DEFAULT_DISCORD_ENDPOINT,
-  getDiscordEndpoint,
-  getDiscordProxyKey,
-  isDiscordEnabled,
-} from './discord-settings.js';
+import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
 
-const DISCORD_PATH = '/api/discord';
+const DISCORD_WORKER_URL = 'https://ccapp.shawnpeiris22.workers.dev/';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
+const RETRY_DELAY_MS = 500;
 
-const normalizeBaseUrl = (value) => {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  return trimmed.replace(/\/+$/, '');
-};
-
-const resolveEndpointUrl = () => {
-  const base = normalizeBaseUrl(getDiscordEndpoint() || DEFAULT_DISCORD_ENDPOINT);
-  if (!base) return '';
-  return `${base}${DISCORD_PATH}`;
-};
-
-const isValidEndpointUrl = (url) =>
+const isValidWorkerUrl = (url) =>
   typeof url === 'string'
   && /^https:\/\//i.test(url)
   && !/YOUR-WORKER/i.test(url);
 
-export const canSendDiscordEvents = () => {
-  const endpoint = resolveEndpointUrl();
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const sendEventToDiscordWorker = async (payload) => {
+  if (!isDiscordEnabled()) return false;
+  if (!isValidWorkerUrl(DISCORD_WORKER_URL)) return false;
   const key = getDiscordProxyKey();
-  return isDiscordEnabled() && !!key && isValidEndpointUrl(endpoint);
-};
+  if (!key || typeof fetch !== 'function') return false;
 
-export const sendDiscordEvent = async (payload) => {
-  if (!isDiscordEnabled()) return { ok: false, error: 'disabled' };
+  const requestInit = {
+    method: 'POST',
+    headers: {
+      ...DEFAULT_HEADERS,
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify(payload),
+  };
 
-  const endpoint = resolveEndpointUrl();
-  if (!isValidEndpointUrl(endpoint)) return { ok: false, error: 'invalid_endpoint' };
-
-  const key = getDiscordProxyKey();
-  if (!key) return { ok: false, error: 'missing_key' };
-
-  if (typeof fetch !== 'function') return { ok: false, error: 'fetch_unavailable' };
+  const attempt = async () => {
+    const res = await fetch(DISCORD_WORKER_URL, requestInit);
+    return { ok: res.ok, status: res.status };
+  };
 
   try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        ...DEFAULT_HEADERS,
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      return { ok: false, status: res.status };
-    }
-
-    return { ok: true, status: res.status };
-  } catch {
-    return { ok: false, error: 'network_error' };
+    const result = await attempt();
+    if (result.ok) return true;
+    console.warn('Discord relay returned', result.status);
+  } catch (err) {
+    console.warn('Discord relay request failed', err);
   }
-};
 
-const withTimestamp = (payload) => ({
-  ...payload,
-  timestamp: Date.now(),
-});
+  await sleep(RETRY_DELAY_MS);
 
-const normalizeCharacter = (character) => {
-  if (!character || typeof character !== 'object') return null;
-  const vigilanteName = character.vigilanteName || character.name || '';
-  return {
-    id: character.id || '',
-    vigilanteName: vigilanteName || '',
-    playerName: character.playerName || '',
-  };
-};
-
-export const sendDiceRollEvent = (payload) => {
-  const character = normalizeCharacter(payload?.character);
-  if (!character?.id || !character?.vigilanteName) return Promise.resolve({ ok: false, error: 'missing_character' });
-  return sendDiscordEvent(withTimestamp({
-    eventType: 'dice.roll',
-    campaignId: payload?.campaignId,
-    sessionId: payload?.sessionId,
-    character,
-    roll: payload?.roll || {},
-  }));
-};
-
-export const sendCoinFlipEvent = (payload) => {
-  const character = normalizeCharacter(payload?.character);
-  if (!character?.id || !character?.vigilanteName) return Promise.resolve({ ok: false, error: 'missing_character' });
-  return sendDiscordEvent(withTimestamp({
-    eventType: 'coin.flip',
-    campaignId: payload?.campaignId,
-    sessionId: payload?.sessionId,
-    character,
-    coin: payload?.coin || {},
-  }));
-};
-
-export const sendInitiativeEvent = (payload) => {
-  const character = normalizeCharacter(payload?.character);
-  if (!character?.id || !character?.vigilanteName) return Promise.resolve({ ok: false, error: 'missing_character' });
-  return sendDiscordEvent(withTimestamp({
-    eventType: 'initiative.roll',
-    campaignId: payload?.campaignId,
-    sessionId: payload?.sessionId,
-    character,
-    initiative: payload?.initiative || {},
-  }));
-};
-
-export const sendCharacterUpdateEvent = (payload) => {
-  const character = normalizeCharacter(payload?.character);
-  if (!character?.id || !character?.vigilanteName) return Promise.resolve({ ok: false, error: 'missing_character' });
-  return sendDiscordEvent(withTimestamp({
-    eventType: 'character.update',
-    campaignId: payload?.campaignId,
-    sessionId: payload?.sessionId,
-    character,
-    update: payload?.update || {},
-  }));
-};
-
-export const sendCombatEvent = (payload) => {
-  const character = normalizeCharacter(payload?.character);
-  if (!character?.id || !character?.vigilanteName) return Promise.resolve({ ok: false, error: 'missing_character' });
-  const eventType = payload?.eventType === 'combat.end' ? 'combat.end' : 'combat.start';
-  return sendDiscordEvent(withTimestamp({
-    eventType,
-    campaignId: payload?.campaignId,
-    sessionId: payload?.sessionId,
-    character,
-    summary: payload?.summary || '',
-  }));
+  try {
+    const result = await attempt();
+    if (!result.ok) {
+      console.warn('Discord relay retry returned', result.status);
+    }
+    return result.ok;
+  } catch (err) {
+    console.warn('Discord relay retry failed', err);
+    return false;
+  }
 };

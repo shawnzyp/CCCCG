@@ -96,12 +96,7 @@ import {
   open as openPlayerToolsDrawer,
   close as closePlayerToolsDrawer,
 } from './player-tools-drawer.js';
-import {
-  sendCharacterUpdateEvent,
-  sendCoinFlipEvent,
-  sendDiceRollEvent,
-  sendInitiativeEvent,
-} from './discord-events.js';
+import { sendEventToDiscordWorker } from './discord-events.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -7837,13 +7832,17 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
       }
       const character = getDiscordCharacterPayload();
       if (character) {
-        void sendInitiativeEvent({
-          character,
-          initiative: {
+        void sendEventToDiscordWorker({
+          type: 'initiative.roll',
+          actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+          detail: {
             formula,
             total: rollDetails.total,
             breakdown: breakdownParts.filter(Boolean).join(' | '),
+            characterId: character.id,
+            playerName: character.playerName,
           },
+          ts: Date.now(),
         });
       }
     }
@@ -10733,10 +10732,12 @@ function getDiscordCharacterPayload() {
     characterId = ensureCharacterId(payload, fallbackName);
   } catch {}
   const resolvedId = payload.character?.characterId || characterId || fallbackName;
+  const uid = getActiveUserId();
   return {
     id: resolvedId,
     vigilanteName: vigilanteName || fallbackName,
     playerName: playerName || '',
+    uid,
   };
 }
 
@@ -10755,14 +10756,18 @@ function queueDiscordCharacterUpdate(type, before, after, reason) {
   }
   update.timeout = setTimeout(() => {
     pendingDiscordUpdates.delete(type);
-    void sendCharacterUpdateEvent({
-      character,
-      update: {
-        type,
+    void sendEventToDiscordWorker({
+      type: 'character.update',
+      actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+      detail: {
+        updateType: type,
         before: update.before,
         after: update.after,
         reason: update.reason,
+        characterId: character.id,
+        playerName: character.playerName,
       },
+      ts: Date.now(),
     });
   }, DISCORD_UPDATE_DEBOUNCE_MS);
   pendingDiscordUpdates.set(type, update);
@@ -10771,9 +10776,18 @@ function queueDiscordCharacterUpdate(type, before, after, reason) {
 function sendImmediateCharacterUpdate(type, before, after, reason) {
   const character = getDiscordCharacterPayload();
   if (!character) return;
-  void sendCharacterUpdateEvent({
-    character,
-    update: { type, before, after, reason },
+  void sendEventToDiscordWorker({
+    type: 'character.update',
+    actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+    detail: {
+      updateType: type,
+      before,
+      after,
+      reason,
+      characterId: character.id,
+      playerName: character.playerName,
+    },
+    ts: Date.now(),
   });
 }
 
@@ -11808,14 +11822,18 @@ if (rollDiceButton) {
     ].filter(Boolean).join(', ');
     const character = getDiscordCharacterPayload();
     if (character) {
-      void sendDiceRollEvent({
-        character,
-        roll: {
+      void sendEventToDiscordWorker({
+        type: 'dice.roll',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
           formula: `${count}d${sides}${formulaModifier}`.trim(),
           total,
           breakdown: breakdownDetail,
           advantageState: normalizedMode,
+          characterId: character.id,
+          playerName: character.playerName,
         },
+        ts: Date.now(),
       });
     }
     window.dmNotify?.(`Rolled ${message}`, { actionScope: 'minor' });
@@ -11838,9 +11856,15 @@ if (coinFlipButton) {
     logAction(`Coin flip: ${v}`);
     const character = getDiscordCharacterPayload();
     if (character) {
-      void sendCoinFlipEvent({
-        character,
-        coin: { result: v },
+      void sendEventToDiscordWorker({
+        type: 'coin.flip',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
+          result: v,
+          characterId: character.id,
+          playerName: character.playerName,
+        },
+        ts: Date.now(),
       });
     }
     window.dmNotify?.(`Coin flip: ${v}`, { actionScope: 'minor' });
