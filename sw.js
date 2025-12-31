@@ -18,7 +18,7 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
 }
 
 const MANIFEST_PATH = './asset-manifest.json';
-const MANIFEST_VERSION = '2025-01-20';
+const MANIFEST_VERSION = '2025-01-22';
 const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 
 function resolveAssetUrl(pathname) {

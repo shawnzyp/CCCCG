@@ -55,6 +55,11 @@ function validateFirebaseConfig(config, source) {
     const prefix = source === 'window'
       ? 'Firebase configuration missing required keys in window.__CCCG_FIREBASE_CONFIG__.'
       : 'Firebase configuration missing required keys.';
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast(`Firebase setup incomplete. Missing: ${missing.join(', ')}`, 'error');
+      } catch {}
+    }
     throw new Error(`${prefix} Missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
   }
 }
@@ -62,6 +67,11 @@ function validateFirebaseConfig(config, source) {
 function assertExpectedProjectId(config) {
   const projectId = config?.projectId || '';
   if (projectId && projectId !== EXPECTED_PROJECT_ID) {
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast(`Firebase project mismatch (expected ${EXPECTED_PROJECT_ID}). Clear caches and reload.`, 'error');
+      } catch {}
+    }
     throw new Error(`Firebase projectId mismatch. Expected "${EXPECTED_PROJECT_ID}" but received "${projectId}". Clear caches and update index.html with the correct Firebase config.`);
   }
 }

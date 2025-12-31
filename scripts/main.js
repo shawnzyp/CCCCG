@@ -2373,7 +2373,7 @@ function getWelcomeModal() {
   }
 }
 
-function restoreAppAfterWelcome() {
+function restoreUiAfterWelcome() {
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
@@ -2529,7 +2529,7 @@ function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hideWelcomeModalPanel();
   hide(WELCOME_MODAL_ID);
-  restoreAppAfterWelcome();
+  restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
@@ -24723,6 +24723,7 @@ function openPostAuthChoice() {
 
 function closePostAuthChoice() {
   hide('modal-post-auth-choice');
+  restoreUiAfterWelcome();
 }
 
 function openClaimModal() {
