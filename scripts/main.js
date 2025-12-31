@@ -2283,6 +2283,8 @@ function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}
 }
 
 let playerToolsTabElement = null;
+const FLOATING_LAUNCHER_MARGIN = 12;
+let floatingLauncherClampFrame = null;
 
 function getPlayerToolsTabElement() {
   if (playerToolsTabElement && playerToolsTabElement.isConnected) {
@@ -2298,11 +2300,40 @@ function getPlayerToolsTabElement() {
   return tab;
 }
 
+function clampFloatingLauncherPosition() {
+  const tab = getPlayerToolsTabElement();
+  if (!tab || tab.hidden) return;
+  const rect = tab.getBoundingClientRect();
+  const width = rect.width || tab.offsetWidth || 0;
+  if (!width || !Number.isFinite(width)) return;
+  const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+  if (!viewportWidth) return;
+  const minLeft = FLOATING_LAUNCHER_MARGIN;
+  const maxLeft = Math.max(minLeft, viewportWidth - width - FLOATING_LAUNCHER_MARGIN);
+  const nextLeft = Math.min(Math.max(rect.left, minLeft), maxLeft);
+  tab.style.left = `${Math.round(nextLeft)}px`;
+  tab.style.right = 'auto';
+}
+
+function scheduleFloatingLauncherClamp() {
+  if (floatingLauncherClampFrame) return;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame
+    : (cb => setTimeout(cb, 0));
+  floatingLauncherClampFrame = schedule(() => {
+    floatingLauncherClampFrame = null;
+    clampFloatingLauncherPosition();
+  });
+}
+
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
   if (tab.hidden !== hidden) {
     tab.hidden = hidden;
+  }
+  if (!hidden) {
+    scheduleFloatingLauncherClamp();
   }
 }
 
@@ -2339,6 +2370,54 @@ function getWelcomeModal() {
     return document.getElementById(WELCOME_MODAL_ID);
   } catch {
     return null;
+  }
+}
+
+function restoreAppAfterWelcome() {
+  if (typeof document === 'undefined') return;
+  const { body } = document;
+  if (body) {
+    body.classList.remove('auth-gate', 'welcome-gate', 'modal-open', 'launching');
+  }
+  const selectors = [
+    '#app',
+    '#app-root',
+    '.app',
+    '.app-shell',
+    '[data-launch-shell]',
+    '#phone',
+    '.phone',
+    '#player-os',
+    '.player-os',
+    'main',
+  ];
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      if (!el) return;
+      if (el.hidden) {
+        el.hidden = false;
+      }
+      if (el.classList?.contains('hidden')) {
+        el.classList.remove('hidden');
+      }
+      if (el.style) {
+        el.style.display = '';
+        el.style.visibility = '';
+        el.style.opacity = '';
+      }
+    });
+  });
+  scheduleFloatingLauncherClamp();
+}
+
+function hideWelcomeModalPanel() {
+  const modal = getWelcomeModal();
+  if (!modal) return;
+  const panel = modal.querySelector('.modal--welcome, .modal');
+  if (panel) {
+    panel.classList.add('hidden');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.style.display = 'none';
   }
 }
 
@@ -2448,7 +2527,9 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  hideWelcomeModalPanel();
   hide(WELCOME_MODAL_ID);
+  restoreAppAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
@@ -6775,6 +6856,9 @@ if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
   const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
   setPlayerToolsTabHidden(shouldHideTab);
+  scheduleFloatingLauncherClamp();
+  window.addEventListener('resize', scheduleFloatingLauncherClamp, { passive: true });
+  window.addEventListener('orientationchange', scheduleFloatingLauncherClamp, { passive: true });
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {

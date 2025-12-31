@@ -8965,6 +8965,13 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 /* Drawer + tray base */
+#floating-launcher,
+.floating-launcher,
+.pt-floating-launcher {
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+}
+
 #player-tools-tab.pt-tab{
 position: fixed;
 top: 50%;

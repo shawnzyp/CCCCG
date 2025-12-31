@@ -1,4 +1,5 @@
 const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 
 let authInitPromise = null;
@@ -55,6 +56,13 @@ function validateFirebaseConfig(config, source) {
       ? 'Firebase configuration missing required keys in window.__CCCG_FIREBASE_CONFIG__.'
       : 'Firebase configuration missing required keys.';
     throw new Error(`${prefix} Missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
+  }
+}
+
+function assertExpectedProjectId(config) {
+  const projectId = config?.projectId || '';
+  if (projectId && projectId !== EXPECTED_PROJECT_ID) {
+    throw new Error(`Firebase projectId mismatch. Expected "${EXPECTED_PROJECT_ID}" but received "${projectId}". Clear caches and update index.html with the correct Firebase config.`);
   }
 }
 
@@ -230,6 +238,7 @@ async function initializeAuthInternal() {
   const { config: firebaseConfig, source } = getFirebaseConfig();
   validateFirebaseConfig(firebaseConfig, source);
   logEffectiveFirebaseConfig(firebaseConfig);
+  assertExpectedProjectId(firebaseConfig);
   warnIfProjectConfigMismatch(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth(app);
