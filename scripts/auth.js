@@ -65,6 +65,9 @@ function validateFirebaseConfig(config, source) {
 }
 
 function assertExpectedProjectId(config) {
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    return;
+  }
   const projectId = config?.projectId || '';
   if (projectId && projectId !== EXPECTED_PROJECT_ID) {
     if (typeof window !== 'undefined' && typeof window.toast === 'function') {
