@@ -251,11 +251,11 @@ curl -X POST \
   "https://discord.com/api/webhooks/123/abc"
 ```
 
-Note: Browsers block cross origin webhook requests with CORS. Use a server or Worker to proxy the request.
+Note: Browsers block cross origin webhook requests with CORS. Use a server or Worker to proxy the request. The Worker allowlist includes https://shawnzyp.github.io and localhost origins.
 
 Recommended Cloudflare Worker proxy:
 
-Create a Worker at `workers/discord-roll-worker.js` and deploy it with Wrangler. Then POST to `/roll` with the same JSON payload you would send to Discord.
+Create a Worker at `workers/discord-roll-worker.js` and deploy it with Wrangler. Then POST to `/roll` with either a Discord payload or a roll payload. Configure the app meta tag `discord-proxy-url` to point at the Worker /roll URL.
 
 Wrangler config snippet:
 
@@ -269,6 +269,38 @@ Set the secret:
 
 ```
 wrangler secret put DISCORD_WEBHOOK_URL
+```
+
+Optional shared secret:
+
+```
+wrangler secret put SHARED_SECRET
+```
+
+Deploy:
+
+```
+wrangler deploy
+```
+
+Worker request example:
+
+```
+fetch('https://your-worker.yourdomain.workers.dev/roll', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CCCG-Secret': 'your-shared-secret'
+  },
+  body: JSON.stringify({
+    roll: {
+      who: 'Vigilante',
+      expr: '1d20+5',
+      total: 17,
+      breakdown: 'd20 (12) + 5'
+    }
+  })
+});
 ```
 
 #### Rotating the DM PIN
