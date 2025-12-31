@@ -2373,52 +2373,54 @@ function getWelcomeModal() {
   }
 }
 
+function focusAfterWelcomeClose(modal) {
+  if (typeof document === 'undefined') return;
+  const active = document.activeElement;
+  if (modal && active && typeof modal.contains === 'function' && modal.contains(active)) {
+    const fallback = document.getElementById('player-tools-tab')
+      || document.querySelector('main button, main [href], main input, main select, main textarea, main [tabindex]:not([tabindex="-1"])');
+    if (fallback && typeof fallback.focus === 'function') {
+      try {
+        fallback.focus();
+      } catch {}
+    }
+  }
+}
+
 function restoreUiAfterWelcome() {
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
-    body.classList.remove('auth-gate', 'welcome-gate', 'modal-open', 'launching');
+    ['auth-gate', 'welcome-gate', 'modal-open', 'launching'].forEach(className => {
+      if (body.classList.contains(className)) {
+        body.classList.remove(className);
+      }
+    });
   }
   const selectors = [
     '#app',
     '#app-root',
-    '.app',
     '.app-shell',
     '[data-launch-shell]',
     '#phone',
-    '.phone',
     '#player-os',
-    '.player-os',
-    'main',
   ];
   selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      if (!el) return;
-      if (el.hidden) {
-        el.hidden = false;
-      }
-      if (el.classList?.contains('hidden')) {
-        el.classList.remove('hidden');
-      }
-      if (el.style) {
-        el.style.display = '';
-        el.style.visibility = '';
-        el.style.opacity = '';
-      }
-    });
+    const el = document.querySelector(selector);
+    if (!el) return;
+    if (el.hidden) {
+      el.hidden = false;
+    }
+    if (el.classList?.contains('hidden')) {
+      el.classList.remove('hidden');
+    }
+    if (el.style) {
+      el.style.display = '';
+      el.style.visibility = '';
+      el.style.opacity = '';
+    }
   });
   scheduleFloatingLauncherClamp();
-}
-
-function hideWelcomeModalPanel() {
-  const modal = getWelcomeModal();
-  if (!modal) return;
-  const panel = modal.querySelector('.modal--welcome, .modal');
-  if (panel) {
-    panel.classList.add('hidden');
-    panel.setAttribute('aria-hidden', 'true');
-    panel.style.display = 'none';
-  }
 }
 
 function prepareWelcomeModal() {
@@ -2527,7 +2529,8 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
-  hideWelcomeModalPanel();
+  const modal = getWelcomeModal();
+  focusAfterWelcomeClose(modal);
   hide(WELCOME_MODAL_ID);
   restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
