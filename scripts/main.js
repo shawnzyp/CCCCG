@@ -24307,6 +24307,12 @@ function getFriendlySignupError(error) {
   }
 }
 
+function formatAuthErrorDetails(error) {
+  const code = error?.code || 'unknown';
+  const message = error?.message || 'Unknown error.';
+  return `${code}: ${message}`;
+}
+
 if (authPasswordPolicy) {
   renderPasswordPolicyChecklist(authPasswordPolicy, passwordPolicy);
   updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
@@ -24730,7 +24736,8 @@ async function handleAuthSubmit(mode) {
       if (policyFeedback) {
         setAuthError(policyFeedback.message, 'create');
       } else {
-        setAuthError(getFriendlySignupError(err), 'create');
+        const friendly = getFriendlySignupError(err);
+        setAuthError(`${friendly} (${formatAuthErrorDetails(err)})`, 'create');
       }
     } else {
       setAuthError(err?.message || 'Unable to sign in.', 'login');
