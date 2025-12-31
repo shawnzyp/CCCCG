@@ -80,6 +80,15 @@ function logEffectiveFirebaseConfig(config) {
   });
 }
 
+function exposeFirebaseDebugHelper() {
+  if (typeof window === 'undefined') return;
+  window.__CCCG_DEBUG_FIREBASE__ = () => {
+    const { config, source } = getFirebaseConfig();
+    logEffectiveFirebaseConfig(config);
+    return { source, config };
+  };
+}
+
 function warnIfProjectConfigMismatch(config) {
   if (!config) return;
   const projectId = config.projectId;
@@ -283,6 +292,8 @@ async function initializeAuthInternal() {
   authInstance = auth;
   return auth;
 }
+
+exposeFirebaseDebugHelper();
 
 export function initFirebaseAuth() {
   if (!authInitPromise) {

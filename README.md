@@ -135,7 +135,8 @@ Catalyst Core Character Tracker is a mobile friendly character sheet and campaig
 - If a claim token fails, confirm it is unexpired and targeted to the current uid.
 - If local storage is cleared, log in and open the cloud list to recover.
 - API key restrictions are managed in Google Cloud Console under APIs & Services -> Credentials.
-- Authorized domains for Firebase Auth must include github.io.
+- If the GitHub Pages build is stuck on old config, clear the service worker cache for the site and reload.
+- Authorized domains for Firebase Auth must include shawnzyp.github.io.
 
 ## Schema Versioning and Migration
 
