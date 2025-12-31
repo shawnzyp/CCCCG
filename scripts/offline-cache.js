@@ -1,4 +1,5 @@
-const MANIFEST_URL = 'asset-manifest.json';
+const MANIFEST_VERSION = '2025-01-22';
+const MANIFEST_URL = `asset-manifest.json?v=${MANIFEST_VERSION}`;
 const DEFAULT_CONCURRENCY = 6;
 const OFFLINE_VERSION_STORAGE_KEY = 'cccg.offlineManifestVersion';
 const OFFLINE_UPDATED_AT_STORAGE_KEY = 'cccg.offlineManifestUpdatedAt';
