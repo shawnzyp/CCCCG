@@ -229,6 +229,48 @@ Note: Realtime Database rules are configured separately from Firestore rules. If
 
 The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash in `scripts/dm-pin.js`.
 
+### Discord webhook testing
+
+Use an absolute Discord webhook URL. A placeholder like `YOUR_DISCORD_WEBHOOK_URL_HERE` becomes a relative URL and will post to GitHub Pages.
+
+Browser console test (localhost only):
+
+```
+await import('./scripts/discord-webhook-dev.js');
+await window.__CCCG_TEST_DISCORD_WEBHOOK__('https://discord.com/api/webhooks/123/abc', {
+  content: 'CCCG roll test from browser.',
+});
+```
+
+curl test:
+
+```
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"content":"CCCG roll test from curl."}' \
+  "https://discord.com/api/webhooks/123/abc"
+```
+
+Note: Browsers block cross origin webhook requests with CORS. Use a server or Worker to proxy the request.
+
+Recommended Cloudflare Worker proxy:
+
+Create a Worker at `workers/discord-roll-worker.js` and deploy it with Wrangler. Then POST to `/roll` with the same JSON payload you would send to Discord.
+
+Wrangler config snippet:
+
+```
+name = "ccccg-discord-roll"
+main = "workers/discord-roll-worker.js"
+compatibility_date = "2025-01-22"
+```
+
+Set the secret:
+
+```
+wrangler secret put DISCORD_WEBHOOK_URL
+```
+
 #### Rotating the DM PIN
 
 1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash configuration. The optional second argument overrides the default 120000 PBKDF2 iterations.
