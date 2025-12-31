@@ -18,6 +18,7 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
 }
 
 const MANIFEST_PATH = './asset-manifest.json';
+const MANIFEST_VERSION = '2025-01-22';
 const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 
 function resolveAssetUrl(pathname) {
@@ -28,7 +29,7 @@ function resolveAssetUrl(pathname) {
   }
 }
 
-const MANIFEST_URL = resolveAssetUrl(MANIFEST_PATH);
+const MANIFEST_URL = resolveAssetUrl(`${MANIFEST_PATH}?v=${MANIFEST_VERSION}`);
 
 let manifestFetchPromise = null;
 let cachedManifest = null;
@@ -120,6 +121,10 @@ async function precacheAll(cache, manifest) {
     assetSet.add(MANIFEST_PATH);
   }
 
+  if (typeof MANIFEST_URL === 'string' && MANIFEST_URL) {
+    assetSet.add(MANIFEST_URL);
+  }
+
   const skippedAssets = [];
 
   await Promise.all(
@@ -142,7 +147,7 @@ async function precacheAll(cache, manifest) {
   }
 }
 
-const SW_BUILD = 'autosave-key-v2';
+const SW_BUILD = 'autosave-key-v3';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
 

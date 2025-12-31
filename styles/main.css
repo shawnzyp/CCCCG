@@ -8965,10 +8965,17 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 /* Drawer + tray base */
+#floating-launcher,
+.floating-launcher,
+.pt-floating-launcher {
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+}
+
 #player-tools-tab.pt-tab{
 position: fixed;
 top: 50%;
-left: 0;
+left: max(12px, env(safe-area-inset-left));
 transform: translateY(-50%);
 z-index: 1500;
 
@@ -8989,7 +8996,7 @@ cursor: pointer;
 
 @media (min-width: 900px) {
   #player-tools-tab.pt-tab {
-    left: var(--pt-desktop-gutter);
+    left: max(var(--pt-desktop-gutter), 12px, env(safe-area-inset-left));
   }
 }
 

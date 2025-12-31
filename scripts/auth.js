@@ -1,4 +1,5 @@
-const CLOUD_BASE_URL = 'https://ccapp-fb946-default-rtdb.firebaseio.com';
+const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 
 let authInitPromise = null;
@@ -24,26 +25,89 @@ const authListeners = new Set();
 function getFirebaseConfig() {
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
     return {
-      apiKey: 'test',
-      authDomain: 'test',
-      projectId: 'test',
-      appId: 'test',
-      databaseURL: CLOUD_BASE_URL,
+      source: 'test',
+      config: {
+        apiKey: 'test',
+        authDomain: 'test',
+        projectId: 'test',
+        appId: 'test',
+        databaseURL: CLOUD_BASE_URL,
+      },
     };
   }
   if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
     return {
-      ...window.__CCCG_FIREBASE_CONFIG__,
+      source: 'window',
+      config: {
+        ...window.__CCCG_FIREBASE_CONFIG__,
+      },
     };
   }
-  return { databaseURL: CLOUD_BASE_URL };
+  return {
+    source: 'default',
+    config: { databaseURL: CLOUD_BASE_URL },
+  };
 }
 
-function validateFirebaseConfig(config) {
+function validateFirebaseConfig(config, source) {
   const missing = REQUIRED_CONFIG_KEYS.filter(key => typeof config?.[key] !== 'string' || !config[key].trim());
   if (missing.length) {
-    throw new Error(`Firebase configuration missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
+    const prefix = source === 'window'
+      ? 'Firebase configuration missing required keys in window.__CCCG_FIREBASE_CONFIG__.'
+      : 'Firebase configuration missing required keys.';
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast(`Firebase setup incomplete. Missing: ${missing.join(', ')}`, 'error');
+      } catch {}
+    }
+    throw new Error(`${prefix} Missing: ${missing.join(', ')}. Paste the Firebase config in index.html.`);
   }
+}
+
+function assertExpectedProjectId(config) {
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    return;
+  }
+  const projectId = config?.projectId || '';
+  if (projectId && projectId !== EXPECTED_PROJECT_ID) {
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast(`Firebase project mismatch (expected ${EXPECTED_PROJECT_ID}). Clear caches and reload.`, 'error');
+      } catch {}
+    }
+    throw new Error(`Firebase projectId mismatch. Expected "${EXPECTED_PROJECT_ID}" but received "${projectId}". Clear caches and update index.html with the correct Firebase config.`);
+  }
+}
+
+function logEffectiveFirebaseConfig(config) {
+  if (!config || typeof console === 'undefined') return;
+  let databaseHost = '';
+  if (typeof config.databaseURL === 'string') {
+    try {
+      const url = new URL(config.databaseURL);
+      databaseHost = url.hostname || '';
+    } catch {
+      databaseHost = config.databaseURL;
+    }
+  }
+  const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
+  const keyPrefix = apiKey ? apiKey.slice(0, 4) : 'missing';
+  const keySuffix = apiKey ? apiKey.slice(-4) : 'missing';
+  console.info('Firebase config (runtime):', {
+    projectId: config.projectId || '',
+    authDomain: config.authDomain || '',
+    databaseHost,
+    apiKey: `${keyPrefix}...${keySuffix}`,
+  });
+}
+
+function exposeFirebaseDebugHelper() {
+  if (typeof window === 'undefined') return;
+  window.__CCCG_DEBUG_FIREBASE__ = () => {
+    const { config, source } = getFirebaseConfig();
+    logEffectiveFirebaseConfig(config);
+    return { source, config };
+  };
 }
 
 function warnIfProjectConfigMismatch(config) {
@@ -184,16 +248,12 @@ export function getCurrentUser() {
 
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
-  const firebaseConfig = getFirebaseConfig();
-  validateFirebaseConfig(firebaseConfig);
+  const { config: firebaseConfig, source } = getFirebaseConfig();
+  validateFirebaseConfig(firebaseConfig, source);
+  logEffectiveFirebaseConfig(firebaseConfig);
+  assertExpectedProjectId(firebaseConfig);
   warnIfProjectConfigMismatch(firebaseConfig);
   const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-  if (typeof process === 'undefined' || !process?.env?.JEST_WORKER_ID) {
-    const projectId = app?.options?.projectId;
-    if (projectId && projectId !== 'ccapp-fb946') {
-      console.warn('Firebase project mismatch:', projectId);
-    }
-  }
   const auth = firebase.auth(app);
   const db = firebase.database(app);
   const firestore = firebase.firestore(app);
@@ -254,6 +314,8 @@ async function initializeAuthInternal() {
   authInstance = auth;
   return auth;
 }
+
+exposeFirebaseDebugHelper();
 
 export function initFirebaseAuth() {
   if (!authInitPromise) {

@@ -2283,6 +2283,8 @@ function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}
 }
 
 let playerToolsTabElement = null;
+const FLOATING_LAUNCHER_MARGIN = 12;
+let floatingLauncherClampFrame = null;
 
 function getPlayerToolsTabElement() {
   if (playerToolsTabElement && playerToolsTabElement.isConnected) {
@@ -2298,11 +2300,40 @@ function getPlayerToolsTabElement() {
   return tab;
 }
 
+function clampFloatingLauncherPosition() {
+  const tab = getPlayerToolsTabElement();
+  if (!tab || tab.hidden) return;
+  const rect = tab.getBoundingClientRect();
+  const width = rect.width || tab.offsetWidth || 0;
+  if (!width || !Number.isFinite(width)) return;
+  const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+  if (!viewportWidth) return;
+  const minLeft = FLOATING_LAUNCHER_MARGIN;
+  const maxLeft = Math.max(minLeft, viewportWidth - width - FLOATING_LAUNCHER_MARGIN);
+  const nextLeft = Math.min(Math.max(rect.left, minLeft), maxLeft);
+  tab.style.left = `${Math.round(nextLeft)}px`;
+  tab.style.right = 'auto';
+}
+
+function scheduleFloatingLauncherClamp() {
+  if (floatingLauncherClampFrame) return;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame
+    : (cb => setTimeout(cb, 0));
+  floatingLauncherClampFrame = schedule(() => {
+    floatingLauncherClampFrame = null;
+    clampFloatingLauncherPosition();
+  });
+}
+
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
   if (tab.hidden !== hidden) {
     tab.hidden = hidden;
+  }
+  if (!hidden) {
+    scheduleFloatingLauncherClamp();
   }
 }
 
@@ -2340,6 +2371,56 @@ function getWelcomeModal() {
   } catch {
     return null;
   }
+}
+
+function focusAfterWelcomeClose(modal) {
+  if (typeof document === 'undefined') return;
+  const active = document.activeElement;
+  if (modal && active && typeof modal.contains === 'function' && modal.contains(active)) {
+    const fallback = document.getElementById('player-tools-tab')
+      || document.querySelector('main button, main [href], main input, main select, main textarea, main [tabindex]:not([tabindex="-1"])');
+    if (fallback && typeof fallback.focus === 'function') {
+      try {
+        fallback.focus();
+      } catch {}
+    }
+  }
+}
+
+function restoreUiAfterWelcome() {
+  if (typeof document === 'undefined') return;
+  const { body } = document;
+  if (body) {
+    ['auth-gate', 'welcome-gate', 'modal-open', 'launching'].forEach(className => {
+      if (body.classList.contains(className)) {
+        body.classList.remove(className);
+      }
+    });
+  }
+  const selectors = [
+    '#app',
+    '#app-root',
+    '.app-shell',
+    '[data-launch-shell]',
+    '#phone',
+    '#player-os',
+  ];
+  selectors.forEach(selector => {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    if (el.hidden) {
+      el.hidden = false;
+    }
+    if (el.classList?.contains('hidden')) {
+      el.classList.remove('hidden');
+    }
+    if (el.style) {
+      el.style.display = '';
+      el.style.visibility = '';
+      el.style.opacity = '';
+    }
+  });
+  scheduleFloatingLauncherClamp();
 }
 
 function prepareWelcomeModal() {
@@ -2448,7 +2529,10 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  const modal = getWelcomeModal();
+  focusAfterWelcomeClose(modal);
   hide(WELCOME_MODAL_ID);
+  restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
@@ -6775,6 +6859,9 @@ if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
   const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
   setPlayerToolsTabHidden(shouldHideTab);
+  scheduleFloatingLauncherClamp();
+  window.addEventListener('resize', scheduleFloatingLauncherClamp, { passive: true });
+  window.addEventListener('orientationchange', scheduleFloatingLauncherClamp, { passive: true });
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -24307,6 +24394,12 @@ function getFriendlySignupError(error) {
   }
 }
 
+function formatAuthErrorDetails(error) {
+  const code = error?.code || 'unknown';
+  const message = error?.message || 'Unknown error.';
+  return `${code}: ${message}`;
+}
+
 if (authPasswordPolicy) {
   renderPasswordPolicyChecklist(authPasswordPolicy, passwordPolicy);
   updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
@@ -24633,6 +24726,7 @@ function openPostAuthChoice() {
 
 function closePostAuthChoice() {
   hide('modal-post-auth-choice');
+  restoreUiAfterWelcome();
 }
 
 function openClaimModal() {
@@ -24730,7 +24824,8 @@ async function handleAuthSubmit(mode) {
       if (policyFeedback) {
         setAuthError(policyFeedback.message, 'create');
       } else {
-        setAuthError(getFriendlySignupError(err), 'create');
+        const friendly = getFriendlySignupError(err);
+        setAuthError(`${friendly} (${formatAuthErrorDetails(err)})`, 'create');
       }
     } else {
       setAuthError(err?.message || 'Unable to sign in.', 'login');
