@@ -12,8 +12,9 @@ This reference describes the GM-facing credit deposit modal that lives in `index
 - **Dynamic player list.** The account dropdown calls `listCharacters()` when the
   modal opens and replaces the placeholder option with current cloud saves.
 - **Sender-specific identifiers.** The reference number and footer ID include the
-  sender prefix via `generateCreditReference` / `generateCreditTxid`, ensuring IDs
-  match the selected origin (`scripts/dm.js:580-606`).
+  sender prefix via `generateCreditReference` / `generateCreditTxid` (mapping known
+  sender IDs like `OMNI`, `PFV`, `GREY`, `ANON` and falling back to the uppercased sender
+  or `DM`), ensuring IDs match the selected origin (`scripts/dm.js:4120-4133`).
 - **Credit transfer workflow.** `handleCreditSubmit` loads the selected cloud save,
   applies deposit/debit deltas, records the campaign log entry, and saves via
   `saveCloud` (`scripts/dm.js:652-707`).
