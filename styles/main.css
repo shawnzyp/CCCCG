@@ -312,7 +312,6 @@ body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
   margin:0;
 }
 body.launching .app-shell{opacity:0}
-body.offline-blank .app-shell{display:none}
 html.player-tools-open{overflow:hidden;overscroll-behavior:none}
 body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
@@ -4790,61 +4789,72 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   width:min(520px,92vw);
   max-height:calc(var(--cc-vh, 1vh) * 100 - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
   overflow:hidden;
+  display:flex;
+  flex-direction:column;
 }
 .modal--welcome .modal__header{
   display:flex;
   align-items:center;
   gap:14px;
-  padding:16px 16px 10px;
+  padding:clamp(10px, 2.2vh, 16px) clamp(12px, 3.2vw, 16px) clamp(6px, 1.6vh, 10px);
 }
 .modal--welcome .modal__badge{
-  width:44px;
-  height:44px;
-  border-radius:14px;
+  width:clamp(34px, 9vw, 44px);
+  height:clamp(34px, 9vw, 44px);
+  border-radius:clamp(12px, 3.6vw, 14px);
   display:flex;
   align-items:center;
   justify-content:center;
   font-weight:800;
   letter-spacing:.08em;
+  font-size:clamp(.9rem, 3vw, 1.1rem);
   background:color-mix(in srgb, var(--accent) 30%, var(--surface-2) 70%);
   border:1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   box-shadow:0 16px 30px color-mix(in srgb, var(--accent) 18%, transparent);
   flex:0 0 auto;
 }
-.modal--welcome .modal__titles h2{margin:0}
+.modal--welcome .modal__titles h2{
+  margin:0;
+  font-size:clamp(1.2rem, 3.4vw, 1.6rem);
+}
 .modal--welcome .modal__subtitle{
   margin:2px 0 0;
   color:var(--muted);
-  font-size:.95rem;
+  font-size:clamp(.85rem, 2.6vw, .95rem);
   line-height:1.35;
 }
 .modal--welcome .modal__body{
-  padding:0 16px 12px;
+  padding:0 clamp(12px, 3.2vw, 16px) clamp(8px, 2vh, 12px);
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:clamp(4px, 1.2vh, 6px);
 }
 .modal--welcome .modal__lead{
   margin:0;
   color:color-mix(in srgb, var(--text) 92%, transparent);
   line-height:1.45;
+  font-size:clamp(.95rem, 2.8vw, 1.05rem);
 }
 .modal--welcome .modal__hint{
   margin:4px 0 0;
   color:color-mix(in srgb, var(--muted) 80%, transparent);
-  font-size:.85rem;
+  font-size:clamp(.75rem, 2.4vw, .85rem);
 }
 .modal--welcome .modal__actions{
-  padding:10px 16px 12px;
+  padding:clamp(6px, 1.8vh, 10px) clamp(12px, 3.2vw, 16px) clamp(8px, 2vh, 12px);
   display:grid;
   grid-template-columns:1fr;
-  gap:10px;
+  gap:clamp(6px, 2vh, 10px);
 }
-.modal--welcome .modal__actions .cc-btn{width:100%}
+.modal--welcome .modal__actions .cc-btn{
+  width:100%;
+  min-height:clamp(32px, 7vh, 44px);
+  font-size:clamp(.9rem, 2.6vw, 1rem);
+}
 .modal--welcome .modal__footer{
-  padding:0 16px 14px;
+  padding:0 clamp(12px, 3.2vw, 16px) clamp(10px, 2vh, 14px);
   color:color-mix(in srgb, var(--muted) 85%, transparent);
-  font-size:.82rem;
+  font-size:clamp(.72rem, 2.2vw, .82rem);
 }
 @media (max-width:380px){
   .modal--welcome .modal__actions{grid-template-columns:1fr}
@@ -8410,7 +8420,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-tab {
   position: fixed;
   inset-block: 50%;
-  inset-inline-start: 0;
+  inset-inline-start: max(0px, env(safe-area-inset-left, 0px));
   transform: translateY(-50%);
   z-index: 1500;
   display: inline-flex;
@@ -8975,7 +8985,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 #player-tools-tab.pt-tab{
 position: fixed;
 top: 50%;
-left: max(12px, env(safe-area-inset-left));
+left: max(0px, env(safe-area-inset-left, 0px));
 transform: translateY(-50%);
 z-index: 1500;
 
