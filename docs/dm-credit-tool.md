@@ -7,7 +7,8 @@ This reference describes the GM-facing credit deposit modal that lives in `index
 
 - **Deterministic account numbers.** Character names are hashed via
   `computeCreditAccountNumber` so every player always receives the same account
-  number when the modal is opened. This logic lives around `scripts/dm.js:428-445`.
+  number when the modal is opened. This logic lives in `computeCreditAccountNumber`
+  within `scripts/dm.js`.
 - **Dynamic player list.** The account dropdown calls `listCharacters()` when the
   modal opens and replaces the placeholder option with current cloud saves.
 - **Sender-specific identifiers.** The reference number and footer ID include the
