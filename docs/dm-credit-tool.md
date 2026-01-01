@@ -1,7 +1,7 @@
 # DM Credit Deposit Tool
 
 This reference describes the GM-facing credit deposit modal that lives in `index.html`
-(lines 1569-1689) and its supporting logic in `scripts/dm.js`.
+(lines 2434-2588) and its supporting logic in `scripts/dm.js`.
 
 ## Feature highlights
 
