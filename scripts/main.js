@@ -2391,6 +2391,7 @@ function restoreUiAfterWelcome() {
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
+    body.classList.remove('auth-gate', 'welcome-gate', 'modal-open', 'launching');
     ['auth-gate', 'welcome-gate', 'modal-open', 'launching'].forEach(className => {
       if (body.classList.contains(className)) {
         body.classList.remove(className);
@@ -2400,6 +2401,30 @@ function restoreUiAfterWelcome() {
   const selectors = [
     '#app',
     '#app-root',
+    '.app',
+    '.app-shell',
+    '[data-launch-shell]',
+    '#phone',
+    '.phone',
+    '#player-os',
+    '.player-os',
+    'main',
+  ];
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      if (!el) return;
+      if (el.hidden) {
+        el.hidden = false;
+      }
+      if (el.classList?.contains('hidden')) {
+        el.classList.remove('hidden');
+      }
+      if (el.style) {
+        el.style.display = '';
+        el.style.visibility = '';
+        el.style.opacity = '';
+      }
+    });
     '.app-shell',
     '[data-launch-shell]',
     '#phone',
@@ -2421,6 +2446,17 @@ function restoreUiAfterWelcome() {
     }
   });
   scheduleFloatingLauncherClamp();
+}
+
+function hideWelcomeModalPanel() {
+  const modal = getWelcomeModal();
+  if (!modal) return;
+  const panel = modal.querySelector('.modal--welcome, .modal');
+  if (panel) {
+    panel.classList.add('hidden');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.style.display = 'none';
+  }
 }
 
 function prepareWelcomeModal() {
@@ -2529,6 +2565,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  hideWelcomeModalPanel();
   const modal = getWelcomeModal();
   focusAfterWelcomeClose(modal);
   hide(WELCOME_MODAL_ID);
