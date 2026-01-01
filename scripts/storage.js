@@ -1,6 +1,7 @@
 import { toast } from './notifications.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import { getFirebaseDatabase } from './auth.js';
+import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
 import {
   addOutboxEntry,
   createCloudSaveOutboxEntry,
@@ -41,16 +42,71 @@ function getLocalStorageSafe() {
   }
 }
 
+function collectCharacterNameVariants(name) {
+  const variants = new Set();
+  const raw = typeof name === 'string' ? name.trim() : '';
+  if (raw) {
+    variants.add(raw);
+  }
+  const canonical = canonicalCharacterKey(raw);
+  if (canonical) {
+    variants.add(canonical);
+  }
+  const friendly = friendlyCharacterName(raw);
+  if (friendly) {
+    variants.add(friendly);
+  }
+  return Array.from(variants);
+}
+
 function readCharacterIdForName(name) {
   const storage = getLocalStorageSafe();
-  const normalized = typeof name === 'string' ? name.trim() : '';
-  if (!storage || !normalized) return '';
+  if (!storage) return '';
   try {
-    const stored = storage.getItem(`${CHARACTER_ID_STORAGE_PREFIX}${normalized}`);
-    return typeof stored === 'string' && stored.trim() ? stored.trim() : '';
+    const variants = collectCharacterNameVariants(name);
+    for (const variant of variants) {
+      const stored = storage.getItem(`${CHARACTER_ID_STORAGE_PREFIX}${variant}`);
+      if (typeof stored === 'string' && stored.trim()) {
+        return stored.trim();
+      }
+    }
+    return '';
   } catch {
     return '';
   }
+}
+
+function writeCharacterIdForName(name, id) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  const normalizedId = typeof id === 'string' ? id.trim() : '';
+  if (!normalizedId) return;
+  const variants = collectCharacterNameVariants(name);
+  if (variants.length === 0) return;
+  variants.forEach(variant => {
+    try {
+      storage.setItem(`${CHARACTER_ID_STORAGE_PREFIX}${variant}`, normalizedId);
+    } catch (err) {
+      console.warn('Failed to persist character-id mapping', err);
+    }
+  });
+}
+
+function updateCharacterIdMappings({ name, payload, characterId }) {
+  const resolvedId = typeof characterId === 'string' && characterId.trim()
+    ? characterId.trim()
+    : (payload?.character?.characterId || payload?.characterId || '');
+  if (!resolvedId) return;
+  const candidates = new Set([
+    name,
+    payload?.meta?.name,
+    payload?.meta?.displayName,
+    payload?.character?.name,
+  ]);
+  candidates.forEach(candidate => {
+    if (typeof candidate !== 'string' || !candidate.trim()) return;
+    writeCharacterIdForName(candidate, resolvedId);
+  });
 }
 
 let activeUserId = '';
@@ -200,6 +256,11 @@ export async function saveLocal(name, payload, { characterId } = {}) {
       writeLastSaveName(name);
     } catch (err) {
       console.warn('Failed to update last-save pointer', err);
+    }
+    try {
+      updateCharacterIdMappings({ name, payload, characterId });
+    } catch (err) {
+      console.warn('Failed to update character-id mapping', err);
     }
   };
   try {
