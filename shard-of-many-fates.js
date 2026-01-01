@@ -209,7 +209,7 @@
     KEY: 'The Key.png',
     THRONE: 'The Throne.png',
     CRASH: 'The Crash.png',
-    CHRONICLE: 'The Chronicile.png',
+    CHRONICLE: 'The Chronicle.png',
     SUNSHARD: 'The Sunshard.png',
     MOONSHARD: 'The Moonshard.png',
     STARSHARD: 'The Starshard.png',
