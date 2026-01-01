@@ -77,7 +77,7 @@ You metabolize adrenaline into firepower.
 Assassin’s Veil
 Vanishing is second nature.
 •	After disabling an enemy, become invisible until the start of your next turn.
-Power Syphon
+Power Siphon
 You feed on the backlash.
 •	When hit by an energy-type attack, regain 1 SP.
 •	If the attack misses, the attacker loses 1 SP instead.
@@ -185,7 +185,7 @@ Public Icon	X	✓	X	X	X
 Defender’s Rally	X	✓	X	X	X
 Adrenal Surge	X	X	✓	X	X
 Assassin’s Veil	X	X	✓	X	X
-Power Syphon	✓	X	✓	X	X
+Power Siphon	✓	X	✓	X	X
 Suppressive Fire	X	X	✓	X	X
 Nullpulse Reflex	✓	X	✓	X	X
 Chrono Anchor	X	X	X	✓	X
