@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-53feeb8949b1a4c0",
-  "generatedAt": "2025-12-29T20:02:06.695Z",
+  "version": "cccg-cache-adaad2b0f7b229ea",
+  "generatedAt": "2026-01-01T05:42:20.545Z",
   "assets": [
     "./",
     "./Augments.txt",
@@ -27,7 +27,7 @@
     "./SuperheroMiniGames/play.css",
     "./SuperheroMiniGames/play.html",
     "./SuperheroMiniGames/play.js",
-    "./Trancendant.txt",
+    "./Transcendent.txt",
     "./asset-manifest.json",
     "./data/gear-catalog.json",
     "./docs/dice-result-demo.html",
@@ -44,7 +44,6 @@
     "./images/Mystical Being.PNG",
     "./images/Ocean.PNG",
     "./images/Phone.png",
-    "./images/Race Sport.woff2",
     "./images/The Shards of Many Fates Art/The Catalyst.png",
     "./images/The Shards of Many Fates Art/The Chronicile.png",
     "./images/The Shards of Many Fates Art/The Comet.png",
@@ -122,7 +121,9 @@
     "./scripts/dice-result.js",
     "./scripts/discord-events.js",
     "./scripts/discord-settings.js",
+    "./scripts/discord-webhook-dev.js",
     "./scripts/discord-webhooks.js",
+    "./scripts/dm-auth.js",
     "./scripts/dm-catalog-sync.js",
     "./scripts/dm-pin.js",
     "./scripts/dm.js",
@@ -131,6 +132,7 @@
     "./scripts/funTips.js",
     "./scripts/header-title.js",
     "./scripts/helpers.js",
+    "./scripts/import-utils.js",
     "./scripts/last-save.js",
     "./scripts/levels.js",
     "./scripts/main.js",
@@ -160,6 +162,8 @@
     "./tests/helpers/dm-pin.js",
     "./tests/new-master.test.js",
     "./tests/setup-env.js",
-    "./tests/test-response.js"
+    "./tests/test-response.js",
+    "./worker.js",
+    "./workers/discord-roll-worker.js"
   ]
 }
