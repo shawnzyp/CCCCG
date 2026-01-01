@@ -263,6 +263,10 @@ export async function saveLocal(name, payload, { characterId } = {}) {
 
 export async function loadLocal(name, { characterId } = {}) {
   try {
+    const storage = getLocalStorageSafe();
+    if (!storage) {
+      throw new Error('Local storage unavailable');
+    }
     const idsToTry = [];
     const resolvedId = typeof characterId === 'string' ? characterId.trim() : '';
     if (resolvedId) {
@@ -278,7 +282,7 @@ export async function loadLocal(name, { characterId } = {}) {
       idsToTry.push(`${activeUserId}:${name.trim()}`);
     }
     for (const id of idsToTry) {
-      const raw = localStorage.getItem(`save:${id}`);
+      const raw = storage.getItem(`save:${id}`);
       if (raw) return JSON.parse(raw);
     }
   } catch (e) {
@@ -289,9 +293,11 @@ export async function loadLocal(name, { characterId } = {}) {
 
 export async function deleteSave(name, { characterId } = {}) {
   try {
+    const storage = getLocalStorageSafe();
+    if (!storage) return;
     const storageKey = getLocalSaveKey(name, { characterId });
     if (storageKey) {
-      localStorage.removeItem(storageKey);
+      storage.removeItem(storageKey);
     }
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
@@ -303,9 +309,11 @@ export async function deleteSave(name, { characterId } = {}) {
 
 export function listLocalSaves({ includeLegacy = false } = {}) {
   try {
+    const storage = getLocalStorageSafe();
+    if (!storage) return [];
     const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
       if (!k) continue;
       if (k.startsWith('save:')) {
         keys.push(k.slice(5));
@@ -324,7 +332,11 @@ export function listLocalSaves({ includeLegacy = false } = {}) {
 
 export async function loadLegacyLocal(name) {
   try {
-    const raw = localStorage.getItem(`save:${name}`);
+    const storage = getLocalStorageSafe();
+    if (!storage) {
+      throw new Error('Local storage unavailable');
+    }
+    const raw = storage.getItem(`save:${name}`);
     if (raw) return JSON.parse(raw);
   } catch (e) {
     console.error('Legacy local load failed', e);
@@ -334,9 +346,11 @@ export async function loadLegacyLocal(name) {
 
 export function listLegacyLocalSaves() {
   try {
+    const storage = getLocalStorageSafe();
+    if (!storage) return [];
     const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
       if (!k || !k.startsWith('save:')) continue;
       if (/^save:[^:]+:.+/.test(k)) continue;
       keys.push(k.slice(5));
