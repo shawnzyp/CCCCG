@@ -556,7 +556,7 @@ const AUGMENTS = [
   createAugment({
     id: 'power-syphon',
     group: 'Aggression',
-    name: 'Power Syphon',
+    name: 'Power Siphon',
     summary: 'You feed on the backlash.',
     effects: [
       'When hit by an energy-type attack, regain 1 SP.',
