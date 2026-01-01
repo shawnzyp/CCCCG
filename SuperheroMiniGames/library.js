@@ -171,7 +171,7 @@ export const clueLibrary = {
 };
 
 export const cipherLibrary = [
-  { id: "alphanumeric", name: "Alpha-Numeric Cipher", symbols: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", hint: "Console cycling through standard alphanumerics. Watch for letters that linger.", defaultLength: 5 },
+  { id: "alphanumeric", name: "Alphanumeric Cipher", symbols: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", hint: "Console cycling through standard alphanumerics. Watch for letters that linger.", defaultLength: 5 },
   { id: "glyph", name: "Aether Glyph Cipher", symbols: "ΔΛΩΨΦΞΣΓΘ", hint: "Ancient glyph bank detected. Harmonise the sequence to stabilise the output.", defaultLength: 4 },
   { id: "emoji", name: "Emoji Substitution Cipher", symbols: ["⚡", "🔥", "💎", "🛰️", "🧬", "🛡️", "🔮", "🧠", "🌀"], hint: "Console projecting emotive sigils—each flare betrays a real rune.", defaultLength: 4 },
   { id: "binary-core", name: "Binary Core Cipher", symbols: "01", hint: "System fallback to binary pulses. Expect tight sequences.", defaultLength: 6 },
