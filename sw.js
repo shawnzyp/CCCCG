@@ -147,7 +147,7 @@ async function precacheAll(cache, manifest) {
   }
 }
 
-const SW_BUILD = 'autosave-key-v2';
+const SW_BUILD = 'autosave-key-v3';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
 

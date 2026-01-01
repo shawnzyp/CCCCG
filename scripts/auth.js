@@ -76,6 +76,24 @@ function assertExpectedProjectId(config) {
   }
 }
 
+  }
+}
+
+function assertExpectedProjectId(config) {
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    return;
+  }
+  const projectId = config?.projectId || '';
+  if (projectId && projectId !== EXPECTED_PROJECT_ID) {
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast(`Firebase project mismatch (expected ${EXPECTED_PROJECT_ID}). Clear caches and reload.`, 'error');
+      } catch {}
+    }
+    throw new Error(`Firebase projectId mismatch. Expected "${EXPECTED_PROJECT_ID}" but received "${projectId}". Clear caches and update index.html with the correct Firebase config.`);
+  }
+}
+
 function logEffectiveFirebaseConfig(config) {
   if (!config || typeof console === 'undefined') return;
   let databaseHost = '';
