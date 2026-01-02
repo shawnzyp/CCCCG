@@ -2680,6 +2680,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
+    unlockTouchControls({ immediate: true });
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
     if(launchEl){
