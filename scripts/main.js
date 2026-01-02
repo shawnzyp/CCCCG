@@ -2462,6 +2462,14 @@ function hideWelcomeModalPanel() {
 function prepareWelcomeModal() {
   const modal = getWelcomeModal();
   if (!modal) return null;
+  const panel = modal.querySelector('.modal--welcome, .modal');
+  if (panel) {
+    panel.classList.remove('hidden');
+    panel.removeAttribute('aria-hidden');
+    if (panel.style) {
+      panel.style.display = '';
+    }
+  }
   if (!welcomeModalPrepared) {
     welcomeModalPrepared = true;
     try {
@@ -2680,6 +2688,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
+    unlockTouchControls({ immediate: true });
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
     if(launchEl){
