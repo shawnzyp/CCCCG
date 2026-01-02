@@ -1262,7 +1262,7 @@ label[data-animate-title]{
   background:var(--tab-bg);
   color:var(--tab-fg);
   box-shadow:0 12px 28px color-mix(in srgb,var(--accent) 22%, transparent);
-  overflow:hidden;
+  overflow:visible;
   transition:background-color var(--transition-duration-medium) var(--transition-ease),color var(--transition-duration-medium) var(--transition-ease),box-shadow var(--transition-duration-medium) var(--transition-ease),transform var(--transition-duration-short) var(--transition-ease);
   --tab-icon-primary:var(--tab-fg);
   --tab-icon-secondary:color-mix(in srgb,var(--tab-icon-primary) 72%, transparent);
