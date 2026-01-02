@@ -241,7 +241,7 @@ if (typeof window !== 'undefined') {
       removeListener: noop,
       dispatchEvent: () => false,
     });
-    window.matchMedia = query => {
+    const overriddenMatchMedia = query => {
       if (typeof query === 'string') {
         const normalizedQuery = query.toLowerCase();
         if (normalizedQuery.includes(REDUCED_MOTION_TOKEN)) {
@@ -259,6 +259,15 @@ if (typeof window !== 'undefined') {
         return createSuppressedMediaQueryList(query, false);
       }
     };
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+      const canOverride = !descriptor || descriptor.writable || descriptor.configurable;
+      if (canOverride) {
+        window.matchMedia = overriddenMatchMedia;
+      }
+    } catch (err) {
+      /* ignore failures to override matchMedia */
+    }
   }
 
   const disableSaveDataPreference = () => {
