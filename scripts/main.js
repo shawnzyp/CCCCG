@@ -10947,6 +10947,31 @@ function sendImmediateCharacterUpdate(type, before, after, reason) {
   });
 }
 
+function sendAbilityUseEvent({ name, kind, power } = {}) {
+  const character = getDiscordCharacterPayload();
+  if (!character || !name || !kind) return;
+  const detail = {
+    name,
+    kind,
+    characterId: character.id,
+    playerName: character.playerName,
+  };
+  if (power && typeof power === 'object') {
+    if (Number.isFinite(power.spCost)) detail.spCost = power.spCost;
+    if (typeof power.uses === 'string' && power.uses) detail.uses = power.uses;
+    if (Number.isFinite(power.cooldown)) detail.cooldown = power.cooldown;
+    if (power.usageTracker && typeof power.usageTracker === 'object') {
+      detail.usageTracker = { ...power.usageTracker };
+    }
+  }
+  void sendEventToDiscordWorker({
+    type: 'ability.use',
+    actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+    detail,
+    ts: Date.now(),
+  });
+}
+
 function isActiveCharacterName(name) {
   if (!name) return false;
   const vigilanteName = $('superhero')?.value?.trim() || '';
@@ -16122,6 +16147,8 @@ function finalizePowerUse(card, power) {
   }
   const label = getPowerCardLabel(card);
   logAction(`${label} used: ${power.name} — ${power.rulesText}`);
+  const abilityKind = card?.dataset?.kind === 'sig' ? 'signature move' : 'power';
+  sendAbilityUseEvent({ name: power.name, kind: abilityKind, power });
   toast(`${power.name} activated.`, 'success');
   if (power.concentration) {
     activeConcentrationEffect = { card, name: power.name };
@@ -20024,6 +20051,11 @@ function createCard(kind, pref = {}) {
       const nameField = qs("[data-f='name']", card);
       const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
+      const abilityKind = kind === 'sig' ? 'signature move' : kind;
+      const powerData = (kind === 'power' || kind === 'sig') && powerCardStates.has(card)
+        ? serializePowerCard(card)
+        : null;
+      sendAbilityUseEvent({ name, kind: abilityKind, power: powerData });
       const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
         opts.sides = HAMMERSPACE_DIE_SIDES;
