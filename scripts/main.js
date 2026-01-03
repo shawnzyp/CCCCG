@@ -2519,6 +2519,15 @@ function setAppShellInteractive(isInteractive) {
   const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
   if (!appShell) return;
   const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && appShell.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
   try {
     if (shouldBeInteractive) {
       appShell.removeAttribute('aria-hidden');
@@ -2568,6 +2577,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   }
   welcomeModalDismissed = true;
   welcomeSequenceComplete = true;
+  hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   unlockTouchControls({ immediate: true });
   restoreUiAfterWelcome();
@@ -2600,12 +2610,9 @@ function forceBootUI(reason = 'launch-failsafe') {
 function hideWelcomeModalPanel() {
   const modal = getWelcomeModal();
   if (!modal) return;
-  const panel = modal.querySelector('.modal--welcome, .modal');
-  if (panel) {
-    panel.classList.add('hidden');
-    panel.setAttribute('aria-hidden', 'true');
-    panel.style.display = 'none';
-  }
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.style.display = 'none';
 }
 
 function prepareWelcomeModal() {
@@ -2722,10 +2729,10 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   const modal = getWelcomeModal();
   focusAfterWelcomeClose(modal);
-  hide(WELCOME_MODAL_ID);
   restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
@@ -25672,7 +25679,7 @@ async function refreshClaimModal() {
     claimLegacyList.textContent = '';
     let legacyCloud = [];
     try {
-      legacyCloud = await listCloudSaves();
+      legacyCloud = await listCloudSaves({ notify: true });
     } catch (err) {
       console.warn('Failed to list legacy cloud saves', err);
     }

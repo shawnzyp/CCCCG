@@ -709,7 +709,7 @@ function isCloudSyncAvailable() {
 
 function showToast(message, type = 'info') {
   try {
-    toast(message, type);
+    toast(message, { type });
   } catch {}
 }
 
@@ -1888,9 +1888,9 @@ export async function deleteCloud(name) {
   }
 }
 
-export async function listCloudSaves() {
+export async function listCloudSaves({ notify = false } = {}) {
   try {
-    const userPaths = getActiveUserPaths();
+    const userPaths = getActiveUserPaths({ notify });
     if (!userPaths) return [];
     const ref = await getDatabaseRef(userPaths.savesPath);
     const snapshot = await ref.once('value');
@@ -1904,9 +1904,9 @@ export async function listCloudSaves() {
   }
 }
 
-export async function listCloudBackups(name) {
+export async function listCloudBackups(name, { notify = true } = {}) {
   try {
-    const userPaths = getActiveUserPaths();
+    const userPaths = getActiveUserPaths({ notify });
     if (!userPaths) return [];
     const ref = await getDatabaseRef(`${userPaths.historyPath}/${encodePath(name)}`);
     const snapshot = await ref.once('value');

@@ -134,6 +134,15 @@
     const setAppShellInteractive = isInteractive => {
       if (!appShell) return;
       const shouldBeInteractive = Boolean(isInteractive);
+      if (!shouldBeInteractive) {
+        const active = document.activeElement;
+        if (active && appShell.contains(active)) {
+          try {
+            active.blur();
+          } catch (err) {}
+          focusAfterLaunch();
+        }
+      }
       try {
         if (shouldBeInteractive) {
           appShell.removeAttribute('aria-hidden');
@@ -1531,7 +1540,7 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-hidden="true" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
   <div class="modal modal--welcome" role="document">
     <div class="modal__header">
       <div class="modal__badge" aria-hidden="true">CC</div>
