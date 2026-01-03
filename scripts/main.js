@@ -10967,6 +10967,10 @@ function sendStatusEvent(type, detail) {
       characterId: character.id,
       playerName: character.playerName,
     },
+    ts: Date.now(),
+  });
+}
+
 function sendAbilityUseEvent({ name, kind, power } = {}) {
   const character = getDiscordCharacterPayload();
   if (!character || !name || !kind) return;
