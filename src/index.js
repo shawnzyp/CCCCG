@@ -307,6 +307,20 @@ const buildShape = (body) => {
   return { hasEvent, hasRoll, keys, roll };
 };
 
+const BLOCKED_SUBSTRING = 'rolled `roll` = **?**';
+
+const containsBlockedContent = (payload) => {
+  if (!isPlainObject(payload)) return false;
+  const content = typeof payload.content === 'string' ? payload.content : '';
+  if (content.includes(BLOCKED_SUBSTRING)) return true;
+  if (!Array.isArray(payload.embeds)) return false;
+  return payload.embeds.some((embed) => {
+    if (!isPlainObject(embed)) return false;
+    const description = typeof embed.description === 'string' ? embed.description : '';
+    return description.includes(BLOCKED_SUBSTRING);
+  });
+};
+
 const postToDiscord = async (webhookUrl, payload) => {
   const response = await fetch(webhookUrl, {
     method: 'POST',
@@ -381,6 +395,7 @@ async function handleRequest(request, env) {
 
   // Debug never posts
   if (debugMode) {
+    const blocked = containsBlockedContent(normalized.build);
     return jsonResponse(
       {
         ok: true,
@@ -388,8 +403,18 @@ async function handleRequest(request, env) {
         kind: normalized.kind,
         normalized: normalized.normalized,
         shape,
+        blocked,
+        blockedReason: blocked ? 'blocked_content' : null,
       },
       200,
+      origin,
+    );
+  }
+
+  if (containsBlockedContent(normalized.build)) {
+    return jsonResponse(
+      { ok: false, error: 'blocked_content', build: BUILD_ID },
+      400,
       origin,
     );
   }
@@ -427,4 +452,5 @@ export const __test__ = {
   normalizeRequestPayload,
   validateRollPayload,
   parseTotalValue,
+  containsBlockedContent,
 };

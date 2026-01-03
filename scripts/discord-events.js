@@ -49,7 +49,13 @@ const isValidRoll = (roll) => {
 
 const buildDiscordPayload = (payload = {}) => {
   if (payload.content || payload.embeds) {
-    return payload;
+    if (payload.allowDiscordRaw === true) {
+      return payload;
+    }
+    return {
+      event: payload.event || payload.type || 'event',
+      payload,
+    };
   }
 
   const event = payload.event || payload.type || 'event';

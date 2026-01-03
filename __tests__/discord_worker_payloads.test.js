@@ -23,10 +23,15 @@ describe('discord worker payload normalization', () => {
   test('event wrapper beats roll in payload', () => {
     const payload = {
       event: 'initiative.roll',
-      payload: { roll: { who: 'Someone', expr: '1d20', total: 20 } },
+      payload: { roll: { who: 'Someone', expr: 'roll', total: '?' } },
     };
     const result = __test__.normalizeRequestPayload(payload);
     expect(result.kind).toBe('event-structured');
     expect(result.build.embeds[0].title).toBe('Event');
+  });
+
+  test('blocked content is detected in raw payloads', () => {
+    const payload = { content: 'Someone rolled `roll` = **?**' };
+    expect(__test__.containsBlockedContent(payload)).toBe(true);
   });
 });
