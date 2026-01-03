@@ -1085,7 +1085,7 @@ function getUserPaths(uid) {
   };
 }
 
-function getActiveUserPaths({ notify = true } = {}) {
+function getActiveUserPaths({ notify = false } = {}) {
   const uid = activeAuthUserId;
   if (!uid) {
     if (notify) {
@@ -1857,7 +1857,7 @@ export async function deleteCloudCharacter(uid, characterId) {
 export async function loadCloud(name, { signal } = {}) {
   try {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    const userPaths = getActiveUserPaths();
+    const userPaths = getActiveUserPaths({ notify: true });
     if (!userPaths) {
       throw new Error('Cloud sync requires sign-in.');
     }
@@ -1876,7 +1876,7 @@ export async function loadCloud(name, { signal } = {}) {
 
 export async function deleteCloud(name) {
   try {
-    const userPaths = getActiveUserPaths();
+    const userPaths = getActiveUserPaths({ notify: true });
     if (!userPaths) return;
     const ref = await getDatabaseRef(`${userPaths.savesPath}/${encodePath(name)}`);
     await ref.remove();

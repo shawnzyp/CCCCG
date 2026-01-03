@@ -618,6 +618,27 @@ describe('Catalyst Core master application experience', () => {
     }
   });
 
+  test('app shell is inert while launching and restored after skip', async () => {
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+
+    const appShell = document.querySelector('[data-launch-shell]');
+    expect(appShell).toBeTruthy();
+    expect(appShell.getAttribute('aria-hidden')).toBe('true');
+    expect(appShell.hasAttribute('inert')).toBe(true);
+
+    const skipLaunchButton = document.querySelector('[data-skip-launch]');
+    if (skipLaunchButton) {
+      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new Event('launch-animation-skip'));
+    }
+    await advanceAppTime(0);
+
+    expect(appShell.getAttribute('aria-hidden')).not.toBe('true');
+    expect(appShell.hasAttribute('inert')).toBe(false);
+  });
+
   test('welcome modal shows legacy copy and offline flow when signed out', async () => {
     await importAllApplicationScripts();
     dispatchAppReadyEvents();
@@ -636,7 +657,7 @@ describe('Catalyst Core master application experience', () => {
 
     const legacyCopy = welcomeModal.querySelector('[data-welcome-legacy-copy]');
     expect(legacyCopy).toBeTruthy();
-    expect(legacyCopy.textContent).toMatch(/local saves/i);
+    expect(legacyCopy.textContent).toMatch(/Cloud saves keep your roster safe and up to date/i);
 
     const loginButton = document.getElementById('welcome-login');
     const createButton = document.getElementById('welcome-create');

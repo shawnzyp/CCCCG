@@ -2514,6 +2514,24 @@ function focusAfterLaunchOverlay() {
   }
 }
 
+function setAppShellInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
+  if (!appShell) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  try {
+    if (shouldBeInteractive) {
+      appShell.removeAttribute('aria-hidden');
+      appShell.removeAttribute('inert');
+      if ('inert' in appShell) appShell.inert = false;
+    } else {
+      appShell.setAttribute('aria-hidden', 'true');
+      appShell.setAttribute('inert', '');
+      if ('inert' in appShell) appShell.inert = true;
+    }
+  } catch {}
+}
+
 function setLaunchOverlayInteractive(isInteractive) {
   if (typeof document === 'undefined') return;
   const launchEl = document.getElementById('launch-animation');
@@ -2570,6 +2588,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   const launchShell = typeof document !== 'undefined'
     ? document.getElementById('launch-animation')
     : null;
+  setAppShellInteractive(true);
   if (launchShell && launchShell.parentNode) {
     setLaunchOverlayInteractive(false);
     launchShell.parentNode.removeChild(launchShell);
@@ -2760,6 +2779,7 @@ async function setupLaunchAnimation(){
     }
     const body = document.body;
     if(!body || !body.classList.contains('launching')){
+      setAppShellInteractive(true);
       unlockTouchControls();
       queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
@@ -2777,6 +2797,7 @@ async function setupLaunchAnimation(){
     let bypassLaunchMinimum = false;
     const userGestureListeners = [];
 
+    setAppShellInteractive(false);
     if (launchEl) {
       setLaunchOverlayInteractive(true);
     }
@@ -2786,6 +2807,7 @@ async function setupLaunchAnimation(){
         if (!body.classList.contains('launching')) return;
         body.classList.remove('launching');
         setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
         markLaunchSequenceComplete();
         queueWelcomeModal({ immediate: true });
       };
@@ -2850,13 +2872,14 @@ async function setupLaunchAnimation(){
     cleanupMessaging = null;
   };
 
-    const finalizeReveal = () => {
-      if (launchFailsafeTriggered) return;
-      clearLaunchFailsafeTimer();
-      setLaunchOverlayInteractive(false);
-      body.classList.remove('launching');
-      unlockTouchControls({ immediate: true });
-      markLaunchSequenceComplete();
+      const finalizeReveal = () => {
+        if (launchFailsafeTriggered) return;
+        clearLaunchFailsafeTimer();
+        setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
+        body.classList.remove('launching');
+        unlockTouchControls({ immediate: true });
+        markLaunchSequenceComplete();
       queueWelcomeModal({ immediate: true });
       if(launchEl){
         launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
@@ -24026,6 +24049,7 @@ const syncPanelRetryBtn = syncPanel?.querySelector('[data-sync-retry]');
 const syncPanelClearErrorsBtn = syncPanel?.querySelector('[data-sync-clear-errors]');
 const syncPanelClearQueueBtn = syncPanel?.querySelector('[data-sync-clear-queue]');
 const syncPanelCloseBtn = syncPanel?.querySelector('[data-sync-close]');
+const syncPanelAuthRequiredEl = syncPanel?.querySelector('[data-sync-auth-required]');
 
 const SYNC_STATUS_LABELS = {
   online: 'Online',
@@ -24120,6 +24144,20 @@ function formatRelativeTime(timestamp) {
     }
   }
   return '';
+}
+
+function updateSyncAuthRequiredNote() {
+  if (!syncPanelAuthRequiredEl) return;
+  const { uid } = getAuthState();
+  if (!uid) {
+    syncPanelAuthRequiredEl.textContent = 'Sign in to enable cloud sync and multi-device saves.';
+    syncPanelAuthRequiredEl.hidden = false;
+    syncPanelAuthRequiredEl.removeAttribute('hidden');
+  } else {
+    syncPanelAuthRequiredEl.hidden = true;
+    syncPanelAuthRequiredEl.textContent = '';
+    syncPanelAuthRequiredEl.setAttribute('hidden', 'true');
+  }
 }
 
 const syncPanelOfflineBtn = syncPanel?.querySelector('[data-sync-prefetch]');
@@ -24508,6 +24546,7 @@ function toggleSyncPanel(forceOpen) {
     renderSyncErrors();
     updateLastSyncDisplay();
     renderAuthDomainDiagnostics();
+    updateSyncAuthRequiredNote();
     requestAnimationFrame(() => {
       const focusTarget = syncPanelCloseBtn || syncPanel;
       try { focusTarget.focus({ preventScroll: true }); } catch {}
@@ -25716,6 +25755,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     setActiveAuthUserId(uid);
     writeLastUserUid(uid);
     syncCloudSubscriptions(uid);
+    updateSyncAuthRequiredNote();
     welcomeModalDismissed = true;
     dismissWelcomeModal();
     updateWelcomeContinue();
@@ -25745,6 +25785,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   setActiveUserId('');
   setActiveAuthUserId('');
   syncCloudSubscriptions('');
+  updateSyncAuthRequiredNote();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
   if (!hasLocalSave && offlineBlankActive) {
