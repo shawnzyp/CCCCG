@@ -10915,6 +10915,30 @@ function sendImmediateCharacterUpdate(type, before, after, reason) {
   });
 }
 
+function getHpSnapshot() {
+  if (!elHPBar) return null;
+  return {
+    current: num(elHPBar.value),
+    max: num(elHPBar.max),
+    temp: elHPTemp ? num(elHPTemp.value) : 0,
+  };
+}
+
+function sendStatusEvent(type, detail) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  void sendEventToDiscordWorker({
+    type,
+    actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+    detail: {
+      ...detail,
+      characterId: character.id,
+      playerName: character.playerName,
+    },
+    ts: Date.now(),
+  });
+}
+
 function isActiveCharacterName(name) {
   if (!name) return false;
   const vigilanteName = $('superhero')?.value?.trim() || '';
@@ -11053,6 +11077,11 @@ $('hp-dmg').addEventListener('click', async ()=>{
   if(down){
     toast('Player is down', 'warning');
     logAction('Player is down.');
+    sendStatusEvent('status.downed', {
+      outcome: 'downed',
+      counts: getDeathSaveCounts(),
+      hp: getHpSnapshot(),
+    });
   }
 });
 $('hp-heal').addEventListener('click', async ()=>{
@@ -13174,6 +13203,11 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
     toast('Natural 20. You stabilize and regain 1 HP.', 'success');
     logAction('Death save: natural 20, stabilized to 1 HP.');
     updateDeathSaveAvailability();
+    sendStatusEvent('status.deathsave', {
+      outcome: rollOutcome,
+      counts: getDeathSaveCounts(),
+      hp: getHpSnapshot(),
+    });
     syncDeathSaveGauge({ lastRoll: rollOutcome });
     return;
   } else if (total >= 10) {
@@ -13192,6 +13226,11 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
     const { failures } = getDeathSaveCounts();
     markBoxes(deathFailures, failures + failIncrements);
   }
+  sendStatusEvent('status.deathsave', {
+    outcome: rollOutcome,
+    counts: getDeathSaveCounts(),
+    hp: getHpSnapshot(),
+  });
   checkDeathProgress();
   syncDeathSaveGauge({ lastRoll: rollOutcome });
 });
