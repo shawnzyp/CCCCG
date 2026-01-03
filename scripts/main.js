@@ -10069,6 +10069,23 @@ function renderLevelRewardReminders() {
         toast(`+1 ${abilityName} applied`, { type: 'success', meta: { source: 'level-reward' } });
         window.dmNotify?.(`Level reward applied: +1 ${abilityName}`, { actionScope: 'major' });
         logAction(`Level reward applied: +1 ${abilityName}`);
+        const character = getDiscordCharacterPayload();
+        if (character) {
+          const currentLevelEntry = getLevelEntry(currentLevelIdx);
+          const levelLabel = formatLevelLabel(currentLevelEntry);
+          void sendEventToDiscordWorker({
+            type: 'level.reward',
+            actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+            detail: {
+              previousLevel: levelLabel,
+              newLevel: levelLabel,
+              rewardSummary: `+1 ${abilityName}`,
+              characterId: character.id,
+              playerName: character.playerName,
+            },
+            ts: Date.now(),
+          });
+        }
         renderLevelRewardReminders();
       });
       control.appendChild(select);
@@ -10394,8 +10411,29 @@ function updateXP(){
   const levelProgressResult = shouldApplyProgress
     ? applyLevelProgress(levelNumber, { suppressNotifications: !xpInitialized, silent: !xpInitialized })
     : null;
+  const rewardSummary = levelProgressResult?.newLevelEntries?.length
+    ? levelProgressResult.newLevelEntries
+      .map(entry => formatLevelRewardSummary(entry))
+      .filter(Boolean)
+      .join('; ')
+    : '';
   if (xpInitialized && idx !== prevIdx) {
     logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      void sendEventToDiscordWorker({
+        type: 'level.up',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
+          previousLevel: formatLevelLabel(prevLevel),
+          newLevel: formatLevelLabel(levelEntry),
+          rewardSummary,
+          characterId: character.id,
+          playerName: character.playerName,
+        },
+        ts: Date.now(),
+      });
+    }
   }
   if (xpInitialized && idx > prevIdx) {
     const celebrationType = getLevelCelebrationType(prevIdx, idx);
@@ -10416,15 +10454,9 @@ function updateXP(){
       : `${baseMessage}.`;
     toast(toastMessage, 'success');
     window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
-    if (levelProgressResult?.newLevelEntries?.length) {
-      const rewardSummary = levelProgressResult.newLevelEntries
-        .map(entry => formatLevelRewardSummary(entry))
-        .filter(Boolean)
-        .join('; ');
-      if (rewardSummary) {
-        window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`, { actionScope: 'major' });
-        logAction(`Level bonuses applied: ${rewardSummary}`);
-      }
+    if (rewardSummary) {
+      window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`, { actionScope: 'major' });
+      logAction(`Level bonuses applied: ${rewardSummary}`);
     }
   } else if (xpInitialized && idx < prevIdx) {
     window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
