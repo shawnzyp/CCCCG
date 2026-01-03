@@ -2,6 +2,21 @@ const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
 const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
+const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
+
+function readPreferredAuthMode() {
+  try {
+    const w = typeof window !== 'undefined' ? window : null;
+    if (!w) return 'local';
+    if (w.__CCCG_FORCE_FIREBASE_AUTH__ === true) return 'firebase';
+    const mode = String(w.__CCCG_AUTH_MODE__ || '').trim().toLowerCase();
+    if (mode === 'firebase') return 'firebase';
+    if (mode === 'local') return 'local';
+    return 'local';
+  } catch {
+    return 'local';
+  }
+}
 
 let authInitPromise = null;
 let authInstance = null;
@@ -12,6 +27,7 @@ let firebaseNamespace = null;
 let authReady = false;
 let currentUser = null;
 let authReadyResolve = null;
+let authMode = readPreferredAuthMode();
 const authReadyPromise = new Promise(resolve => {
   authReadyResolve = resolve;
 });
@@ -24,6 +40,286 @@ let authState = {
 let authDomainWarningShown = false;
 let pendingAuthDomainWarning = null;
 const authListeners = new Set();
+const LOCAL_USERS_KEY = 'cccg.localUsers';
+const LOCAL_SESSION_KEY = 'cccg.localSession';
+const LOCAL_GUEST_KEY = 'cccg.localGuestId';
+
+function getLocalStorageSafe() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readLocalJson(key) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalJson(key, value) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  try {
+    storage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.warn('Failed to persist local auth data', err);
+  }
+}
+
+function removeLocalKey(key) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch {}
+}
+
+function readLocalUsers() {
+  const stored = readLocalJson(LOCAL_USERS_KEY);
+  return stored && typeof stored === 'object' ? stored : {};
+}
+
+function writeLocalUsers(users) {
+  writeLocalJson(LOCAL_USERS_KEY, users);
+}
+
+function readLocalSession() {
+  const stored = readLocalJson(LOCAL_SESSION_KEY);
+  if (!stored || typeof stored !== 'object') return null;
+  return stored;
+}
+
+function writeLocalSession(session) {
+  writeLocalJson(LOCAL_SESSION_KEY, session);
+}
+
+function clearLocalSession() {
+  removeLocalKey(LOCAL_SESSION_KEY);
+}
+
+function setAuthReady() {
+  if (authReady) return;
+  authReady = true;
+  if (authReadyResolve) {
+    authReadyResolve(true);
+  }
+}
+
+function notifyAuthListeners() {
+  authStateListeners.forEach(listener => {
+    try {
+      listener(currentUser);
+    } catch (err) {
+      console.error('Auth state listener error', err);
+    }
+  });
+  authListeners.forEach(listener => {
+    try {
+      listener({ ...authState });
+    } catch (err) {
+      console.error('Auth state listener failed', err);
+    }
+  });
+}
+
+function setAuthState({ uid = '', username = '', user = null, isDm = false, isGuest = false } = {}) {
+  const resolvedUser = user || (uid ? {
+    uid,
+    displayName: username,
+    isAnonymous: isGuest,
+    isLocal: true,
+  } : null);
+  currentUser = resolvedUser;
+  authState = {
+    uid: uid || '',
+    user: resolvedUser,
+    isDm: !!isDm,
+  };
+  setAuthReady();
+  notifyAuthListeners();
+}
+
+function bytesToBase64(bytes) {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  let binary = '';
+  bytes.forEach(byte => {
+    binary += String.fromCharCode(byte);
+  });
+  return typeof btoa === 'function' ? btoa(binary) : binary;
+}
+
+function base64RandomBytes(length = 16) {
+  const bytes = new Uint8Array(length);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return bytesToBase64(Array.from(bytes));
+}
+
+function stringToBytes(text) {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(text);
+  }
+  return Uint8Array.from(text.split('').map(char => char.charCodeAt(0)));
+}
+
+function fnv1aHash(input) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+function getPolicyFlagsFromPasswordPolicy(policy) {
+  const p = policy && typeof policy === 'object' ? policy : {};
+  return {
+    minLength: Number(p.minLength || p.minimumLength || 0) || 0,
+    requireUppercase: !!(p.requireUppercase || p.uppercaseRequired),
+    requireLowercase: !!(p.requireLowercase || p.lowercaseRequired),
+    requireNumber: !!(p.requireNumber || p.numberRequired),
+    requireSpecial: !!(p.requireSpecial || p.specialRequired),
+    disallowSpaces: !!(p.disallowSpaces || p.noSpaces),
+  };
+}
+
+function localPasswordBasicChecks(password, flags) {
+  if (typeof password !== 'string') {
+    return 'Password is required.';
+  }
+  const raw = password;
+  if (!raw) {
+    return 'Password is required.';
+  }
+  const minLen = flags.minLength > 0 ? flags.minLength : 8;
+  if (raw.length < minLen) {
+    return `Password must be at least ${minLen} characters.`;
+  }
+  if (flags.disallowSpaces && /\s/.test(raw)) {
+    return 'Password cannot contain spaces.';
+  }
+  if (flags.requireUppercase && !/[A-Z]/.test(raw)) {
+    return 'Password must include an uppercase letter.';
+  }
+  if (flags.requireLowercase && !/[a-z]/.test(raw)) {
+    return 'Password must include a lowercase letter.';
+  }
+  if (flags.requireNumber && !/[0-9]/.test(raw)) {
+    return 'Password must include a number.';
+  }
+  if (flags.requireSpecial && !/[^A-Za-z0-9]/.test(raw)) {
+    return 'Password must include a special character.';
+  }
+  return '';
+}
+
+async function assertPasswordCompliant(password) {
+  try {
+    const mod = await import('./password-policy.js');
+    const policy = mod?.PASSWORD_POLICY;
+    const flags = getPolicyFlagsFromPasswordPolicy(policy);
+
+    if (typeof mod?.getPasswordLengthError === 'function') {
+      const lengthError = mod.getPasswordLengthError(password, policy);
+      if (lengthError) {
+        throw new Error(lengthError);
+      }
+    } else {
+      const basicLenError = localPasswordBasicChecks(password, { ...flags, minLength: flags.minLength || 8 });
+      if (basicLenError) throw new Error(basicLenError);
+      return;
+    }
+
+    const otherError = localPasswordBasicChecks(password, flags);
+    if (otherError) {
+      throw new Error(otherError);
+    }
+    return;
+  } catch (err) {
+    const fallbackError = localPasswordBasicChecks(password, {
+      minLength: 8,
+      requireUppercase: false,
+      requireLowercase: false,
+      requireNumber: false,
+      requireSpecial: false,
+      disallowSpaces: false,
+    });
+    if (fallbackError) {
+      throw new Error(fallbackError);
+    }
+  }
+}
+
+async function hashPasswordWithSalt(password, salt) {
+  const input = `${salt}:${password}`;
+  if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+    const digest = await crypto.subtle.digest('SHA-256', stringToBytes(input));
+    const bytes = Array.from(new Uint8Array(digest));
+    return bytes.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return fnv1aHash(input);
+}
+
+function randomId(length = 12) {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => (byte % 36).toString(36)).join('');
+  }
+  return Math.random().toString(36).slice(2, 2 + length);
+}
+
+function restoreLocalSession() {
+  const session = readLocalSession();
+  if (!session || typeof session !== 'object') return;
+  const uid = typeof session.uid === 'string' ? session.uid : '';
+  const username = typeof session.username === 'string' ? session.username : '';
+  if (!uid || !username) return;
+  const normalized = normalizeUsernameLocal(username);
+  const users = readLocalUsers();
+  const record = normalized ? users[normalized] : null;
+  const isGuest = uid.startsWith('guest-') || normalized === 'guest';
+  if (!isGuest && (!record || record.uid !== uid)) {
+    clearLocalSession();
+    return;
+  }
+  authMode = 'local';
+  setAuthState({ uid, username, isGuest });
+}
+
+function ensureGuestId() {
+  const storage = getLocalStorageSafe();
+  if (!storage) {
+    return `guest-${randomId(10)}`;
+  }
+  try {
+    const stored = storage.getItem(LOCAL_GUEST_KEY);
+    if (stored && stored.trim()) {
+      return stored.trim();
+    }
+    const next = `guest-${randomId(10)}`;
+    storage.setItem(LOCAL_GUEST_KEY, next);
+    return next;
+  } catch {
+    return `guest-${randomId(10)}`;
+  }
+}
 
 function getFirebaseConfig() {
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
@@ -251,6 +547,16 @@ export function normalizeUsername(username) {
   return normalized;
 }
 
+export function normalizeUsernameLocal(username) {
+  if (typeof username !== 'string') return '';
+  const trimmed = username.trim().toLowerCase();
+  if (!trimmed) return '';
+  if (trimmed.length > 24) return '';
+  if (!/^[a-z0-9._-]+$/.test(trimmed)) return '';
+  if (RESERVED_USERNAMES.has(trimmed)) return '';
+  return trimmed;
+}
+
 export function usernameToEmail(username) {
   const normalized = normalizeUsername(username);
   if (!normalized) return '';
@@ -305,10 +611,7 @@ async function initializeAuthInternal() {
   auth.onAuthStateChanged(async user => {
     currentUser = user || null;
     if (!authReady) {
-      authReady = true;
-      if (authReadyResolve) {
-        authReadyResolve(true);
-      }
+      setAuthReady();
     }
     authStateListeners.forEach(listener => {
       try {
@@ -349,6 +652,7 @@ async function initializeAuthInternal() {
     maybeShowAuthDomainWarning();
   });
   authInstance = auth;
+  authMode = 'firebase';
   return auth;
 }
 
@@ -356,11 +660,27 @@ exposeFirebaseDebugHelper();
 
 export function initFirebaseAuth() {
   if (!authInitPromise) {
-    authInitPromise = initializeAuthInternal().catch(err => {
-      console.error('Failed to initialize auth', err);
-      authInitPromise = null;
-      throw err;
-    });
+    authInitPromise = (async () => {
+      authMode = readPreferredAuthMode();
+      if (authMode === 'local') {
+        restoreLocalSession();
+      }
+      if (authMode === 'local') {
+        setAuthReady();
+        notifyAuthListeners();
+        return null;
+      }
+      try {
+        const auth = await initializeAuthInternal();
+        return auth;
+      } catch (err) {
+        console.error('Failed to initialize auth', err);
+        authMode = 'local';
+        restoreLocalSession();
+        if (!currentUser) setAuthState({ uid: '' });
+        return null;
+      }
+    })();
   }
   return authInitPromise;
 }
@@ -372,12 +692,28 @@ export function getAuthState() {
 export function onAuthStateChanged(listener) {
   if (typeof listener === 'function') {
     authListeners.add(listener);
+    if (authReady) {
+      try {
+        listener({ ...authState });
+      } catch (err) {
+        console.error('Auth state listener failed', err);
+      }
+    }
   }
   return () => authListeners.delete(listener);
 }
 
+export function getAuthMode() {
+  return authMode;
+}
+
 export async function getFirebaseDatabase() {
   await initFirebaseAuth();
+  if (authMode === 'local') {
+    const err = new Error('Cloud database unavailable in local auth mode.');
+    err.name = 'CloudDisabledError';
+    throw err;
+  }
   if (!firebaseDatabase) {
     throw new Error('Firebase database not initialized');
   }
@@ -386,6 +722,11 @@ export async function getFirebaseDatabase() {
 
 export async function getFirebaseFirestore() {
   await initFirebaseAuth();
+  if (authMode === 'local') {
+    const err = new Error('Cloud firestore unavailable in local auth mode.');
+    err.name = 'CloudDisabledError';
+    throw err;
+  }
   if (!firebaseFirestore) {
     throw new Error('Firebase firestore not initialized');
   }
@@ -461,9 +802,19 @@ async function syncProfileUsernameToFirestore(user) {
 }
 
 export async function checkUsernameAvailability(username) {
-  const normalized = normalizeUsername(username);
+  const normalized = authMode === 'local'
+    ? normalizeUsernameLocal(username)
+    : normalizeUsername(username);
   if (!normalized) {
     return { available: false, normalized, reason: 'invalid' };
+  }
+  if (authMode === 'local') {
+    const users = readLocalUsers();
+    const existing = users[normalized];
+    if (!existing || !existing.uid) {
+      return { available: true, normalized };
+    }
+    return { available: false, normalized, reason: 'taken' };
   }
   const firestore = await getFirebaseFirestore();
   const usernameRef = firestore.collection('usernames').doc(normalized);
@@ -479,6 +830,33 @@ export async function checkUsernameAvailability(username) {
 }
 
 export async function signInWithUsernamePassword(username, password) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    const normalized = normalizeUsernameLocal(username);
+    if (!normalized) {
+      throw new Error('Username must use letters, numbers, periods, underscores, or dashes.');
+    }
+    if (typeof password !== 'string' || !password) {
+      throw new Error('Invalid username or password.');
+    }
+    const users = readLocalUsers();
+    const record = users[normalized];
+    if (!record?.uid || !record?.salt || !record?.pwHash) {
+      throw new Error('Invalid username or password.');
+    }
+    const hashed = await hashPasswordWithSalt(password, record.salt);
+    if (hashed !== record.pwHash) {
+      throw new Error('Invalid username or password.');
+    }
+    const session = {
+      uid: record.uid,
+      username: record.username,
+      createdAt: record.createdAt || Date.now(),
+    };
+    writeLocalSession(session);
+    setAuthState({ uid: record.uid, username: record.username });
+    return { user: currentUser };
+  }
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
   const email = usernameToEmail(normalized);
@@ -499,6 +877,33 @@ export async function signInWithUsernamePassword(username, password) {
 }
 
 export async function createAccountWithUsernamePassword(username, password) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    const normalized = normalizeUsernameLocal(username);
+    if (!normalized) {
+      throw new Error('Username must use letters, numbers, periods, underscores, or dashes.');
+    }
+    await assertPasswordCompliant(password);
+    const users = readLocalUsers();
+    if (users[normalized]) {
+      throw new Error('Username unavailable');
+    }
+    const uid = `local-${randomId(12)}`;
+    const salt = base64RandomBytes(16);
+    const pwHash = await hashPasswordWithSalt(password, salt);
+    const createdAt = Date.now();
+    const record = { uid, username: normalized, salt, pwHash, createdAt };
+    users[normalized] = record;
+    writeLocalUsers(users);
+    const session = {
+      uid,
+      username: normalized,
+      createdAt,
+    };
+    writeLocalSession(session);
+    setAuthState({ uid, username: normalized });
+    return { user: currentUser };
+  }
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
   const email = usernameToEmail(normalized);
@@ -528,6 +933,27 @@ export async function createAccountWithUsernamePassword(username, password) {
 }
 
 export async function signOut() {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    clearLocalSession();
+    setAuthState({ uid: '' });
+    return null;
+  }
   const auth = await initFirebaseAuth();
   return auth.signOut();
+}
+
+export function ensureGuestSession() {
+  const { uid } = getAuthState();
+  if (uid) return { uid };
+  authMode = 'local';
+  const guestUid = ensureGuestId();
+  const session = {
+    uid: guestUid,
+    username: 'Guest',
+    createdAt: Date.now(),
+  };
+  writeLocalSession(session);
+  setAuthState({ uid: guestUid, username: 'Guest', isGuest: true });
+  return { uid: guestUid };
 }

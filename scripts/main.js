@@ -42,6 +42,7 @@ import {
   checkUsernameAvailability,
   normalizeUsername,
   getAuthState,
+  ensureGuestSession,
   getFirebaseDatabase,
   renderAuthDomainDiagnostics,
 } from './auth.js';
@@ -25814,12 +25815,21 @@ registerBootTask(() => {
     welcomeCreate.addEventListener('click', () => openCreateModal());
   }
   if (welcomeContinue) {
-    welcomeContinue.addEventListener('click', () => {
+    welcomeContinue.addEventListener('click', async () => {
       updateWelcomeContinue();
-      const { uid } = getAuthState();
+      let { uid } = getAuthState();
       const storage = typeof localStorage !== 'undefined' ? localStorage : null;
       const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
       if (!uid && !hasLocalSave) {
+        try {
+          const guest = ensureGuestSession();
+          uid = guest?.uid || '';
+        } catch (err) {
+          console.error('Failed to initialize guest session', err);
+        }
+      }
+      const hasLocalAfter = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+      if (!uid && !hasLocalAfter) {
         setOfflineBlankState(true);
         dismissWelcomeModal();
         return;

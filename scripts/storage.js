@@ -1,6 +1,6 @@
 import { toast } from './notifications.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
-import { getFirebaseDatabase } from './auth.js';
+import { getAuthMode, getFirebaseDatabase } from './auth.js';
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
 import {
   addOutboxEntry,
@@ -13,6 +13,9 @@ import {
 } from './cloud-outbox.js';
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
+const LOCAL_CLOUD_INDEX_PREFIX = 'cccg.localCloud.index.';
+const LOCAL_CLOUD_CHARACTER_PREFIX = 'cccg.localCloud.character.';
+const LOCAL_CLOUD_AUTOSAVE_PREFIX = 'cccg.localCloud.autosave.';
 const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
 const LAST_USER_UID_KEY = 'cc:last-user-uid';
 const CHARACTER_ID_STORAGE_PREFIX = 'cc:character-id:';
@@ -25,6 +28,7 @@ let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
 let cloudSyncSupportToastShown = false;
 let cloudAuthNoticeShown = false;
+let localAuthNoticeShown = false;
 let topLevelRefWarningShown = false;
 let databaseRefFactory = null;
 
@@ -43,6 +47,92 @@ function getLocalStorageSafe() {
   } catch {
     return null;
   }
+}
+
+function isLocalAuthMode() {
+  try {
+    return typeof getAuthMode === 'function' && getAuthMode() === 'local';
+  } catch {
+    return false;
+  }
+}
+
+function showLocalAuthModeNotice() {
+  if (localAuthNoticeShown) return;
+  localAuthNoticeShown = true;
+  try {
+    toast('Cloud sync unavailable in local account mode. Using device storage.', 'info');
+  } catch (err) {
+    console.warn('Failed to show local auth notice', err);
+  }
+}
+
+function safeJsonParse(raw, fallback) {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function getLocalCloudIndexKey(uid) {
+  return `${LOCAL_CLOUD_INDEX_PREFIX}${uid || 'local'}`;
+}
+
+function getLocalCloudCharacterKey(uid, characterId) {
+  return `${LOCAL_CLOUD_CHARACTER_PREFIX}${uid || 'local'}.${characterId || 'unknown'}`;
+}
+
+function getLocalCloudAutosaveKey(uid, characterId, ts) {
+  return `${LOCAL_CLOUD_AUTOSAVE_PREFIX}${uid || 'local'}.${characterId || 'unknown'}.${ts || 0}`;
+}
+
+function readLocalCloudIndex(uid) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return {};
+  const key = getLocalCloudIndexKey(uid);
+  const raw = storage.getItem(key);
+  const parsed = safeJsonParse(raw, {});
+  return parsed && typeof parsed === 'object' ? parsed : {};
+}
+
+function writeLocalCloudIndex(uid, indexObj) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return false;
+  const key = getLocalCloudIndexKey(uid);
+  const serialized = safeJsonStringify(indexObj);
+  if (!serialized.ok) return false;
+  try {
+    storage.setItem(key, serialized.value);
+    return true;
+  } catch (err) {
+    console.warn('Failed to write local cloud index', err);
+    return false;
+  }
+}
+
+function writeLocalCloudCharacter(uid, characterId, payload) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return false;
+  const key = getLocalCloudCharacterKey(uid, characterId);
+  const serialized = safeJsonStringify(payload);
+  if (!serialized.ok) return false;
+  try {
+    storage.setItem(key, serialized.value);
+    return true;
+  } catch (err) {
+    console.warn('Failed to write local cloud character snapshot', err);
+    return false;
+  }
+}
+
+function readLocalCloudCharacter(uid, characterId) {
+  const storage = getLocalStorageSafe();
+  if (!storage) return null;
+  const key = getLocalCloudCharacterKey(uid, characterId);
+  const raw = storage.getItem(key);
+  return raw || null;
 }
 
 function collectCharacterNameVariants(name) {
@@ -1602,6 +1692,17 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
 }
 
 export async function saveCloud(name, payload) {
+  if (isLocalAuthMode()) {
+    showLocalAuthModeNotice();
+    try {
+      await saveLocal(name, payload);
+      emitSyncActivity({ type: 'local-cloud-save', name, queued: false, timestamp: Date.now() });
+      return 'saved';
+    } catch (err) {
+      console.error('Local cloud save emulation failed', err);
+      throw err;
+    }
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
@@ -1645,6 +1746,31 @@ export async function saveCloud(name, payload) {
 }
 
 export async function saveCloudAutosave(name, payload) {
+  if (isLocalAuthMode()) {
+    showLocalAuthModeNotice();
+    const ts = nextHistoryTimestamp();
+    const characterId = payload?.character?.characterId || payload?.characterId || '';
+    if (!characterId) return ts;
+    const uid = activeAuthUserId || 'local';
+    try {
+      const storage = getLocalStorageSafe();
+      if (!storage) return ts;
+      const key = getLocalCloudAutosaveKey(uid, characterId, ts);
+      const serialized = safeJsonStringify({
+        ...payload,
+        meta: {
+          ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          updatedAt: Date.now(),
+        },
+      });
+      if (serialized.ok) storage.setItem(key, serialized.value);
+      emitSyncActivity({ type: 'local-cloud-autosave', name, queued: false, timestamp: Date.now() });
+      return ts;
+    } catch (err) {
+      console.warn('Local cloud autosave emulation failed', err);
+      return ts;
+    }
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return null;
@@ -1714,6 +1840,42 @@ export async function saveCloudAutosave(name, payload) {
 }
 
 export async function saveCloudCharacter(uid, characterId, payload) {
+  if (isLocalAuthMode()) {
+    showLocalAuthModeNotice();
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const resolvedCharacterId = characterId || payload?.character?.characterId || payload?.characterId || '';
+    if (!resolvedCharacterId) throw new Error('Missing character id');
+
+    const updatedAt = Date.now();
+    const payloadWithMeta = {
+      ...payload,
+      meta: {
+        ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+        updatedAt,
+      },
+      updatedAt,
+    };
+
+    const wrote = writeLocalCloudCharacter(resolvedUid, resolvedCharacterId, payloadWithMeta);
+    if (!wrote) throw new Error('Failed to persist character snapshot locally');
+
+    const index = readLocalCloudIndex(resolvedUid);
+    const entryName =
+      payloadWithMeta?.character?.name ||
+      payloadWithMeta?.character?.identityName ||
+      payloadWithMeta?.name ||
+      'Unnamed Character';
+    index[resolvedCharacterId] = {
+      ...(index[resolvedCharacterId] && typeof index[resolvedCharacterId] === 'object' ? index[resolvedCharacterId] : {}),
+      characterId: resolvedCharacterId,
+      name: entryName,
+      updatedAt,
+    };
+    writeLocalCloudIndex(resolvedUid, index);
+
+    emitSyncActivity({ type: 'local-cloud-character-save', name: entryName, queued: false, timestamp: updatedAt });
+    return 'saved';
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
@@ -1742,6 +1904,18 @@ export async function saveCloudCharacter(uid, characterId, payload) {
 }
 
 export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const resolvedCharacterId = characterId || '';
+    if (!resolvedCharacterId) throw new Error('Missing character id');
+    const raw = readLocalCloudCharacter(resolvedUid, resolvedCharacterId);
+    if (!raw) {
+      const err = new Error('Character snapshot not found');
+      err.name = 'NotFoundError';
+      throw err;
+    }
+    return raw;
+  }
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing user id or character id');
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -1785,6 +1959,20 @@ export async function saveUserProfile(uid, profile) {
 }
 
 export async function saveCharacterIndexEntry(uid, characterId, entry) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const resolvedCharacterId = characterId || entry?.characterId || entry?.id || '';
+    if (!resolvedCharacterId) return false;
+    const updatedAt = Number(entry?.updatedAt || Date.now());
+    const index = readLocalCloudIndex(resolvedUid);
+    index[resolvedCharacterId] = {
+      ...(index[resolvedCharacterId] && typeof index[resolvedCharacterId] === 'object' ? index[resolvedCharacterId] : {}),
+      ...(entry && typeof entry === 'object' ? entry : {}),
+      characterId: resolvedCharacterId,
+      updatedAt,
+    };
+    return writeLocalCloudIndex(resolvedUid, index);
+  }
   const path = buildUserCharacterIndexPath(uid, characterId);
   if (!path) throw new Error('Missing user id or character id');
   const payload = {
@@ -1828,6 +2016,13 @@ export async function deleteCharacterIndexEntry(uid, characterId) {
 }
 
 export async function listCharacterIndex(uid) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const indexObj = readLocalCloudIndex(resolvedUid);
+    const entries = Object.values(indexObj || {}).filter(v => v && typeof v === 'object');
+    entries.sort((a, b) => (Number(b.updatedAt || 0) - Number(a.updatedAt || 0)));
+    return entries;
+  }
   try {
     const paths = getUserPaths(uid);
     if (!paths) return [];
