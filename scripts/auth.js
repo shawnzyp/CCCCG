@@ -1,7 +1,7 @@
 const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
 const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
-const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth domain not authorized. Add this host in Firebase Console -> Auth -> Authorized domains.';
+const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 
 let authInitPromise = null;
 let authInstance = null;
@@ -115,17 +115,24 @@ function shouldShowAuthDiagnostics() {
 function showAuthDomainWarningBanner() {
   if (typeof document === 'undefined') return;
   const banner = document.querySelector('[data-sync-auth-domain-warning]');
-  if (!banner) return;
+  if (!banner) return false;
   banner.textContent = AUTH_DOMAIN_WARNING_MESSAGE;
   banner.hidden = false;
   banner.removeAttribute('hidden');
+  return true;
 }
 
 function maybeShowAuthDomainWarning() {
   if (authDomainWarningShown || !pendingAuthDomainWarning) return;
   if (!shouldShowAuthDiagnostics()) return;
-  showAuthDomainWarningBanner();
-  authDomainWarningShown = true;
+  const shown = showAuthDomainWarningBanner();
+  if (shown) {
+    authDomainWarningShown = true;
+  }
+}
+
+export function renderAuthDomainDiagnostics() {
+  maybeShowAuthDomainWarning();
 }
 
 function exposeFirebaseDebugHelper() {
@@ -165,7 +172,6 @@ function warnIfProjectConfigMismatch(config) {
       authDomain,
       projectId ? `${projectId}.firebaseapp.com` : null,
       projectId ? `${projectId}.web.app` : null,
-      'shawnzyp.github.io',
       'localhost',
       '127.0.0.1'
     ].filter(Boolean));

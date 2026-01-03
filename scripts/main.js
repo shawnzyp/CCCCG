@@ -43,6 +43,7 @@ import {
   normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
+  renderAuthDomainDiagnostics,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -24506,6 +24507,7 @@ function toggleSyncPanel(forceOpen) {
     refreshSyncQueue();
     renderSyncErrors();
     updateLastSyncDisplay();
+    renderAuthDomainDiagnostics();
     requestAnimationFrame(() => {
       const focusTarget = syncPanelCloseBtn || syncPanel;
       try { focusTarget.focus({ preventScroll: true }); } catch {}

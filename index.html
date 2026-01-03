@@ -130,36 +130,6 @@
       }
     };
 
-    const setLaunchOverlayInteractive = isInteractive => {
-      if (!launchEl) return;
-      const shouldBeInteractive = Boolean(isInteractive);
-      if (!shouldBeInteractive) {
-        const active = document.activeElement;
-        if (active && launchEl.contains(active)) {
-          try {
-            active.blur();
-          } catch (err) {}
-          focusAfterLaunch();
-        }
-      }
-      try {
-        if (shouldBeInteractive) {
-          launchEl.removeAttribute('aria-hidden');
-          launchEl.setAttribute('aria-hidden', 'false');
-          launchEl.removeAttribute('inert');
-          if ('inert' in launchEl) {
-            launchEl.inert = false;
-          }
-        } else {
-          launchEl.setAttribute('aria-hidden', 'true');
-          launchEl.setAttribute('inert', '');
-          if ('inert' in launchEl) {
-            launchEl.inert = true;
-          }
-        }
-      } catch (err) {}
-    };
-
     const hideLaunch = () => {
       if(!body.classList.contains('launching')){
         return;
@@ -169,7 +139,13 @@
         window.clearTimeout(playRetryTimer);
         playRetryTimer = null;
       }
-      setLaunchOverlayInteractive(false);
+      const active = document.activeElement;
+      if (active && launchEl.contains(active)) {
+        try {
+          active.blur();
+        } catch (err) {}
+        focusAfterLaunch();
+      }
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
       launchEl.setAttribute('data-hidden', 'true');
@@ -385,7 +361,6 @@
         window.addEventListener('load', () => scheduleFallback(), { once: true });
       }
     }
-    setLaunchOverlayInteractive(true);
   })();
 </script>
 
