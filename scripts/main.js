@@ -215,9 +215,29 @@ if (bootAlreadyStarted) {
   console.warn('Boot already started; skipping duplicate initialization.');
 }
 const bootTasks = [];
+let bootTasksRan = false;
 const registerBootTask = task => {
   if (!bootAlreadyStarted && typeof task === 'function') {
     bootTasks.push(task);
+  }
+};
+const runBootTasksOnce = () => {
+  if (bootTasksRan || bootAlreadyStarted) return;
+  bootTasksRan = true;
+  const run = () => {
+    const tasks = bootTasks.splice(0, bootTasks.length);
+    tasks.forEach(task => {
+      try {
+        task();
+      } catch (err) {
+        console.error('Boot task failed', err);
+      }
+    });
+  };
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
   }
 };
 
@@ -2124,13 +2144,15 @@ function setupMiniGamePlayerSync() {
   }
 }
 
-if (typeof document !== 'undefined') {
-  setupMiniGamePlayerSync();
-  if (miniGameReminderAction) {
-    miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+registerBootTask(() => {
+  if (typeof document !== 'undefined') {
+    setupMiniGamePlayerSync();
+    if (miniGameReminderAction) {
+      miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+    }
+    updateMiniGameReminder();
   }
-  updateMiniGameReminder();
-}
+});
 
 function detectPlatform(){
   if(typeof navigator === 'undefined'){
@@ -3239,15 +3261,17 @@ registerBootTask(() => {
   document.addEventListener('keydown', enableAnimations, true);
 });
 // Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
-document.addEventListener('click', e=>{
-  if(!animationsEnabled) return;
-  const el=e.target.closest(INTERACTIVE_SEL);
-  if(el){
-    if(el.id==='player-tools-tab') return;
-    el.classList.add('action-anim');
-    el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
-  }
-}, true);
+registerBootTask(() => {
+  document.addEventListener('click', e=>{
+    if(!animationsEnabled) return;
+    const el=e.target.closest(INTERACTIVE_SEL);
+    if(el){
+      if(el.id==='player-tools-tab') return;
+      el.classList.add('action-anim');
+      el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
+    }
+  }, true);
+});
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
@@ -4170,11 +4194,13 @@ registerBootTask(() => {
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
-if (themeSpinnerEl) {
-  themeSpinnerEl.addEventListener('animationend', () => {
-    themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
-  });
-}
+registerBootTask(() => {
+  if (themeSpinnerEl) {
+    themeSpinnerEl.addEventListener('animationend', () => {
+      themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
+    });
+  }
+});
 const themeOverlayStyle = root ? root.style : null;
 
 const normalizeThemeOverlayUrl = imagePath => {
@@ -4558,31 +4584,35 @@ if (btnMenu && menuActions) {
     btnMenu.classList.add('open');
   };
 
-  btnMenu.addEventListener('click', () => {
-    if (isMenuOpen && !menuActions.hidden) hideMenu();
-    else showMenu();
-  });
+  registerBootTask(() => {
+    btnMenu.addEventListener('click', () => {
+      if (isMenuOpen && !menuActions.hidden) hideMenu();
+      else showMenu();
+    });
 
-  document.addEventListener('click', e => {
-    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
-  });
+    document.addEventListener('click', e => {
+      if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
+    });
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') hideMenu();
-  });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideMenu();
+    });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    });
   });
 }
 
 /* ========= header ========= */
-if (themeToggleEl) {
-  themeToggleEl.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleTheme();
-  });
-}
+registerBootTask(() => {
+  if (themeToggleEl) {
+    themeToggleEl.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleTheme();
+    });
+  }
+});
 
 /* ========= tabs ========= */
 const tabButtons = Array.from(qsa('.tab'));
@@ -4747,6 +4777,7 @@ const persistTickerPreference = nextOpen => {
 const tickerDrawer = qs('[data-ticker-drawer]');
 const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
 const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
+registerBootTask(() => {
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
@@ -4945,6 +4976,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   }
   setPanelOffset();
 }
+});
 
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
@@ -23510,27 +23542,29 @@ registerBootTask(() => {
   document.addEventListener('input', pushHistory);
   document.addEventListener('change', pushHistory);
 });
-document.addEventListener('dm-tab-will-change', () => {
-  captureAutosaveSnapshot();
-});
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      flushAutosave('visibilitychange');
-    }
-  }, { passive: true });
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', event => {
-    if (event && event.persisted) return;
-    flushAutosave('pagehide');
-  }, { capture: true });
-  window.addEventListener('beforeunload', () => {
+registerBootTask(() => {
+  document.addEventListener('dm-tab-will-change', () => {
     captureAutosaveSnapshot();
   });
-}
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushAutosave('visibilitychange');
+      }
+    }, { passive: true });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', event => {
+      if (event && event.persisted) return;
+      flushAutosave('pagehide');
+    }, { capture: true });
+    window.addEventListener('beforeunload', () => {
+      captureAutosaveSnapshot();
+    });
+  }
+});
 
 function undo(){
   if(histIdx > 0){ histIdx--; applyAppSnapshot(history[histIdx]); }
@@ -26342,12 +26376,4 @@ CC.RP = (function () {
 })();
 });
 
-if (!bootAlreadyStarted) {
-  bootTasks.forEach(task => {
-    try {
-      task();
-    } catch (err) {
-      console.error('Boot task failed', err);
-    }
-  });
-}
+runBootTasksOnce();
