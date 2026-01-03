@@ -4,6 +4,20 @@ const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'dat
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
 
+function readPreferredAuthMode() {
+  try {
+    const w = typeof window !== 'undefined' ? window : null;
+    if (!w) return 'local';
+    if (w.__CCCG_FORCE_FIREBASE_AUTH__ === true) return 'firebase';
+    const mode = String(w.__CCCG_AUTH_MODE__ || '').trim().toLowerCase();
+    if (mode === 'firebase') return 'firebase';
+    if (mode === 'local') return 'local';
+    return 'local';
+  } catch {
+    return 'local';
+  }
+}
+
 let authInitPromise = null;
 let authInstance = null;
 let firebaseApp = null;
@@ -13,7 +27,7 @@ let firebaseNamespace = null;
 let authReady = false;
 let currentUser = null;
 let authReadyResolve = null;
-let authMode = 'firebase';
+let authMode = readPreferredAuthMode();
 const authReadyPromise = new Promise(resolve => {
   authReadyResolve = resolve;
 });
@@ -647,6 +661,7 @@ exposeFirebaseDebugHelper();
 export function initFirebaseAuth() {
   if (!authInitPromise) {
     authInitPromise = (async () => {
+      authMode = readPreferredAuthMode();
       restoreLocalSession();
       if (authMode === 'local') {
         setAuthReady();
@@ -696,6 +711,11 @@ export function getAuthMode() {
 
 export async function getFirebaseDatabase() {
   await initFirebaseAuth();
+  if (authMode === 'local') {
+    const err = new Error('Cloud database unavailable in local auth mode.');
+    err.name = 'CloudDisabledError';
+    throw err;
+  }
   if (!firebaseDatabase) {
     throw new Error('Firebase database not initialized');
   }
@@ -704,6 +724,11 @@ export async function getFirebaseDatabase() {
 
 export async function getFirebaseFirestore() {
   await initFirebaseAuth();
+  if (authMode === 'local') {
+    const err = new Error('Cloud firestore unavailable in local auth mode.');
+    err.name = 'CloudDisabledError';
+    throw err;
+  }
   if (!firebaseFirestore) {
     throw new Error('Firebase firestore not initialized');
   }
