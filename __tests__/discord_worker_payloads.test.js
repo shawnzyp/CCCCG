@@ -13,6 +13,11 @@ describe('discord worker payload normalization', () => {
     const payload = { roll: { who: 'Someone', expr: 'roll', total: '?' } };
     const result = __test__.normalizeRequestPayload(payload);
     expect(result.error).toBe('invalid_roll');
+    expect(result.details).toEqual({
+      expr: 'roll',
+      totalType: 'string',
+      totalValue: '?',
+    });
   });
 
   test('event wrapper beats roll in payload', () => {
@@ -21,7 +26,7 @@ describe('discord worker payload normalization', () => {
       payload: { roll: { who: 'Someone', expr: '1d20', total: 20 } },
     };
     const result = __test__.normalizeRequestPayload(payload);
-    expect(result.kind).toBe('event');
+    expect(result.kind).toBe('event-structured');
     expect(result.build.embeds[0].title).toBe('Event');
   });
 });

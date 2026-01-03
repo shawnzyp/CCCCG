@@ -1,4 +1,5 @@
 const ALLOWED_ORIGIN = 'https://shawnzyp.github.io';
+const BUILD_ID = 'ccapp-2025-03-06-a';
 
 const buildCorsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN,
@@ -39,25 +40,33 @@ const parseTotalValue = (value) => {
   return null;
 };
 
+const isPlainObject = (value) =>
+  Boolean(value)
+  && typeof value === 'object'
+  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+
+const invalidRollDetails = (roll, expr) => ({
+  expr,
+  totalType: typeof roll?.total,
+  totalValue: roll?.total ?? null,
+});
+
 const validateRollPayload = (roll) => {
-  if (!roll || typeof roll !== 'object') {
-    return { ok: false, details: { reason: 'missing_roll' } };
+  if (!isPlainObject(roll)) {
+    return { ok: false, details: invalidRollDetails({}, null) };
   }
   const expr = roll.expr != null ? String(roll.expr).trim() : '';
-  if (!expr) {
-    return { ok: false, details: { reason: 'missing_expr' } };
-  }
-  if (expr.toLowerCase() === 'roll') {
-    return { ok: false, details: { reason: 'placeholder_expr', expr } };
+  if (!expr || expr.toLowerCase() === 'roll') {
+    return { ok: false, details: invalidRollDetails(roll, expr || null) };
   }
   const total = parseTotalValue(roll.total);
   if (total == null) {
-    return { ok: false, details: { reason: 'invalid_total', total: roll.total } };
+    return { ok: false, details: invalidRollDetails(roll, expr) };
   }
   return {
     ok: true,
     value: {
-      who: roll.who ? String(roll.who) : 'Unknown',
+      who: roll.who ? String(roll.who) : 'Someone',
       expr,
       total,
       breakdown: roll.breakdown ? String(roll.breakdown) : '',
@@ -66,9 +75,9 @@ const validateRollPayload = (roll) => {
 };
 
 const formatRollMessage = (roll) => {
-  const who = roll.who ? String(roll.who) : 'Unknown';
-  const expr = roll.expr ? String(roll.expr) : 'Roll';
-  const total = roll.total != null ? String(roll.total) : '?';
+  const who = roll.who ? String(roll.who) : 'Someone';
+  const expr = String(roll.expr);
+  const total = String(roll.total);
   const breakdown = roll.breakdown ? `\n${roll.breakdown}` : '';
   return `**${who}** rolled ${expr} = **${total}**${breakdown}`;
 };
@@ -82,46 +91,110 @@ const buildRollDiscordPayload = (roll) => ({
   ],
 });
 
+const clampText = (text, limit) => {
+  if (!text) return '';
+  const value = String(text);
+  if (value.length <= limit) return value;
+  return `${value.slice(0, limit - 3)}...`;
+};
+
+const pickActorName = (payload, actor) =>
+  actor?.playerName
+  || actor?.characterName
+  || actor?.name
+  || payload?.who
+  || payload?.playerName
+  || payload?.characterName
+  || null;
+
+const buildEventFields = (detail) => {
+  const fields = [];
+  if (!isPlainObject(detail)) return fields;
+  const candidates = [
+    { key: 'formula', label: 'Formula' },
+    { key: 'expr', label: 'Expression' },
+    { key: 'total', label: 'Total' },
+    { key: 'result', label: 'Result' },
+    { key: 'breakdown', label: 'Breakdown' },
+    { key: 'outcome', label: 'Outcome' },
+    { key: 'target', label: 'Target' },
+  ];
+  for (const { key, label } of candidates) {
+    if (fields.length >= 5) break;
+    const value = detail[key];
+    if (value == null) continue;
+    if (typeof value === 'object') continue;
+    fields.push({
+      name: clampText(label, 256),
+      value: clampText(value, 1024),
+      inline: false,
+    });
+  }
+  return fields;
+};
+
 const buildEventDiscordPayload = (event, payload) => {
-  const detail = payload?.detail && typeof payload.detail === 'object' ? payload.detail : {};
-  const actor = payload?.actor && typeof payload.actor === 'object' ? payload.actor : {};
-  const description = detail.message || detail.summary || '';
+  const detail = isPlainObject(payload?.detail) ? payload.detail : {};
+  const actor = isPlainObject(payload?.actor) ? payload.actor : {};
+  const actorName = pickActorName(payload, actor);
+  const message = detail.message
+    || detail.summary
+    || payload?.message
+    || payload?.summary
+    || '';
+  const descriptionParts = [];
+  if (actorName) {
+    descriptionParts.push(`**${actorName}**`);
+  }
+  if (message) {
+    descriptionParts.push(String(message));
+  }
+  const descriptionFallback = event ? `Event: ${event}` : 'Event';
+  const description = clampText(descriptionParts.join(' '), 4096) || descriptionFallback;
   const fields = [];
   if (event) {
-    fields.push({ name: 'Event', value: String(event), inline: true });
+    fields.push({ name: 'Event', value: clampText(event, 1024), inline: true });
   }
-  const actorName = actor.playerName || actor.characterName || actor.vigilanteName || actor.name;
   if (actorName) {
-    fields.push({ name: 'Actor', value: String(actorName), inline: true });
+    fields.push({ name: 'Actor', value: clampText(actorName, 1024), inline: true });
   }
+  const detailFields = buildEventFields(detail);
   const embed = {
     title: 'Event',
-    description: description || (event ? `Event: ${event}` : 'Event'),
+    description,
+    fields: [...fields, ...detailFields].slice(0, 6),
   };
-  if (fields.length) embed.fields = fields;
   return { embeds: [embed] };
 };
 
 const isRawDiscordPayload = (payload) => {
-  if (!payload || typeof payload !== 'object') return false;
+  if (!isPlainObject(payload)) return false;
   return Boolean(payload.content || payload.embeds || payload.username);
 };
 
 const normalizeRequestPayload = (payload) => {
-  if (!payload || typeof payload !== 'object') {
-    return { error: 'invalid_payload', details: { reason: 'missing_body' } };
-  }
-  const hasEvent = Object.prototype.hasOwnProperty.call(payload, 'event')
-    && Object.prototype.hasOwnProperty.call(payload, 'payload');
-  if (hasEvent) {
-    return {
-      kind: 'event',
-      normalized: { event: payload.event, payload: payload.payload },
-      build: buildEventDiscordPayload(payload.event, payload.payload),
-    };
+  if (!isPlainObject(payload)) {
+    return { error: 'unknown_payload' };
   }
   if (isRawDiscordPayload(payload)) {
-    return { kind: 'raw', normalized: payload, build: payload };
+    return { kind: 'discord', normalized: payload, build: payload };
+  }
+  const event = payload.event;
+  const hasEvent = typeof event === 'string' && event.trim().length > 0;
+  if (hasEvent) {
+    const eventPayload = isPlainObject(payload.payload) ? payload.payload : {};
+    if (isRawDiscordPayload(eventPayload)) {
+      return {
+        kind: 'event-discord',
+        normalized: { event, payload: eventPayload },
+        build: eventPayload,
+      };
+    }
+    return {
+      kind: 'event-structured',
+      normalized: { event, payload: eventPayload },
+      build: buildEventDiscordPayload(event, eventPayload),
+    };
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'roll')) {
     const validation = validateRollPayload(payload.roll);
@@ -134,21 +207,27 @@ const normalizeRequestPayload = (payload) => {
       build: buildRollDiscordPayload(validation.value),
     };
   }
-  return { error: 'invalid_payload', details: { reason: 'unsupported_shape' } };
+  return { error: 'unknown_payload' };
 };
 
-const logIncomingShape = (payload, path) => {
-  const keys = payload && typeof payload === 'object' ? Object.keys(payload) : [];
-  const hasEvent = payload && typeof payload === 'object' && 'event' in payload;
-  const hasRoll = payload && typeof payload === 'object' && 'roll' in payload;
-  const roll = hasRoll && payload.roll && typeof payload.roll === 'object'
+const buildShape = (payload) => {
+  const keys = isPlainObject(payload) ? Object.keys(payload) : [];
+  const hasEvent = isPlainObject(payload) && 'event' in payload;
+  const hasRoll = isPlainObject(payload) && 'roll' in payload;
+  const roll = hasRoll && isPlainObject(payload.roll)
     ? {
         who: payload.roll.who ?? null,
         expr: payload.roll.expr ?? null,
         total: payload.roll.total ?? null,
       }
     : null;
-  console.log('incoming shape', { path, hasEvent, hasRoll, keys, roll });
+  return { hasEvent, hasRoll, keys, roll };
+};
+
+const logIncomingShape = (payload, path, method) => {
+  const shape = buildShape(payload);
+  console.log('incoming shape', { path, method, ...shape });
+  return shape;
 };
 
 const postToDiscord = async (webhookUrl, payload) => {
@@ -217,16 +296,31 @@ async function handleRequest(request, env) {
     return jsonResponse({ ok: false, error: 'invalid_json' }, 400, origin);
   }
 
-  logIncomingShape(payload, url.pathname);
+  const shape = logIncomingShape(payload, url.pathname, request.method);
   const normalized = normalizeRequestPayload(payload);
   if (normalized.error) {
     const status = normalized.error === 'invalid_roll' ? 400 : 400;
-    return jsonResponse({ ok: false, error: normalized.error, details: normalized.details }, status, origin);
+    return jsonResponse(
+      {
+        ok: false,
+        error: normalized.error,
+        details: normalized.details,
+        build: BUILD_ID,
+      },
+      status,
+      origin,
+    );
   }
 
   if (debugMode) {
     return jsonResponse(
-      { ok: true, kind: normalized.kind, normalized: normalized.normalized, build: normalized.build },
+      {
+        ok: true,
+        build: BUILD_ID,
+        kind: normalized.kind,
+        normalized: normalized.normalized,
+        shape,
+      },
       200,
       origin,
     );

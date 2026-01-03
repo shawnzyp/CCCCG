@@ -56,7 +56,13 @@ const buildDiscordPayload = (payload = {}) => {
 
   if (payload.roll && typeof payload.roll === 'object') {
     if (isValidRoll(payload.roll)) {
-      return { roll: payload.roll };
+      const total = parseTotalValue(payload.roll.total);
+      return {
+        roll: {
+          ...payload.roll,
+          total,
+        },
+      };
     }
     return { event, payload };
   }
@@ -64,7 +70,7 @@ const buildDiscordPayload = (payload = {}) => {
   const detail = payload.detail || {};
   const actor = payload.actor || {};
   const who = actor.playerName || actor.vigilanteName || detail.playerName || detail.characterName;
-  const expr = detail.formula || detail.expr || detail.result || payload.type || 'Roll';
+  const expr = detail.formula || detail.expr || detail.result || payload.type || '';
   const total = parseTotalValue(detail.total ?? detail.result);
   const breakdown = detail.breakdown || detail.notes || '';
 
