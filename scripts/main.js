@@ -11416,6 +11416,16 @@ function queueCampaignLogEntry(text, options = {}){
   if (typeof text !== 'string' || !text.trim()) return null;
   const entry = createCampaignEntry(text, options);
   mergeCampaignEntry(entry);
+  const sessionLogMessage = `[${entry.t}] ${entry.name}: ${entry.text}`;
+  sendEventToDiscordWorker({
+    type: 'session.log',
+    detail: {
+      text: entry.text,
+      name: entry.name,
+      t: entry.t,
+      before: { message: sessionLogMessage },
+    },
+  });
   if (options.sync === false) return entry;
   (async () => {
     try{
