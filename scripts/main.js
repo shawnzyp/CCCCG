@@ -206,6 +206,40 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+const bootScope = typeof window !== 'undefined' ? window : null;
+const bootAlreadyStarted = !!(bootScope && bootScope.__CCCG_BOOT_STARTED__);
+if (bootScope && !bootScope.__CCCG_BOOT_STARTED__) {
+  bootScope.__CCCG_BOOT_STARTED__ = true;
+}
+if (bootAlreadyStarted) {
+  console.warn('Boot already started; skipping duplicate initialization.');
+}
+const bootTasks = [];
+let bootTasksRan = false;
+const registerBootTask = task => {
+  if (!bootAlreadyStarted && typeof task === 'function') {
+    bootTasks.push(task);
+  }
+};
+const runBootTasksOnce = () => {
+  if (bootTasksRan || bootAlreadyStarted) return;
+  bootTasksRan = true;
+  const run = () => {
+    const tasks = bootTasks.splice(0, bootTasks.length);
+    tasks.forEach(task => {
+      try {
+        task();
+      } catch (err) {
+        console.error('Boot task failed', err);
+      }
+    });
+  };
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+};
 
 function cancelFx(el) {
   if (!el) return;
@@ -378,7 +412,9 @@ function bootstrapDmToolsOnDemand() {
   attachDmBootstrapHandler($('dm-tools-toggle'));
 }
 
-bootstrapDmToolsOnDemand();
+registerBootTask(() => {
+  bootstrapDmToolsOnDemand();
+});
 
 
 const AUGMENT_CATEGORIES = ['Control', 'Protection', 'Aggression', 'Transcendence', 'Customization'];
@@ -1227,7 +1263,9 @@ function ensureToastContent(message) {
 }
 
 const PRIORITY_ALERT_TITLE = 'O.M.N.I: Priority Transmission';
-setupPriorityTransmissionAlert();
+registerBootTask(() => {
+  setupPriorityTransmissionAlert();
+});
 
 function setupPriorityTransmissionAlert(){
   if (typeof document === 'undefined') return;
@@ -2106,13 +2144,15 @@ function setupMiniGamePlayerSync() {
   }
 }
 
-if (typeof document !== 'undefined') {
-  setupMiniGamePlayerSync();
-  if (miniGameReminderAction) {
-    miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+registerBootTask(() => {
+  if (typeof document !== 'undefined') {
+    setupMiniGamePlayerSync();
+    if (miniGameReminderAction) {
+      miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+    }
+    updateMiniGameReminder();
   }
-  updateMiniGameReminder();
-}
+});
 
 function detectPlatform(){
   if(typeof navigator === 'undefined'){
@@ -2181,6 +2221,7 @@ const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 const LAUNCH_DURATION_MS = 8000;
 const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
+const LAUNCH_FAILSAFE_MS = 2500;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const WELCOME_SEEN_KEY_PREFIX = 'cc:welcome-seen:';
@@ -2193,6 +2234,8 @@ let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
+let launchFailsafeTimer = null;
+let launchFailsafeTriggered = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2438,6 +2481,59 @@ function restoreUiAfterWelcome() {
   scheduleFloatingLauncherClamp();
 }
 
+function clearLaunchFailsafeTimer() {
+  if (!launchFailsafeTimer) return;
+  try {
+    clearTimeout(launchFailsafeTimer);
+  } catch {}
+  launchFailsafeTimer = null;
+}
+
+function ensureDefaultMainTab(preferred = 'combat') {
+  const active = getActiveTab();
+  if (active && qs(`.tab[data-go="${active}"]`)) return true;
+  const fallbackButton = qs(`.tab[data-go="${preferred}"]`) || qs('.tab[data-go]');
+  const fallbackTarget = fallbackButton ? fallbackButton.getAttribute('data-go') : null;
+  if (!fallbackTarget) return false;
+  return activateTab(fallbackTarget);
+}
+
+function forceBootUI(reason = 'launch-failsafe') {
+  if (launchFailsafeTriggered) return;
+  launchFailsafeTriggered = true;
+  clearLaunchFailsafeTimer();
+  if (reason) {
+    console.warn(`Forcing UI boot (${reason}).`);
+  }
+  welcomeModalDismissed = true;
+  welcomeSequenceComplete = true;
+  hideWelcomeModalPanel();
+  unlockTouchControls({ immediate: true });
+  restoreUiAfterWelcome();
+  const body = typeof document !== 'undefined' ? document.body : null;
+  if (body && body.classList.contains('launching')) {
+    body.classList.remove('launching');
+  }
+  if (body) {
+    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal], [inert]');
+    inertTargets.forEach(el => {
+      try {
+        el.removeAttribute('data-cc-inert-by-modal');
+        el.removeAttribute('inert');
+        if ('inert' in el) el.inert = false;
+      } catch {}
+    });
+  }
+  const launchShell = typeof document !== 'undefined'
+    ? document.getElementById('launch-animation')
+    : null;
+  if (launchShell && launchShell.parentNode) {
+    launchShell.parentNode.removeChild(launchShell);
+  }
+  markLaunchSequenceComplete();
+  ensureDefaultMainTab('combat');
+}
+
 function hideWelcomeModalPanel() {
   const modal = getWelcomeModal();
   if (!modal) return;
@@ -2610,35 +2706,40 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     maybeShowWelcomeModal();
   });
 }
-(async function setupLaunchAnimation(){
-  if (typeof document === 'undefined' || IS_JSDOM_ENV) {
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
-  const body = document.body;
-  if(!body || !body.classList.contains('launching')){
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
+async function setupLaunchAnimation(){
+  try {
+    if (typeof document === 'undefined' || IS_JSDOM_ENV) {
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      markLaunchSequenceComplete();
+      return;
+    }
+    const body = document.body;
+    if(!body || !body.classList.contains('launching')){
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      markLaunchSequenceComplete();
+      return;
+    }
 
-  lockTouchControls();
-  queueWelcomeModal({ preload: true });
-  queueWelcomeModal({ immediate: true });
+    lockTouchControls();
+    queueWelcomeModal({ preload: true });
+    queueWelcomeModal({ immediate: true });
+    clearLaunchFailsafeTimer();
+    launchFailsafeTimer = window.setTimeout(() => {
+      forceBootUI('launch-timeout');
+    }, LAUNCH_FAILSAFE_MS);
 
-  const launchEl = document.getElementById('launch-animation');
-  const video = launchEl ? launchEl.querySelector('video') : null;
-  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  let revealCalled = false;
-  let playbackStartedAt = null;
-  let fallbackTimer = null;
-  let awaitingGesture = false;
-  let cleanupMessaging = null;
-  let bypassLaunchMinimum = false;
-  const userGestureListeners = [];
+    const launchEl = document.getElementById('launch-animation');
+    const video = launchEl ? launchEl.querySelector('video') : null;
+    const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+    let revealCalled = false;
+    let playbackStartedAt = null;
+    let fallbackTimer = null;
+    let awaitingGesture = false;
+    let cleanupMessaging = null;
+    let bypassLaunchMinimum = false;
+    const userGestureListeners = [];
 
   const clearTimer = timer => {
     if(timer){
@@ -2676,18 +2777,21 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     cleanupMessaging = null;
   };
 
-  const finalizeReveal = () => {
-    body.classList.remove('launching');
-    unlockTouchControls({ immediate: true });
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
-      window.setTimeout(cleanupLaunchShell, 1000);
-    }
-  };
+    const finalizeReveal = () => {
+      if (launchFailsafeTriggered) return;
+      clearLaunchFailsafeTimer();
+      body.classList.remove('launching');
+      unlockTouchControls({ immediate: true });
+      markLaunchSequenceComplete();
+      queueWelcomeModal({ immediate: true });
+      if(launchEl){
+        launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
+        window.setTimeout(cleanupLaunchShell, 1000);
+      }
+    };
 
   const revealApp = () => {
+    if (launchFailsafeTriggered) return;
     if(revealCalled) return;
     revealCalled = true;
     detachMessaging();
@@ -2929,20 +3033,22 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       .catch(() => {});
   };
 
-  const finalizeLaunch = () => {
-    if(revealCalled) return;
-    fallbackTimer = clearTimer(fallbackTimer);
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
+    const finalizeLaunch = () => {
+      if (launchFailsafeTriggered) return;
+      if(revealCalled) return;
+      clearLaunchFailsafeTimer();
+      fallbackTimer = clearTimer(fallbackTimer);
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      if(!IS_JSDOM_ENV){
+        try {
+          video.pause();
+        } catch {
+          /* ignore inability to pause */
+        }
+        notifyServiceWorkerVideoPlayed();
       }
-      notifyServiceWorkerVideoPlayed();
-    }
-    revealApp();
-  };
+      revealApp();
+    };
 
   if(skipButton){
     skipButton.addEventListener('click', event => {
@@ -3087,24 +3193,33 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     scheduleFallback(LAUNCH_MAX_WAIT);
   };
 
-  if(video.readyState >= 1){
-    beginPlayback();
-  } else {
-    video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-    try {
-      video.load();
-    } catch (err) {
-      // ignore load failures while waiting for metadata
+    if(video.readyState >= 1){
+      beginPlayback();
+    } else {
+      video.addEventListener('loadedmetadata', beginPlayback, { once: true });
+      try {
+        video.load();
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
+      scheduleFallback(LAUNCH_MAX_WAIT);
     }
-    scheduleFallback(LAUNCH_MAX_WAIT);
+  } catch (err) {
+    console.error('Launch animation failed; continuing boot.', err);
+    forceBootUI('launch-error');
   }
-})();
+}
+registerBootTask(() => {
+  void setupLaunchAnimation();
+});
 
-// Ensure numeric inputs accept only digits and trigger numeric keypad
-document.addEventListener('input', e => {
-  if(e.target.matches('input[inputmode="numeric"]')){
-    e.target.value = e.target.value.replace(/[^0-9]/g,'');
-  }
+registerBootTask(() => {
+  // Ensure numeric inputs accept only digits and trigger numeric keypad
+  document.addEventListener('input', e => {
+    if(e.target.matches('input[inputmode="numeric"]')){
+      e.target.value = e.target.value.replace(/[^0-9]/g,'');
+    }
+  });
 });
 // Load the optional confetti library lazily so tests and offline environments
 // don't attempt a network import on startup.
@@ -3141,18 +3256,22 @@ function enableAnimations(e){
 }
 // Use capture so the lock is evaluated before other handlers. Do not use `once`
 // so clicks from pull-to-refresh are ignored until a real interaction occurs.
-document.addEventListener('click', enableAnimations, true);
-document.addEventListener('keydown', enableAnimations, true);
+registerBootTask(() => {
+  document.addEventListener('click', enableAnimations, true);
+  document.addEventListener('keydown', enableAnimations, true);
+});
 // Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
-document.addEventListener('click', e=>{
-  if(!animationsEnabled) return;
-  const el=e.target.closest(INTERACTIVE_SEL);
-  if(el){
-    if(el.id==='player-tools-tab') return;
-    el.classList.add('action-anim');
-    el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
-  }
-}, true);
+registerBootTask(() => {
+  document.addEventListener('click', e=>{
+    if(!animationsEnabled) return;
+    const el=e.target.closest(INTERACTIVE_SEL);
+    if(el){
+      if(el.id==='player-tools-tab') return;
+      el.classList.add('action-anim');
+      el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
+    }
+  }, true);
+});
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
@@ -3171,8 +3290,10 @@ function handleAudioContextPriming(e){
     /* noop */
   }
 }
-document.addEventListener('pointerdown', handleAudioContextPriming, true);
-document.addEventListener('keydown', handleAudioContextPriming, true);
+registerBootTask(() => {
+  document.addEventListener('pointerdown', handleAudioContextPriming, true);
+  document.addEventListener('keydown', handleAudioContextPriming, true);
+});
 
 /* ========= view mode ========= */
 const VIEW_LOCK_SKIP_TYPES = new Set(['button','submit','reset','file','color','range','hidden','image']);
@@ -3848,7 +3969,9 @@ function initCardEditToggles(){
   syncToggles();
 }
 
-patchValueAccessors();
+registerBootTask(() => {
+  patchValueAccessors();
+});
 
 let storedMode = 'view';
 try {
@@ -3856,12 +3979,16 @@ try {
   if (raw === '1' || raw === 'view') storedMode = 'view';
   else if (raw === '0' || raw === 'edit') storedMode = 'edit';
 } catch {}
-setMode(storedMode, { skipPersist: true });
+registerBootTask(() => {
+  setMode(storedMode, { skipPersist: true });
+});
 
 window.setMode = setMode;
 window.useViewMode = useViewMode;
 
-initCardEditToggles();
+registerBootTask(() => {
+  initCardEditToggles();
+});
 
 /* ========= viewport ========= */
 function setVh(){
@@ -3879,14 +4006,16 @@ function setVh(){
   const vh = candidate * 0.01;
   style.setProperty('--vh', `${vh}px`);
 }
-setVh();
-// Update the CSS viewport height variable on resize or orientation changes
-window.addEventListener('resize', setVh);
-window.addEventListener('orientationchange', setVh);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', setVh);
-  window.visualViewport.addEventListener('scroll', setVh);
-}
+registerBootTask(() => {
+  setVh();
+  // Update the CSS viewport height variable on resize or orientation changes
+  window.addEventListener('resize', setVh);
+  window.addEventListener('orientationchange', setVh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setVh);
+    window.visualViewport.addEventListener('scroll', setVh);
+  }
+});
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 const ICON_LOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75C16.5 4.26472 14.4853 2.25 12 2.25C9.51472 2.25 7.5 4.26472 7.5 6.75V10.5M6.75 21.75H17.25C18.4926 21.75 19.5 20.7426 19.5 19.5V12.75C19.5 11.5074 18.4926 10.5 17.25 10.5H6.75C5.50736 10.5 4.5 11.5074 4.5 12.75V19.5C4.5 20.7426 5.50736 21.75 6.75 21.75Z"/></svg>';
 const ICON_UNLOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75C13.5 4.26472 15.5147 2.25 18 2.25C20.4853 2.25 22.5 4.26472 22.5 6.75V10.5M3.75 21.75H14.25C15.4926 21.75 16.5 20.7426 16.5 19.5V12.75C16.5 11.5074 15.4926 10.5 14.25 10.5H3.75C2.50736 10.5 1.5 11.5074 1.5 12.75V19.5C1.5 20.7426 2.50736 21.75 3.75 21.75Z"/></svg>';
@@ -4044,28 +4173,34 @@ function debounce(fn, delay){
 }
 
 const debouncedSetVh = debounce(setVh, 100);
-window.addEventListener('resize', debouncedSetVh, { passive: true });
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', debouncedSetVh, { passive: true });
-}
-
-// prevent negative numbers in numeric inputs
-document.addEventListener('input', e=>{
-  const el = e.target;
-  if(el.matches('input[type="number"]') && el.value !== '' && Number(el.value) < 0){
-    el.value = 0;
+registerBootTask(() => {
+  window.addEventListener('resize', debouncedSetVh, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', debouncedSetVh, { passive: true });
   }
+});
+
+registerBootTask(() => {
+  // prevent negative numbers in numeric inputs
+  document.addEventListener('input', e=>{
+    const el = e.target;
+    if(el.matches('input[type="number"]') && el.value !== '' && Number(el.value) < 0){
+      el.value = 0;
+    }
+  });
 });
 
 /* ========= theme ========= */
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
-if (themeSpinnerEl) {
-  themeSpinnerEl.addEventListener('animationend', () => {
-    themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
-  });
-}
+registerBootTask(() => {
+  if (themeSpinnerEl) {
+    themeSpinnerEl.addEventListener('animationend', () => {
+      themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
+    });
+  }
+});
 const themeOverlayStyle = root ? root.style : null;
 
 const normalizeThemeOverlayUrl = imagePath => {
@@ -4264,7 +4399,9 @@ function loadTheme(){
   if (stored && !THEMES.includes(stored)) setStoredTheme(theme);
   applyTheme(theme, { animate: false });
 }
-loadTheme();
+registerBootTask(() => {
+  loadTheme();
+});
 
 function toggleTheme(){
   const curr = getStoredTheme() || 'dark';
@@ -4321,7 +4458,9 @@ function bindClassificationTheme(id){
   sel.addEventListener('change', apply);
   apply();
 }
-bindClassificationTheme('classification');
+registerBootTask(() => {
+  bindClassificationTheme('classification');
+});
 
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
@@ -4445,31 +4584,35 @@ if (btnMenu && menuActions) {
     btnMenu.classList.add('open');
   };
 
-  btnMenu.addEventListener('click', () => {
-    if (isMenuOpen && !menuActions.hidden) hideMenu();
-    else showMenu();
-  });
+  registerBootTask(() => {
+    btnMenu.addEventListener('click', () => {
+      if (isMenuOpen && !menuActions.hidden) hideMenu();
+      else showMenu();
+    });
 
-  document.addEventListener('click', e => {
-    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
-  });
+    document.addEventListener('click', e => {
+      if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
+    });
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') hideMenu();
-  });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideMenu();
+    });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    });
   });
 }
 
 /* ========= header ========= */
-if (themeToggleEl) {
-  themeToggleEl.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleTheme();
-  });
-}
+registerBootTask(() => {
+  if (themeToggleEl) {
+    themeToggleEl.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleTheme();
+    });
+  }
+});
 
 /* ========= tabs ========= */
 const tabButtons = Array.from(qsa('.tab'));
@@ -4502,47 +4645,51 @@ const handleTabActivation = (btn, target) => {
 let lastInstantTabTarget = '';
 let lastInstantTabTime = 0;
 
-tabButtons.forEach(btn => {
-  btn.addEventListener('pointerdown', event => {
-    if (!isInstantPointerEvent(event)) return;
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    if (handleTabActivation(btn, target)) {
-      lastInstantTabTarget = target;
-      lastInstantTabTime = getPointerTimestamp();
-    }
-  });
+registerBootTask(() => {
+  tabButtons.forEach(btn => {
+    btn.addEventListener('pointerdown', event => {
+      if (!isInstantPointerEvent(event)) return;
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      if (handleTabActivation(btn, target)) {
+        lastInstantTabTarget = target;
+        lastInstantTabTime = getPointerTimestamp();
+      }
+    });
 
-  btn.addEventListener('click', () => {
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    const now = getPointerTimestamp();
-    if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-      return;
-    }
-    if (!handleTabActivation(btn, target)) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-    }
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      const now = getPointerTimestamp();
+      if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+        return;
+      }
+      if (!handleTabActivation(btn, target)) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+      }
+    });
   });
 });
 
 let hasAnimatedInitialTab = false;
-onTabChange(name => {
-  if (!hasAnimatedInitialTab) {
-    hasAnimatedInitialTab = true;
-    lastClickedTab = null;
-    return;
-  }
-  if (lastClickedTab === name) {
-    lastClickedTab = null;
-    return;
-  }
-  const btn = qs(`.tab[data-go="${name}"]`);
-  const iconContainer = btn?.querySelector('.tab__icon');
-  if (iconContainer) triggerTabIconAnimation(iconContainer);
+registerBootTask(() => {
+  onTabChange(name => {
+    if (!hasAnimatedInitialTab) {
+      hasAnimatedInitialTab = true;
+      lastClickedTab = null;
+      return;
+    }
+    if (lastClickedTab === name) {
+      lastClickedTab = null;
+      return;
+    }
+    const btn = qs(`.tab[data-go="${name}"]`);
+    const iconContainer = btn?.querySelector('.tab__icon');
+    if (iconContainer) triggerTabIconAnimation(iconContainer);
+  });
 });
 
 const navigationType = getNavigationType();
@@ -4557,7 +4704,12 @@ if (!shouldForceCombatTab) {
 } else {
   scrollToTopOfCombat();
 }
-activateTab(initialTab);
+registerBootTask(() => {
+  const activatedInitialTab = activateTab(initialTab);
+  if (!activatedInitialTab) {
+    ensureDefaultMainTab('combat');
+  }
+});
 
 const tickerDrawerPreferenceKeys = {
   open: 'ticker-open',
@@ -4625,6 +4777,7 @@ const persistTickerPreference = nextOpen => {
 const tickerDrawer = qs('[data-ticker-drawer]');
 const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
 const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
+registerBootTask(() => {
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
@@ -4823,6 +4976,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   }
   setPanelOffset();
 }
+});
 
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
@@ -5055,7 +5209,9 @@ abilGrid.innerHTML = ABILS.map(a=>`
       <span class="mod" id="${a}-mod">+0</span>
     </div>
   </div>`).join('');
-ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
+registerBootTask(() => {
+  ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
+});
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
@@ -7459,7 +7615,9 @@ const ensurePlayerRewardBroadcastChannel = (name) => {
   }
 };
 
-PLAYER_REWARD_CHANNEL_NAMES.forEach(ensurePlayerRewardBroadcastChannel);
+registerBootTask(() => {
+  PLAYER_REWARD_CHANNEL_NAMES.forEach(ensurePlayerRewardBroadcastChannel);
+});
 
 const hydratePlayerRewardHistory = () => {
   if (isDmSessionActive()) return;
@@ -7477,59 +7635,65 @@ const hydratePlayerRewardHistory = () => {
   }
 };
 
-hydratePlayerRewardHistory();
+registerBootTask(() => {
+  hydratePlayerRewardHistory();
+});
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('message', (event) => {
-    if (isDmSessionActive()) return;
-    const origin = event?.origin || '';
-    if (origin && !isAllowedRewardOrigin(origin)) return;
-    handlePlayerRewardEnvelope(event?.data, { source: 'message', reveal: true });
-  }, false);
+registerBootTask(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('message', (event) => {
+      if (isDmSessionActive()) return;
+      const origin = event?.origin || '';
+      if (origin && !isAllowedRewardOrigin(origin)) return;
+      handlePlayerRewardEnvelope(event?.data, { source: 'message', reveal: true });
+    }, false);
 
-  window.addEventListener('storage', (event) => {
-    if (isDmSessionActive()) return;
-    if (event.key !== PLAYER_REWARD_HISTORY_STORAGE_KEY) return;
-    const next = (() => {
-      if (!event.newValue) return [];
-      try {
-        const parsed = JSON.parse(event.newValue);
-        return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
-      } catch {
-        return [];
+    window.addEventListener('storage', (event) => {
+      if (isDmSessionActive()) return;
+      if (event.key !== PLAYER_REWARD_HISTORY_STORAGE_KEY) return;
+      const next = (() => {
+        if (!event.newValue) return [];
+        try {
+          const parsed = JSON.parse(event.newValue);
+          return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+        } catch {
+          return [];
+        }
+      })();
+      playerRewardHistory = next
+        .map(entry => sanitizePlayerRewardHistoryItem(entry))
+        .filter(Boolean)
+        .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
+      playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
+      dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
+        source: 'storage',
+        reveal: true,
+        dmSession: isDmSessionActive(),
+      });
+      if (!playerRewardHistory.length) {
+        acknowledgePlayerReward('');
+        return;
       }
-    })();
-    playerRewardHistory = next
-      .map(entry => sanitizePlayerRewardHistoryItem(entry))
-      .filter(Boolean)
-      .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
-    playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
-    dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
-      source: 'storage',
-      reveal: true,
-      dmSession: isDmSessionActive(),
+      if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
+        if (isPlayerToolsDrawerOpen) {
+          acknowledgePlayerReward(playerRewardLatestSignature);
+        } else {
+          showPlayerRewardBadge();
+        }
+      }
     });
-    if (!playerRewardHistory.length) {
-      acknowledgePlayerReward('');
-      return;
-    }
-    if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
-      if (isPlayerToolsDrawerOpen) {
-        acknowledgePlayerReward(playerRewardLatestSignature);
-      } else {
-        showPlayerRewardBadge();
-      }
-    }
-  });
-}
+  }
+});
 
-if (elAugmentSearch) {
-  elAugmentSearch.addEventListener('input', event => {
-    augmentState.search = typeof event?.target?.value === 'string' ? event.target.value : '';
-    persistAugmentState();
-    refreshAugmentUI();
-  });
-}
+registerBootTask(() => {
+  if (elAugmentSearch) {
+    elAugmentSearch.addEventListener('input', event => {
+      augmentState.search = typeof event?.target?.value === 'string' ? event.target.value : '';
+      persistAugmentState();
+      refreshAugmentUI();
+    });
+  }
+});
 
 augmentFilterButtons.forEach(button => {
   if (!button) return;
@@ -7786,7 +7950,9 @@ function getCharacterPowerSettings() {
   };
 }
 
-syncPowerDcRadios(powerDcFormulaField?.value || 'Proficiency');
+registerBootTask(() => {
+  syncPowerDcRadios(powerDcFormulaField?.value || 'Proficiency');
+});
 powerDcModeRadios.forEach(radio => {
   if (!radio) return;
   radio.addEventListener('change', () => {
@@ -7880,7 +8046,9 @@ if (elPowerSaveAbility) {
   });
 }
 
-refreshCasterAbilitySuggestion({ force: true });
+registerBootTask(() => {
+  refreshCasterAbilitySuggestion({ force: true });
+});
 
 if (elInitiativeRollBtn && elInitiativeRollResult) {
   const initiativeOutcomeClasses = ['initiative-roll--crit-high', 'initiative-roll--crit-low'];
@@ -8554,7 +8722,9 @@ function launchFireworks(){
 }
 
 // set initial tier display
-updateLevelOutputs(getLevelEntry(currentLevelIdx));
+registerBootTask(() => {
+  updateLevelOutputs(getLevelEntry(currentLevelIdx));
+});
 
 function getLevelCelebrationType(prevIdx, nextIdx) {
   if (!Number.isFinite(prevIdx) || !Number.isFinite(nextIdx) || nextIdx <= prevIdx) {
@@ -10653,16 +10823,18 @@ function updateDerived(){
   updateCreditsGearSummary();
   refreshPowerCards();
 }
-ABILS.forEach(a=> {
-  const el = $(a);
-  el.addEventListener('change', () => {
-    window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`, { actionScope: 'major' });
-    updateDerived();
+registerBootTask(() => {
+  ABILS.forEach(a=> {
+    const el = $(a);
+    el.addEventListener('change', () => {
+      window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`, { actionScope: 'major' });
+      updateDerived();
+    });
   });
+  ['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
+  ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
+  SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 });
-['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
-ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
-SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
 function setXP(v){
   if (!elXP || typeof elXP.value === 'undefined') {
@@ -10967,6 +11139,10 @@ function sendStatusEvent(type, detail) {
       characterId: character.id,
       playerName: character.playerName,
     },
+    ts: Date.now(),
+  });
+}
+
 function sendAbilityUseEvent({ name, kind, power } = {}) {
   const character = getDiscordCharacterPayload();
   if (!character || !name || !kind) return;
@@ -11145,7 +11321,9 @@ $('hp-full').addEventListener('click', async ()=>{
   const diff = num(elHPBar.max) - num(elHPBar.value);
   setHP(num(elHPBar.max));
 });
-$('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
+registerBootTask(() => {
+  $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
+});
 
 function changeSP(delta){
   const current = num(elSPBar.value);
@@ -11168,7 +11346,9 @@ function changeSP(delta){
   setSP(next);
   return true;
 }
-qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
+registerBootTask(() => {
+  qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
+});
 $('long-rest').addEventListener('click', ()=>{
   closeSpSettings();
   if(!confirm('Take a long rest?')) return;
@@ -11260,7 +11440,9 @@ if (hpRollSaveButton) {
     if (elHPRollInput) elHPRollInput.value='';
   });
 }
-qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
+registerBootTask(() => {
+  qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
+});
 
 function setSpSettingsExpanded(expanded){
   if (!elSPSettingsToggle) return;
@@ -11297,7 +11479,9 @@ if (spSettingsSaveButton) {
     closeSpSettings();
   });
 }
-qsa('#modal-sp-settings [data-close]').forEach(b=> b.addEventListener('click', closeSpSettings));
+registerBootTask(() => {
+  qsa('#modal-sp-settings [data-close]').forEach(b=> b.addEventListener('click', closeSpSettings));
+});
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
@@ -11582,7 +11766,9 @@ function updateCampaignLogEntry(id, text, options = {}){
 
 window.updateCampaignLogEntry = updateCampaignLogEntry;
 
-updateCampaignLogViews();
+registerBootTask(() => {
+  updateCampaignLogViews();
+});
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 let serviceWorkerUpdateHandled = false;
@@ -11968,8 +12154,10 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
   return total;
 }
-renderLogs();
-renderFullLogs();
+registerBootTask(() => {
+  renderLogs();
+  renderFullLogs();
+});
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');
@@ -13237,7 +13425,9 @@ function resetDeathSaves(){
   }
   syncDeathSaveGauge();
 }
-$('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
+registerBootTask(() => {
+  $('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
+});
 
 async function checkDeathProgress(){
   if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
@@ -13262,13 +13452,13 @@ async function checkDeathProgress(){
   }
   syncDeathSaveGauge();
 }
-if (deathCheckboxes.length) {
-  deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
-}
-syncDeathSaveGauge();
-updateDeathSaveAvailability();
-
-$('pt-roll-death-save')?.addEventListener('click', ()=>{
+registerBootTask(() => {
+  if (deathCheckboxes.length) {
+    deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
+  }
+  syncDeathSaveGauge();
+  updateDeathSaveAvailability();
+  $('pt-roll-death-save')?.addEventListener('click', ()=>{
   if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
@@ -13360,6 +13550,7 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
   });
   checkDeathProgress();
   syncDeathSaveGauge({ lastRoll: rollOutcome });
+  });
 });
 let activeCampaignEditEntryId = null;
 
@@ -13447,18 +13638,17 @@ if (btnCampaignAdd) {
 }
 
 const campaignLogContainer = $('campaign-log');
-if(campaignLogContainer){
-  campaignLogContainer.addEventListener('click', handleCampaignLogClick);
-}
-
 const campaignBacklogContainer = $('campaign-backlog');
-if(campaignBacklogContainer){
-  campaignBacklogContainer.addEventListener('click', handleCampaignLogClick);
-}
-
 const campaignEditSave = $('campaign-edit-save');
-if(campaignEditSave){
-  campaignEditSave.addEventListener('click', ()=>{
+registerBootTask(() => {
+  if(campaignLogContainer){
+    campaignLogContainer.addEventListener('click', handleCampaignLogClick);
+  }
+  if(campaignBacklogContainer){
+    campaignBacklogContainer.addEventListener('click', handleCampaignLogClick);
+  }
+  if(campaignEditSave){
+    campaignEditSave.addEventListener('click', ()=>{
     if(!activeCampaignEditEntryId) return;
     const field = $('campaign-edit-text');
     if(!field) return;
@@ -13483,40 +13673,44 @@ if(campaignEditSave){
     try{ toast('Campaign log entry updated', 'success'); }catch{}
     hide('modal-campaign-edit');
     resetCampaignLogEditor();
+    });
+  }
+  qsa('#modal-campaign-edit [data-close]').forEach(btn=>{
+    btn.addEventListener('click', resetCampaignLogEditor);
   });
-}
-
-qsa('#modal-campaign-edit [data-close]').forEach(btn=>{
-  btn.addEventListener('click', resetCampaignLogEditor);
+  const campaignEditOverlay = $('modal-campaign-edit');
+  if(campaignEditOverlay){
+    campaignEditOverlay.addEventListener('click', event=>{
+      if(event.target === campaignEditOverlay){
+        resetCampaignLogEditor();
+      }
+    }, { capture: true });
+  }
+  const btnCampaignBacklog = $('campaign-view-backlog');
+  if(btnCampaignBacklog){
+    btnCampaignBacklog.addEventListener('click', ()=>{
+      updateCampaignLogViews();
+      show('modal-campaign-backlog');
+    });
+  }
 });
 
-const campaignEditOverlay = $('modal-campaign-edit');
-if(campaignEditOverlay){
-  campaignEditOverlay.addEventListener('click', event=>{
-    if(event.target === campaignEditOverlay){
-      resetCampaignLogEditor();
-    }
-  }, { capture: true });
-}
-
-const btnCampaignBacklog = $('campaign-view-backlog');
-if(btnCampaignBacklog){
-  btnCampaignBacklog.addEventListener('click', ()=>{
-    updateCampaignLogViews();
-    show('modal-campaign-backlog');
-  });
-}
-
-subscribeCampaignLog(refreshCampaignLogFromCloud);
-refreshCampaignLogFromCloud();
+registerBootTask(() => {
+  subscribeCampaignLog(refreshCampaignLogFromCloud);
+  refreshCampaignLogFromCloud();
+});
 const btnLog = $('btn-log');
-if (btnLog) {
-  btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-}
+registerBootTask(() => {
+  if (btnLog) {
+    btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+  }
+});
 const btnLogFull = $('log-full');
-if (btnLogFull) {
-  btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
-}
+registerBootTask(() => {
+  if (btnLogFull) {
+    btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
+  }
+});
 const creditsLedgerList = $('credits-ledger-list');
 const creditsLedgerFilterButtons = Array.from(qsa('[data-ledger-filter]'));
 let creditsLedgerFilter = 'all';
@@ -13564,41 +13758,53 @@ function renderCreditsLedger() {
   creditsLedgerList.innerHTML = html;
 }
 
-creditsLedgerFilterButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn?.dataset?.ledgerFilter || 'all';
-    setCreditsLedgerFilter(target);
+registerBootTask(() => {
+  creditsLedgerFilterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn?.dataset?.ledgerFilter || 'all';
+      setCreditsLedgerFilter(target);
+    });
   });
 });
 
 const btnCreditsLedger = $('btn-credits-ledger');
-if (btnCreditsLedger) {
-  btnCreditsLedger.addEventListener('click', () => {
-    setCreditsLedgerFilter('all');
-    show('modal-credits-ledger');
-  });
-}
+registerBootTask(() => {
+  if (btnCreditsLedger) {
+    btnCreditsLedger.addEventListener('click', () => {
+      setCreditsLedgerFilter('all');
+      show('modal-credits-ledger');
+    });
+  }
+});
 
-document.addEventListener('credits-ledger-updated', () => {
-  renderCreditsLedger();
+registerBootTask(() => {
+  document.addEventListener('credits-ledger-updated', () => {
+    renderCreditsLedger();
+  });
 });
 
 const btnCampaign = $('btn-campaign');
-if (btnCampaign) {
-  btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
-}
+registerBootTask(() => {
+  if (btnCampaign) {
+    btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
+  }
+});
 const btnHelp = $('btn-help');
-if (btnHelp) {
-  btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
-}
+registerBootTask(() => {
+  if (btnHelp) {
+    btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
+  }
+});
 const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
   show('modal-load-list');
 }
-if (btnLoad) {
-  btnLoad.addEventListener('click', openCharacterList);
-}
+registerBootTask(() => {
+  if (btnLoad) {
+    btnLoad.addEventListener('click', openCharacterList);
+  }
+});
 window.openCharacterList = openCharacterList;
 
 async function renderCharacterList(){
@@ -13634,25 +13840,29 @@ async function renderCharacterList(){
   selectedChar = current;
 }
 
-document.addEventListener('character-saved', renderCharacterList);
-document.addEventListener('character-deleted', renderCharacterList);
-document.addEventListener('character-cloud-update', event => {
-  const detail = event?.detail || {};
-  const name = detail.name;
-  const payload = detail.payload;
-  if (!name || !payload) return;
-  const current = currentCharacter();
-  if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
-  try {
-    const applied = applyAppSnapshot(payload);
-    if (applied) {
-      applyViewLockState();
+registerBootTask(() => {
+  document.addEventListener('character-saved', renderCharacterList);
+  document.addEventListener('character-deleted', renderCharacterList);
+  document.addEventListener('character-cloud-update', event => {
+    const detail = event?.detail || {};
+    const name = detail.name;
+    const payload = detail.payload;
+    if (!name || !payload) return;
+    const current = currentCharacter();
+    if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
+    try {
+      const applied = applyAppSnapshot(payload);
+      if (applied) {
+        applyViewLockState();
+      }
+    } catch (err) {
+      console.error('Failed to apply cloud-updated character', err);
     }
-  } catch (err) {
-    console.error('Failed to apply cloud-updated character', err);
-  }
+  });
 });
-window.addEventListener('storage', renderCharacterList);
+registerBootTask(() => {
+  window.addEventListener('storage', renderCharacterList);
+});
 
 async function renderRecoverCharList(){
   const list = $('recover-char-list');
@@ -13974,7 +14184,9 @@ async function doLoad(){
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
 if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+registerBootTask(() => {
+  qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+});
 
 function openCharacterModalByName(name){
   if(!name) return;
@@ -16945,7 +17157,9 @@ function exposePowerMeta() {
   } catch (_) {}
 }
 
-exposePowerMeta();
+registerBootTask(() => {
+  exposePowerMeta();
+});
 
 function goToWizardStep(step) {
   const steps = powerEditorState.steps || [];
@@ -19673,7 +19887,9 @@ function updateMedalIndicators() {
   updateMedalEmptyState();
 }
 
-updateMedalIndicators();
+registerBootTask(() => {
+  updateMedalIndicators();
+});
 
 const GEAR_CARD_KINDS = new Set(['weapon', 'armor', 'item']);
 
@@ -20452,7 +20668,9 @@ let dmPowerPresets = Array.isArray(initialDmCatalogState.powerPresets)
   ? initialDmCatalogState.powerPresets.slice()
   : [];
 let refreshPowerPresetMenu = () => {};
-rebuildCatalogPriceIndex();
+registerBootTask(() => {
+  rebuildCatalogPriceIndex();
+});
 const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
@@ -20481,7 +20699,9 @@ subscribeDmCatalog(state => {
   requestCatalogRender();
   try { refreshPowerPresetMenu(); } catch {}
 });
-setupPowerPresetMenu();
+registerBootTask(() => {
+  setupPowerPresetMenu();
+});
 const catalogOverlay = $('modal-catalog');
 if (catalogOverlay) {
   catalogOverlay.addEventListener('transitionend', e => {
@@ -22099,7 +22319,9 @@ function renderEnc(){
   }
   updateCombatantActiveDisplay();
 }
-$('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
+registerBootTask(() => {
+  $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
+});
 $('enc-add').addEventListener('click', ()=>{
   const name=$('enc-name').value.trim();
   const initValue=Number($('enc-init').value);
@@ -22135,7 +22357,9 @@ $('enc-reset').addEventListener('click', ()=>{
   renderEnc();
   saveEnc();
 });
-qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
+registerBootTask(() => {
+  qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
+});
 
 const encPresetNameInput = $('enc-preset-name');
 const encPresetSaveButton = $('enc-preset-save');
@@ -22252,7 +22476,9 @@ if (encPresetList) {
   });
 }
 
-renderEncounterPresetList();
+registerBootTask(() => {
+  renderEncounterPresetList();
+});
 
 /* ========= Save / Load ========= */
 const SNAPSHOT_FORM_VERSION = 1;
@@ -23243,9 +23469,11 @@ function notifyAutosaveStorageFailure(err) {
   }
 }
 
-initializeAutosaveController({
-  getCurrentCharacter: currentCharacter,
-  saveAutoBackup,
+registerBootTask(() => {
+  initializeAutosaveController({
+    getCurrentCharacter: currentCharacter,
+    saveAutoBackup,
+  });
 });
 
 function captureAutosaveSnapshot(options = {}) {
@@ -23310,29 +23538,33 @@ const pushHistory = debounce(() => {
   captureAutosaveSnapshot();
 }, 500);
 
-document.addEventListener('input', pushHistory);
-document.addEventListener('change', pushHistory);
-document.addEventListener('dm-tab-will-change', () => {
-  captureAutosaveSnapshot();
+registerBootTask(() => {
+  document.addEventListener('input', pushHistory);
+  document.addEventListener('change', pushHistory);
 });
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      flushAutosave('visibilitychange');
-    }
-  }, { passive: true });
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', event => {
-    if (event && event.persisted) return;
-    flushAutosave('pagehide');
-  }, { capture: true });
-  window.addEventListener('beforeunload', () => {
+registerBootTask(() => {
+  document.addEventListener('dm-tab-will-change', () => {
     captureAutosaveSnapshot();
   });
-}
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushAutosave('visibilitychange');
+      }
+    }, { passive: true });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', event => {
+      if (event && event.persisted) return;
+      flushAutosave('pagehide');
+    }, { capture: true });
+    window.addEventListener('beforeunload', () => {
+      captureAutosaveSnapshot();
+    });
+  }
+});
 
 function undo(){
   if(histIdx > 0){ histIdx--; applyAppSnapshot(history[histIdx]); }
@@ -23559,13 +23791,15 @@ function flushAutosave(reason){
   }
 }
 
-if(typeof window !== 'undefined'){
-  window.addEventListener('focus', () => {
-    if(isAutoSaveDirty()){
-      performScheduledAutoSave();
-    }
-  }, { passive: true });
-}
+registerBootTask(() => {
+  if(typeof window !== 'undefined'){
+    window.addEventListener('focus', () => {
+      if(isAutoSaveDirty()){
+        performScheduledAutoSave();
+      }
+    }, { passive: true });
+  }
+});
 
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
@@ -24286,19 +24520,21 @@ if (syncStatusTrigger) {
   });
 }
 
-if (syncPanelCloseBtn) {
-  syncPanelCloseBtn.addEventListener('click', () => toggleSyncPanel(false));
-}
-
-if (syncPanelBackdrop) {
-  syncPanelBackdrop.addEventListener('click', () => toggleSyncPanel(false));
-}
-
-document.addEventListener('keydown', e => {
-  if (!syncPanelOpen) return;
-  if (e.key === 'Escape' || e.key === 'Esc') {
-    toggleSyncPanel(false);
+registerBootTask(() => {
+  if (syncPanelCloseBtn) {
+    syncPanelCloseBtn.addEventListener('click', () => toggleSyncPanel(false));
   }
+
+  if (syncPanelBackdrop) {
+    syncPanelBackdrop.addEventListener('click', () => toggleSyncPanel(false));
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!syncPanelOpen) return;
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      toggleSyncPanel(false);
+    }
+  });
 });
 
 if (syncPanelSyncNowBtn) {
@@ -24385,9 +24621,11 @@ subscribeSyncQueue(() => {
 });
 
 const initialLastSync = getLastSyncActivity();
-updateLastSyncDisplay(initialLastSync);
-renderSyncErrors();
-refreshSyncQueue();
+registerBootTask(() => {
+  updateLastSyncDisplay(initialLastSync);
+  renderSyncErrors();
+  refreshSyncQueue();
+});
 
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
@@ -25417,207 +25655,208 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   queueWelcomeModal({ immediate: true });
 }
 
-if (welcomeLogin) {
-  welcomeLogin.addEventListener('click', () => openLoginModal());
-}
-if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => openCreateModal());
-}
-if (welcomeContinue) {
-  welcomeContinue.addEventListener('click', () => {
-    updateWelcomeContinue();
-    const { uid } = getAuthState();
-    const storage = typeof localStorage !== 'undefined' ? localStorage : null;
-    const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
-    if (!uid && !hasLocalSave) {
-      setOfflineBlankState(true);
+registerBootTask(() => {
+  if (welcomeLogin) {
+    welcomeLogin.addEventListener('click', () => openLoginModal());
+  }
+  if (welcomeCreate) {
+    welcomeCreate.addEventListener('click', () => openCreateModal());
+  }
+  if (welcomeContinue) {
+    welcomeContinue.addEventListener('click', () => {
+      updateWelcomeContinue();
+      const { uid } = getAuthState();
+      const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+      const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+      if (!uid && !hasLocalSave) {
+        setOfflineBlankState(true);
+        dismissWelcomeModal();
+        return;
+      }
+      setOfflineBlankState(false);
       dismissWelcomeModal();
-      return;
-    }
-    setOfflineBlankState(false);
-    dismissWelcomeModal();
-    restoreLastLoadedCharacter().catch(err => {
-      console.error('Failed to restore last loaded character', err);
+      restoreLastLoadedCharacter().catch(err => {
+        console.error('Failed to restore last loaded character', err);
+      });
     });
-  });
-}
-if (authLoginSubmit) {
-  authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
-}
-if (authCreateSubmit) {
-  authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
-}
-if (authLoginCancel) {
-  authLoginCancel.addEventListener('click', () => {
-    hide('modal-auth-login');
-    if (!getAuthState().uid) {
-      queueWelcomeModal({ immediate: true });
-    }
-  });
-}
-if (authCreateCancel) {
-  authCreateCancel.addEventListener('click', () => {
-    hide('modal-auth-create');
-    if (!getAuthState().uid) {
-      queueWelcomeModal({ immediate: true });
-    }
-  });
-}
-if (authLoginOpenCreate) {
-  authLoginOpenCreate.addEventListener('click', () => {
-    hide('modal-auth-login');
-    openCreateModal();
-  });
-}
-if (authCreateOpenLogin) {
-  authCreateOpenLogin.addEventListener('click', () => {
-    hide('modal-auth-create');
-    openLoginModal();
-  });
-}
-if (postAuthImport) {
-  postAuthImport.addEventListener('click', () => {
-    closePostAuthChoice();
-    openClaimModal();
-  });
-}
-if (postAuthCreate) {
-  postAuthCreate.addEventListener('click', () => {
-    closePostAuthChoice();
-    createNewCharacterFromModal();
-  });
-}
-if (postAuthSkip) {
-  postAuthSkip.addEventListener('click', () => {
-    closePostAuthChoice();
-  });
-}
-if (claimFileImport) {
-  claimFileImport.addEventListener('click', () => {
-    handleFileImport().catch(err => {
-      console.error('Failed to import file', err);
-      toast('Failed to import file.', 'error');
-    });
-  });
-}
-if (claimTokenSubmit) {
-  claimTokenSubmit.addEventListener('click', () => {
-    handleClaimTokenSubmit();
-  });
-}
-if (claimTokenGenerate) {
-  claimTokenGenerate.addEventListener('click', () => {
-    handleClaimTokenGenerate();
-  });
-}
-if (conflictKeepCloud) {
-  conflictKeepCloud.addEventListener('click', () => {
-    resolveSyncConflict('keep-cloud');
-  });
-}
-if (conflictKeepLocal) {
-  conflictKeepLocal.addEventListener('click', () => {
-    resolveSyncConflict('keep-local');
-  });
-}
-if (conflictMergeLater) {
-  conflictMergeLater.addEventListener('click', () => {
-    resolveSyncConflict('merge-later');
-  });
-}
-if (conflictModal) {
-  const handleConflictDismiss = event => {
-    const isOverlay = event.target === conflictModal;
-    const closeButton = event.target?.closest?.('[data-close]');
-    if (!isOverlay && !closeButton) return;
-    event.preventDefault();
-    event.stopPropagation();
-    resolveSyncConflict('merge-later');
-  };
-  conflictModal.addEventListener('click', handleConflictDismiss, true);
-}
-
-primeFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
-onAuthStateChanged(handleAuthStateChange);
-handleAuthStateChange(getAuthState());
-
-const welcomeOverlay = getWelcomeModal();
-const welcomeOverlayIsElement = Boolean(
-  welcomeOverlay &&
-  typeof welcomeOverlay === 'object' &&
-  typeof welcomeOverlay.addEventListener === 'function' &&
-  typeof welcomeOverlay.classList?.contains === 'function' &&
-  typeof welcomeOverlay.nodeType === 'number'
-);
-if (welcomeOverlayIsElement) {
-  const updatePlayerToolsTabForWelcome = () => {
-    const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
-    setPlayerToolsTabHidden(shouldHideTab);
-  };
-  updatePlayerToolsTabForWelcome();
-  if (typeof MutationObserver === 'function') {
-    const welcomeModalObserver = new MutationObserver(mutations => {
-      if (mutations.some(mutation => mutation.type === 'attributes')) {
-        updatePlayerToolsTabForWelcome();
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
+  }
+  if (authCreateSubmit) {
+    authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+  }
+  if (authLoginCancel) {
+    authLoginCancel.addEventListener('click', () => {
+      hide('modal-auth-login');
+      if (!getAuthState().uid) {
+        queueWelcomeModal({ immediate: true });
       }
     });
-    try {
-      welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
-    } catch (err) {
-      // jsdom may provide a mock that is not a fully qualified Node instance
-      console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
+  }
+  if (authCreateCancel) {
+    authCreateCancel.addEventListener('click', () => {
+      hide('modal-auth-create');
+      if (!getAuthState().uid) {
+        queueWelcomeModal({ immediate: true });
+      }
+    });
+  }
+  if (authLoginOpenCreate) {
+    authLoginOpenCreate.addEventListener('click', () => {
+      hide('modal-auth-login');
+      openCreateModal();
+    });
+  }
+  if (authCreateOpenLogin) {
+    authCreateOpenLogin.addEventListener('click', () => {
+      hide('modal-auth-create');
+      openLoginModal();
+    });
+  }
+  if (postAuthImport) {
+    postAuthImport.addEventListener('click', () => {
+      closePostAuthChoice();
+      openClaimModal();
+    });
+  }
+  if (postAuthCreate) {
+    postAuthCreate.addEventListener('click', () => {
+      closePostAuthChoice();
+      createNewCharacterFromModal();
+    });
+  }
+  if (postAuthSkip) {
+    postAuthSkip.addEventListener('click', () => {
+      closePostAuthChoice();
+    });
+  }
+  if (claimFileImport) {
+    claimFileImport.addEventListener('click', () => {
+      handleFileImport().catch(err => {
+        console.error('Failed to import file', err);
+        toast('Failed to import file.', 'error');
+      });
+    });
+  }
+  if (claimTokenSubmit) {
+    claimTokenSubmit.addEventListener('click', () => {
+      handleClaimTokenSubmit();
+    });
+  }
+  if (claimTokenGenerate) {
+    claimTokenGenerate.addEventListener('click', () => {
+      handleClaimTokenGenerate();
+    });
+  }
+  if (conflictKeepCloud) {
+    conflictKeepCloud.addEventListener('click', () => {
+      resolveSyncConflict('keep-cloud');
+    });
+  }
+  if (conflictKeepLocal) {
+    conflictKeepLocal.addEventListener('click', () => {
+      resolveSyncConflict('keep-local');
+    });
+  }
+  if (conflictMergeLater) {
+    conflictMergeLater.addEventListener('click', () => {
+      resolveSyncConflict('merge-later');
+    });
+  }
+  if (conflictModal) {
+    const handleConflictDismiss = event => {
+      const isOverlay = event.target === conflictModal;
+      const closeButton = event.target?.closest?.('[data-close]');
+      if (!isOverlay && !closeButton) return;
+      event.preventDefault();
+      event.stopPropagation();
+      resolveSyncConflict('merge-later');
+    };
+    conflictModal.addEventListener('click', handleConflictDismiss, true);
+  }
+
+  primeFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
+  onAuthStateChanged(handleAuthStateChange);
+  handleAuthStateChange(getAuthState());
+
+  const welcomeOverlay = getWelcomeModal();
+  const welcomeOverlayIsElement = Boolean(
+    welcomeOverlay &&
+    typeof welcomeOverlay === 'object' &&
+    typeof welcomeOverlay.addEventListener === 'function' &&
+    typeof welcomeOverlay.classList?.contains === 'function' &&
+    typeof welcomeOverlay.nodeType === 'number'
+  );
+  if (welcomeOverlayIsElement) {
+    const updatePlayerToolsTabForWelcome = () => {
+      const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
+      setPlayerToolsTabHidden(shouldHideTab);
+    };
+    updatePlayerToolsTabForWelcome();
+    if (typeof MutationObserver === 'function') {
+      const welcomeModalObserver = new MutationObserver(mutations => {
+        if (mutations.some(mutation => mutation.type === 'attributes')) {
+          updatePlayerToolsTabForWelcome();
+        }
+      });
+      try {
+        welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
+      } catch (err) {
+        // jsdom may provide a mock that is not a fully qualified Node instance
+        console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
+        welcomeOverlay.addEventListener('transitionend', event => {
+          if (event.target === welcomeOverlay) {
+            updatePlayerToolsTabForWelcome();
+          }
+        });
+      }
+    } else {
       welcomeOverlay.addEventListener('transitionend', event => {
         if (event.target === welcomeOverlay) {
           updatePlayerToolsTabForWelcome();
         }
       });
     }
-  } else {
-    welcomeOverlay.addEventListener('transitionend', event => {
-      if (event.target === welcomeOverlay) {
-        updatePlayerToolsTabForWelcome();
+  }
+
+  const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
+  const characterConfirmationContinue = $('character-confirmation-continue');
+  const characterConfirmationClose = $('character-confirmation-close');
+  if (characterConfirmationModal) {
+    characterConfirmationModal.addEventListener('click', event => {
+      if (event.target === characterConfirmationModal) {
+        dismissCharacterConfirmation();
       }
+    }, { capture: true });
+  }
+  if (characterConfirmationContinue) {
+    characterConfirmationContinue.addEventListener('click', () => {
+      dismissCharacterConfirmation();
     });
   }
-}
-
-const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
-const characterConfirmationContinue = $('character-confirmation-continue');
-const characterConfirmationClose = $('character-confirmation-close');
-if (characterConfirmationModal) {
-  characterConfirmationModal.addEventListener('click', event => {
-    if (event.target === characterConfirmationModal) {
+  if (characterConfirmationClose) {
+    characterConfirmationClose.addEventListener('click', () => {
+      dismissCharacterConfirmation();
+    });
+  }
+  document.addEventListener('keydown', event => {
+    if (event?.key === 'Escape' && characterConfirmationActive) {
       dismissCharacterConfirmation();
     }
-  }, { capture: true });
-}
-if (characterConfirmationContinue) {
-  characterConfirmationContinue.addEventListener('click', () => {
-    dismissCharacterConfirmation();
   });
-}
-if (characterConfirmationClose) {
-  characterConfirmationClose.addEventListener('click', () => {
-    dismissCharacterConfirmation();
-  });
-}
-document.addEventListener('keydown', event => {
-  if (event?.key === 'Escape' && characterConfirmationActive) {
-    dismissCharacterConfirmation();
-  }
-});
 
-/* ========= boot ========= */
-setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
-setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
-setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
-setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRepTracker(handlePerkEffects, pushHistory);
-updateDerived();
-applyEditIcons();
-applyDeleteIcons();
-applyLockIcons();
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  /* ========= boot ========= */
+  setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
+  setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
+  setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
+  setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
+  setupFactionRepTracker(handlePerkEffects, pushHistory);
+  updateDerived();
+  applyEditIcons();
+  applyDeleteIcons();
+  applyLockIcons();
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   let swUrl = 'sw.js';
   const SW_BUILD_STORAGE_KEY = 'cc:sw-build';
   try {
@@ -25726,9 +25965,11 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     })
     .catch(() => {});
 }
-subscribeCloudSaves();
+  subscribeCloudSaves();
+});
 
 // == Resonance Points (RP) Module ============================================
+registerBootTask(() => {
 CC.RP = (function () {
   const api = {};
   // --- Internal state
@@ -26133,3 +26374,6 @@ CC.RP = (function () {
   }
   return api;
 })();
+});
+
+runBootTasksOnce();
