@@ -326,6 +326,7 @@ Raw Discord payload passthrough:
 ```
 
 Debug header `X-Debug: 1` returns the normalized payload and embed build without posting to Discord.
+Placeholder roll patterns are blocked to prevent spam, including `rolled roll = ?` and `rolled \`roll\` = **?**`.
 
 #### Rotating the DM PIN
 

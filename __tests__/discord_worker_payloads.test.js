@@ -34,4 +34,14 @@ describe('discord worker payload normalization', () => {
     const payload = { content: 'Someone rolled `roll` = **?**' };
     expect(__test__.containsBlockedContent(payload)).toBe(true);
   });
+
+  test('event wrapper with harmless content is not blocked', () => {
+    const payload = {
+      event: 'note.added',
+      payload: { detail: { message: 'This is fine.' } },
+    };
+    const result = __test__.normalizeRequestPayload(payload);
+    expect(result.kind).toBe('event-structured');
+    expect(__test__.containsBlockedContent(result.build)).toBe(false);
+  });
 });

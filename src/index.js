@@ -307,17 +307,21 @@ const buildShape = (body) => {
   return { hasEvent, hasRoll, keys, roll };
 };
 
-const BLOCKED_SUBSTRING = 'rolled `roll` = **?**';
+const BLOCKED_SUBSTRINGS = [
+  'rolled roll = ?',
+  'rolled `roll` = **?**',
+  'expr":"roll"',
+];
 
 const containsBlockedContent = (payload) => {
   if (!isPlainObject(payload)) return false;
   const content = typeof payload.content === 'string' ? payload.content : '';
-  if (content.includes(BLOCKED_SUBSTRING)) return true;
+  if (BLOCKED_SUBSTRINGS.some((substr) => content.includes(substr))) return true;
   if (!Array.isArray(payload.embeds)) return false;
   return payload.embeds.some((embed) => {
     if (!isPlainObject(embed)) return false;
     const description = typeof embed.description === 'string' ? embed.description : '';
-    return description.includes(BLOCKED_SUBSTRING);
+    return BLOCKED_SUBSTRINGS.some((substr) => description.includes(substr));
   });
 };
 
@@ -413,7 +417,7 @@ async function handleRequest(request, env) {
 
   if (containsBlockedContent(normalized.build)) {
     return jsonResponse(
-      { ok: false, error: 'blocked_content', build: BUILD_ID },
+      { ok: false, error: 'blocked_placeholder', build: BUILD_ID },
       400,
       origin,
     );
