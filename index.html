@@ -72,7 +72,6 @@
     const body = document.body;
     const launchEl = document.getElementById('launch-animation');
     const video = launchEl ? launchEl.querySelector('video') : null;
-    const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
     if(!body || !launchEl){
       return;
     }
@@ -118,8 +117,9 @@
 
     const focusAfterLaunch = () => {
       const sentinel = document.getElementById('app-root-focus-sentinel');
-      const fallback = document.querySelector('.tab[data-go], [data-launch-shell]');
-      const target = sentinel || fallback;
+      const fallbackTab = document.querySelector('.tab[data-go]');
+      const fallbackShell = document.querySelector('[data-launch-shell]');
+      const target = sentinel || fallbackTab || fallbackShell;
       if (target && typeof target.focus === 'function') {
         try {
           target.focus({ preventScroll: true });
@@ -132,6 +132,7 @@
     };
 
     const setAppShellInteractive = isInteractive => {
+      const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
       if (!appShell) return;
       const shouldBeInteractive = Boolean(isInteractive);
       if (!shouldBeInteractive) {
@@ -176,6 +177,13 @@
         } catch (err) {}
         focusAfterLaunch();
       }
+      try {
+        launchEl.setAttribute('aria-hidden', 'true');
+        launchEl.setAttribute('inert', '');
+        if ('inert' in launchEl) {
+          launchEl.inert = true;
+        }
+      } catch (err) {}
       setAppShellInteractive(true);
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
@@ -394,6 +402,13 @@
     }
     if (body.classList.contains('launching')) {
       setAppShellInteractive(false);
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', () => {
+          if (body.classList.contains('launching')) {
+            setAppShellInteractive(false);
+          }
+        }, { once: true });
+      }
     }
   })();
 </script>
