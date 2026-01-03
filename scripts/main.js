@@ -85,8 +85,8 @@ import {
   loadCloud,
   loadCloudBackup,
 } from './storage.js';
-import { loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
-import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
+import { buildCloudSaveEnvelope, loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { normalizeImportedEnvelope, normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
   getActiveTab,
@@ -14243,8 +14243,7 @@ async function handleCloudSave() {
   setSaveLoadStatus('Saving to cloud…');
   try {
     const snapshot = createAppSnapshot();
-    const migrated = migrateSavePayload(snapshot);
-    const { payload } = buildCanonicalPayload(migrated);
+    const payload = normalizeSnapshotPayload(snapshot);
     const savedAt = Date.now();
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
@@ -14264,8 +14263,9 @@ async function handleCloudSave() {
     const checksum = calculateSnapshotChecksum({ character: payload.character, ui: payload.ui });
     payload.meta.checksum = checksum;
     payload.checksum = checksum;
+    const envelope = buildCloudSaveEnvelope(payload, { updatedAt: savedAt });
     await saveCharacter(payload, target);
-    await saveCloudSave(uid, payload, { mirrorToRtdb: true });
+    await saveCloudSave(uid, envelope, { mirrorToRtdb: true });
     markAutoSaveSynced(payload, JSON.stringify(payload));
     cueSuccessfulSave();
     setSaveLoadStatus('Cloud save complete.', { type: 'success' });
@@ -14296,7 +14296,7 @@ async function handleCloudLoad() {
       toast('No cloud save found.', 'info');
       return;
     }
-    const payload = normalizeSnapshotPayload(result.data.payload);
+    const payload = normalizeSnapshotPayload(result.data);
     applyCloudSnapshotPayload(payload, { source: result.source });
     if (result.source === 'rtdb') {
       setSaveLoadStatus('Loaded from legacy RTDB save. Use Recover Save to migrate.', { type: 'info' });
@@ -14330,7 +14330,7 @@ async function handleRecoverFromRTDB() {
       toast('No RTDB save found.', 'info');
       return;
     }
-    const payload = normalizeSnapshotPayload(envelope.payload);
+    const payload = normalizeSnapshotPayload(envelope);
     applyCloudSnapshotPayload(payload, { source: 'rtdb' });
     setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
     toast('Recovery complete.', 'success');
@@ -14404,7 +14404,13 @@ if (importCharacterBtn && importCharacterFile) {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const payload = normalizeSnapshotPayload(parsed);
+      const envelope = normalizeImportedEnvelope(parsed);
+      if (!envelope?.payload) {
+        setSaveLoadStatus('Import file is missing data.', { type: 'error' });
+        toast('Import file missing data.', 'error');
+        return;
+      }
+      const payload = normalizeSnapshotPayload(envelope);
       const name = payload?.meta?.name || payload?.character?.name || '';
       if (!name) {
         setSaveLoadStatus('Imported file missing character name.', { type: 'error' });

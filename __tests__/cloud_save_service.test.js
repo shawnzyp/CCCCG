@@ -1,16 +1,6 @@
-import { buildCloudSaveEnvelope, normalizeCloudSaveEnvelope, selectLatestCloudEntry } from '../scripts/cloud-save-service.js';
+import { buildCloudSaveEnvelope, normalizeCloudSaveEnvelope } from '../scripts/cloud-save-service.js';
 
 describe('cloud save service helpers', () => {
-  test('selectLatestCloudEntry chooses the newest updatedAt', () => {
-    const entries = [
-      { characterId: 'a', updatedAt: 1000 },
-      { characterId: 'b', updatedAt: 2500 },
-      { characterId: 'c', updatedAt: 1200 },
-    ];
-    const latest = selectLatestCloudEntry(entries);
-    expect(latest.characterId).toBe('b');
-  });
-
   test('normalizeCloudSaveEnvelope returns null for invalid payload', () => {
     expect(normalizeCloudSaveEnvelope(null)).toBeNull();
     expect(normalizeCloudSaveEnvelope({ updatedAt: 100 })).toBeNull();

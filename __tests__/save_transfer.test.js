@@ -10,7 +10,7 @@ describe('save transfer utilities', () => {
     const canonical = normalizeSnapshotPayload(basePayload);
     const serialized = serializeSnapshotForExport(canonical);
     const parsed = JSON.parse(serialized);
-    const roundTrip = normalizeSnapshotPayload(parsed);
+    const roundTrip = normalizeSnapshotPayload(parsed.payload);
     expect(roundTrip).toEqual(canonical);
   });
 });

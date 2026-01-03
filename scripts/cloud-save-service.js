@@ -1,14 +1,8 @@
-import { getFirebaseFirestore } from './auth.js';
-import { ensureCharacterId } from './characters.js';
-import {
-  listCharacterIndex,
-  loadCloudCharacter,
-  saveCloudCharacter,
-  saveCharacterIndexEntry,
-} from './storage.js';
+import { getFirebaseDatabase, getFirebaseFirestore } from './auth.js';
 
 export const CLOUD_SAVE_SCHEMA_VERSION = 1;
-const FIRESTORE_CHARACTERS_COLLECTION = 'characters';
+const FIRESTORE_SAVE_COLLECTION = 'saves';
+const FIRESTORE_PRIMARY_DOC = 'primary';
 
 function resolveUpdatedAt(entry) {
   if (!entry || typeof entry !== 'object') return 0;
@@ -66,63 +60,64 @@ export function normalizeCloudSaveEnvelope(raw) {
   };
 }
 
-export function selectLatestCloudEntry(entries = []) {
-  if (!Array.isArray(entries) || entries.length === 0) return null;
-  return entries.reduce((latest, entry) => {
-    if (!latest) return entry;
-    return resolveUpdatedAt(entry) > resolveUpdatedAt(latest) ? entry : latest;
-  }, null);
+async function loadRtdbEnvelope(uid) {
+  const db = await getFirebaseDatabase();
+  const ref = db.ref(`users/${uid}/saves/primary`);
+  const snapshot = await ref.once('value');
+  const val = snapshot.val();
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'object' && val.payload) {
+    return normalizeCloudSaveEnvelope(val);
+  }
+  const payload = coerceCloudPayload(val);
+  if (!payload) return null;
+  return buildCloudSaveEnvelope(payload, { updatedAt: resolveUpdatedAt(payload) || Date.now() });
 }
 
-export async function saveCloudSave(uid, payload, { mirrorToRtdb = true, markMigrated = false } = {}) {
+export async function saveCloudSave(uid, envelope, { mirrorToRtdb = true, markMigrated = false } = {}) {
   if (!uid) throw new Error('Missing user id.');
-  if (!payload || typeof payload !== 'object') throw new Error('Missing payload.');
+  const normalizedEnvelope = normalizeCloudSaveEnvelope(envelope)
+    || buildCloudSaveEnvelope(envelope?.payload || envelope, { updatedAt: Date.now() });
+  if (!normalizedEnvelope?.payload) throw new Error('Missing payload.');
   const firestore = await getFirebaseFirestore();
   const updatedAt = Date.now();
   const serverTimestamp = getFirestoreServerTimestamp(firestore);
-  const name = payload?.meta?.name || payload?.character?.name || 'Character';
-  const characterId = ensureCharacterId(payload, name);
-  const envelope = buildCloudSaveEnvelope(payload, {
-    updatedAt,
-    migratedAt: markMigrated ? updatedAt : undefined,
-    firestoreSyncedAt: markMigrated ? updatedAt : undefined,
-  });
   const firestoreEnvelope = {
-    ...envelope,
+    ...normalizedEnvelope,
+    updatedAt,
     updatedAtServer: serverTimestamp || updatedAt,
   };
+  if (markMigrated) {
+    firestoreEnvelope.migratedAt = updatedAt;
+    firestoreEnvelope.firestoreSyncedAt = updatedAt;
+  }
 
   await firestore
     .collection('users')
     .doc(uid)
-    .collection(FIRESTORE_CHARACTERS_COLLECTION)
-    .doc(characterId)
+    .collection(FIRESTORE_SAVE_COLLECTION)
+    .doc(FIRESTORE_PRIMARY_DOC)
     .set(firestoreEnvelope, { merge: true });
 
   if (mirrorToRtdb) {
-    await saveCloudCharacter(uid, characterId, payload);
-    await saveCharacterIndexEntry(uid, characterId, {
-      name,
-      updatedAt,
-    });
+    const db = await getFirebaseDatabase();
+    await db.ref(`users/${uid}/saves/primary`).set(normalizedEnvelope.payload);
   }
 
-  return { envelope: firestoreEnvelope, characterId, updatedAt };
+  return { envelope: firestoreEnvelope, updatedAt };
 }
 
 export async function loadCloudSave(uid) {
   if (!uid) throw new Error('Missing user id.');
   try {
     const firestore = await getFirebaseFirestore();
-    const query = await firestore
+    const doc = await firestore
       .collection('users')
       .doc(uid)
-      .collection(FIRESTORE_CHARACTERS_COLLECTION)
-      .orderBy('updatedAt', 'desc')
-      .limit(1)
+      .collection(FIRESTORE_SAVE_COLLECTION)
+      .doc(FIRESTORE_PRIMARY_DOC)
       .get();
-    if (!query.empty) {
-      const doc = query.docs[0];
+    if (doc?.exists) {
       const data = doc?.data ? doc.data() : null;
       const envelope = normalizeCloudSaveEnvelope(data);
       if (envelope) {
@@ -133,29 +128,15 @@ export async function loadCloudSave(uid) {
     console.warn('Firestore load failed; will fall back to RTDB.', err);
   }
 
-  const entries = await listCharacterIndex(uid);
-  const latest = selectLatestCloudEntry(entries);
-  if (!latest) return null;
-  const characterId = latest?.characterId || latest?.id || '';
-  if (!characterId) return null;
-  const payload = coerceCloudPayload(await loadCloudCharacter(uid, characterId));
-  if (!payload) return null;
-  const updatedAt = resolveUpdatedAt(latest) || Date.now();
-  return {
-    source: 'rtdb',
-    data: buildCloudSaveEnvelope(payload, { updatedAt }),
-  };
+  const fallback = await loadRtdbEnvelope(uid);
+  if (!fallback) return null;
+  return { source: 'rtdb', data: fallback };
 }
 
 export async function recoverFromRTDB(uid) {
   if (!uid) throw new Error('Missing user id.');
-  const entries = await listCharacterIndex(uid);
-  const latest = selectLatestCloudEntry(entries);
-  if (!latest) return null;
-  const characterId = latest?.characterId || latest?.id || '';
-  if (!characterId) return null;
-  const payload = coerceCloudPayload(await loadCloudCharacter(uid, characterId));
-  if (!payload) return null;
-  const { envelope } = await saveCloudSave(uid, payload, { mirrorToRtdb: false, markMigrated: true });
+  const fallback = await loadRtdbEnvelope(uid);
+  if (!fallback?.payload) return null;
+  const { envelope } = await saveCloudSave(uid, fallback, { mirrorToRtdb: false, markMigrated: true });
   return envelope;
 }
