@@ -11230,6 +11230,8 @@ const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 const FALLBACK_ACTOR_NAME = 'A Mysterious Force';
 const CAMPAIGN_LOG_LOCAL_KEY = 'campaign-log';
 const CAMPAIGN_LOG_VISIBLE_LIMIT = 100;
+const DISCORD_LOG_DEBOUNCE_MS = 750;
+const pendingDiscordActionLogs = new Map();
 let campaignLogEntries = normalizeCampaignLogEntries(safeParse(CAMPAIGN_LOG_LOCAL_KEY));
 let campaignBacklogEntries = [];
 let lastLocalCampaignTimestamp = campaignLogEntries.length
@@ -11253,15 +11255,51 @@ function renderLogs(){
 function renderFullLogs(){
   $('full-log-action').innerHTML = actionLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
-function logAction(text){
+function queueDiscordActionLog({ text, timestamp, actionScope }) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  const type = 'action.log';
+  const existing = pendingDiscordActionLogs.get(type);
+  const update = existing || { timeout: null, payload: {} };
+  update.payload = { text, timestamp, actionScope };
+  if (update.timeout) {
+    clearTimeout(update.timeout);
+  }
+  update.timeout = setTimeout(() => {
+    pendingDiscordActionLogs.delete(type);
+    void sendEventToDiscordWorker({
+      type,
+      actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+      detail: {
+        text: update.payload.text,
+        ts: update.payload.timestamp,
+        characterId: character.id,
+        playerName: character.playerName,
+        ...(update.payload.actionScope ? { actionScope: update.payload.actionScope } : {}),
+      },
+      ts: update.payload.timestamp,
+    });
+  }, DISCORD_LOG_DEBOUNCE_MS);
+  pendingDiscordActionLogs.set(type, update);
+}
+
+function logAction(text, meta = {}){
   try{
     if(sessionStorage.getItem('dmLoggedIn') === '1'){
       text = `DM: ${text}`;
     }
   }catch{}
-  pushLog(actionLog, {t:Date.now(), text}, 'action-log');
+  const timestamp = Date.now();
+  const scopeCandidate = meta.actionScope ?? meta.scope ?? meta.kind ?? meta.actionType;
+  const actionScope = typeof scopeCandidate === 'string' && scopeCandidate ? scopeCandidate : null;
+  pushLog(actionLog, {t:timestamp, text}, 'action-log');
   renderLogs();
   renderFullLogs();
+  if (actionScope) {
+    queueDiscordActionLog({ text, timestamp, actionScope });
+  } else {
+    queueDiscordActionLog({ text, timestamp });
+  }
 }
 window.logAction = logAction;
 window.queueCampaignLogEntry = queueCampaignLogEntry;
