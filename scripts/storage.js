@@ -1927,6 +1927,19 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
 }
 
 export async function listCloudCharacters(uid) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const indexObj = readLocalCloudIndex(resolvedUid);
+    const entries = Object.values(indexObj || {}).filter(v => v && typeof v === 'object');
+    const rows = entries.map(entry => {
+      const characterId = entry?.characterId || entry?.id || '';
+      if (!characterId) return null;
+      const payload = readLocalCloudCharacter(resolvedUid, characterId);
+      if (!payload) return null;
+      return { characterId, payload };
+    }).filter(Boolean);
+    return rows;
+  }
   try {
     const paths = getUserPaths(uid);
     if (!paths) return [];

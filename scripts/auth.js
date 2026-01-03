@@ -802,6 +802,8 @@ async function syncProfileUsernameToFirestore(user) {
 }
 
 export async function checkUsernameAvailability(username) {
+  // Ensure authMode is finalized (firebase vs local fallback) before branching.
+  await initFirebaseAuth();
   const normalized = authMode === 'local'
     ? normalizeUsernameLocal(username)
     : normalizeUsername(username);
