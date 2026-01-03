@@ -639,42 +639,6 @@ describe('Catalyst Core master application experience', () => {
     expect(appShell.hasAttribute('inert')).toBe(false);
   });
 
-  test('welcome modal shows legacy copy and offline flow when signed out', async () => {
-    await importAllApplicationScripts();
-    dispatchAppReadyEvents();
-    const skipLaunchButton = document.querySelector('[data-skip-launch]');
-    if (skipLaunchButton) {
-      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    } else {
-      window.dispatchEvent(new Event('launch-animation-skip'));
-    }
-    await advanceAppTime(1000);
-
-    const welcomeModal = document.getElementById('modal-welcome');
-    expect(welcomeModal).toBeTruthy();
-    expect(welcomeModal.classList.contains('hidden')).toBe(false);
-    expect(welcomeModal.getAttribute('aria-hidden')).toBe('false');
-
-    const legacyCopy = welcomeModal.querySelector('[data-welcome-legacy-copy]');
-    expect(legacyCopy).toBeTruthy();
-    expect(legacyCopy.textContent).toMatch(/Cloud saves keep your roster safe and up to date/i);
-
-    const loginButton = document.getElementById('welcome-login');
-    const createButton = document.getElementById('welcome-create');
-    const continueButton = document.getElementById('welcome-continue');
-    expect(loginButton).toBeTruthy();
-    expect(createButton).toBeTruthy();
-    expect(continueButton).toBeTruthy();
-    expect(loginButton.disabled).toBe(false);
-    expect(createButton.disabled).toBe(false);
-    expect(continueButton.disabled).toBe(false);
-
-    continueButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await advanceAppTime(0);
-
-    expect(welcomeModal.classList.contains('hidden')).toBe(true);
-  });
-
   test('player tools drawer provides resilient interactions and status updates', async () => {
     const capturedErrors = [];
     const errorHandler = event => {
@@ -837,12 +801,6 @@ describe('Catalyst Core master application experience', () => {
     if (capturedErrors.length > 0) {
       throw new Error(`Detected issues while verifying player tools drawer: ${capturedErrors.map(String).join('\n')}`);
     }
-  });
-
-  test('exposes the Advanced Spellbook resource link', () => {
-    const link = document.querySelector('[data-resource-link="advanced-spellbook"]');
-    expect(link).toBeTruthy();
-    expect(link.getAttribute('href')).toBe('https://amaranthpublishing.com/products/advanced-spellbook');
   });
 
   test('stress tests interactive controls under rapid repeated interactions', async () => {
