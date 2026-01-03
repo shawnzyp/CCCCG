@@ -2238,6 +2238,8 @@ let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
 let launchFailsafeTimer = null;
 let launchFailsafeTriggered = false;
+let bootCompletionHandled = false;
+let postBootHooksRan = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2569,6 +2571,20 @@ function setLaunchOverlayInteractive(isInteractive) {
   } catch {}
 }
 
+function runPostBootUIHooksOnce() {
+  if (postBootHooksRan) return;
+  postBootHooksRan = true;
+  bootCompletionHandled = true;
+  // Force-boot paths skip the standard launch callback, so always run the
+  // shared post-boot hooks here to keep onboarding/welcome flows consistent.
+  queueWelcomeModal({ immediate: true });
+}
+
+function forceBootUIOnce(reason = 'launch-failsafe') {
+  if (bootCompletionHandled) return;
+  forceBootUI(reason);
+}
+
 function forceBootUI(reason = 'launch-failsafe') {
   if (launchFailsafeTriggered) return;
   launchFailsafeTriggered = true;
@@ -2576,8 +2592,6 @@ function forceBootUI(reason = 'launch-failsafe') {
   if (reason) {
     console.warn(`Forcing UI boot (${reason}).`);
   }
-  welcomeModalDismissed = true;
-  welcomeSequenceComplete = true;
   hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   unlockTouchControls({ immediate: true });
@@ -2606,6 +2620,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   }
   markLaunchSequenceComplete();
   ensureDefaultMainTab('combat');
+  runPostBootUIHooksOnce();
 }
 
 function hideWelcomeModalPanel() {
@@ -2781,16 +2796,16 @@ async function setupLaunchAnimation(){
   try {
     if (typeof document === 'undefined') {
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
       return;
     }
     const body = document.body;
     if(!body || !body.classList.contains('launching')){
       setAppShellInteractive(true);
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
       return;
     }
 
@@ -2817,7 +2832,7 @@ async function setupLaunchAnimation(){
         setLaunchOverlayInteractive(false);
         setAppShellInteractive(true);
         markLaunchSequenceComplete();
-        queueWelcomeModal({ immediate: true });
+        runPostBootUIHooksOnce();
       };
       if (skipButton) {
         skipButton.addEventListener('click', event => {
@@ -2827,7 +2842,6 @@ async function setupLaunchAnimation(){
       }
       window.addEventListener('launch-animation-skip', completeLaunch, { once: true });
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       if (typeof window.requestAnimationFrame === 'function') {
         window.requestAnimationFrame(() => completeLaunch());
       } else {
@@ -2841,7 +2855,7 @@ async function setupLaunchAnimation(){
     queueWelcomeModal({ immediate: true });
     clearLaunchFailsafeTimer();
     launchFailsafeTimer = window.setTimeout(() => {
-      forceBootUI('launch-timeout');
+      forceBootUIOnce('launch-timeout');
     }, LAUNCH_FAILSAFE_MS);
 
   const clearTimer = timer => {
@@ -2888,7 +2902,7 @@ async function setupLaunchAnimation(){
         body.classList.remove('launching');
         unlockTouchControls({ immediate: true });
         markLaunchSequenceComplete();
-      queueWelcomeModal({ immediate: true });
+      runPostBootUIHooksOnce();
       if(launchEl){
         launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
         window.setTimeout(cleanupLaunchShell, 1000);
@@ -3311,7 +3325,7 @@ async function setupLaunchAnimation(){
     }
   } catch (err) {
     console.error('Launch animation failed; continuing boot.', err);
-    forceBootUI('launch-error');
+    forceBootUIOnce('launch-error');
   }
 }
 registerBootTask(() => {
@@ -3380,15 +3394,17 @@ registerBootTask(() => {
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
-function handleAudioContextPriming(e){
+let audioContextGestureReady = false;
+function primeAudioContextFromGestureOnce(){
   if(audioContextPrimed) return;
-  if(e.type==='pointerdown'){
-    const interactive=e.target?.closest?.(INTERACTIVE_SEL);
-    if(!interactive) return;
-  }
   audioContextPrimed = true;
-  document.removeEventListener('pointerdown', handleAudioContextPriming, true);
-  document.removeEventListener('keydown', handleAudioContextPriming, true);
+  audioContextGestureReady = true;
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointerdown', primeAudioContextFromGestureOnce);
+    window.removeEventListener('keydown', primeAudioContextFromGestureOnce);
+  }
+  // AudioContext creation/resume must come from a user gesture to satisfy
+  // autoplay policies; defer priming until the first real interaction.
   try {
     primeAudioContext();
   } catch {
@@ -3396,8 +3412,9 @@ function handleAudioContextPriming(e){
   }
 }
 registerBootTask(() => {
-  document.addEventListener('pointerdown', handleAudioContextPriming, true);
-  document.addEventListener('keydown', handleAudioContextPriming, true);
+  if (typeof window === 'undefined') return;
+  window.addEventListener('pointerdown', primeAudioContextFromGestureOnce, { once: true, passive: true });
+  window.addEventListener('keydown', primeAudioContextFromGestureOnce, { once: true });
 });
 
 /* ========= view mode ========= */
@@ -12904,10 +12921,11 @@ function ensureAudioContext(){
   if(typeof window === 'undefined') return null;
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if(!Ctx) return null;
+  if(!audioContext && !audioContextGestureReady) return null;
   if(!audioContext){
     audioContext = new Ctx();
   }
-  if(audioContext?.state === 'suspended'){
+  if(audioContext?.state === 'suspended' && audioContextGestureReady){
     audioContext.resume?.().catch(()=>{});
   }
   return audioContext;
