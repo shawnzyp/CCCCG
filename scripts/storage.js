@@ -1,6 +1,6 @@
 import { toast } from './notifications.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
-import { getFirebaseDatabase } from './auth.js';
+import { getAuthMode, getFirebaseDatabase } from './auth.js';
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
 import {
   addOutboxEntry,
@@ -25,6 +25,7 @@ let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
 let cloudSyncSupportToastShown = false;
 let cloudAuthNoticeShown = false;
+let localAuthNoticeShown = false;
 let topLevelRefWarningShown = false;
 let databaseRefFactory = null;
 
@@ -42,6 +43,16 @@ function getLocalStorageSafe() {
     return localStorage;
   } catch {
     return null;
+  }
+}
+
+function showLocalAuthModeNotice() {
+  if (localAuthNoticeShown) return;
+  localAuthNoticeShown = true;
+  try {
+    toast('Cloud sync unavailable in local account mode. Using device storage.', 'info');
+  } catch (err) {
+    console.warn('Failed to show local auth notice', err);
   }
 }
 
@@ -1602,6 +1613,10 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
 }
 
 export async function saveCloud(name, payload) {
+  if (getAuthMode && getAuthMode() === 'local') {
+    showLocalAuthModeNotice();
+    return 'disabled';
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
@@ -1645,6 +1660,10 @@ export async function saveCloud(name, payload) {
 }
 
 export async function saveCloudAutosave(name, payload) {
+  if (getAuthMode && getAuthMode() === 'local') {
+    showLocalAuthModeNotice();
+    return null;
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return null;
@@ -1714,6 +1733,10 @@ export async function saveCloudAutosave(name, payload) {
 }
 
 export async function saveCloudCharacter(uid, characterId, payload) {
+  if (getAuthMode && getAuthMode() === 'local') {
+    showLocalAuthModeNotice();
+    return 'disabled';
+  }
   if (!isCloudSyncAvailable()) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
