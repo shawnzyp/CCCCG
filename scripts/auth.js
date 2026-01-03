@@ -662,7 +662,9 @@ export function initFirebaseAuth() {
   if (!authInitPromise) {
     authInitPromise = (async () => {
       authMode = readPreferredAuthMode();
-      restoreLocalSession();
+      if (authMode === 'local') {
+        restoreLocalSession();
+      }
       if (authMode === 'local') {
         setAuthReady();
         notifyAuthListeners();
@@ -674,12 +676,8 @@ export function initFirebaseAuth() {
       } catch (err) {
         console.error('Failed to initialize auth', err);
         authMode = 'local';
-        if (!currentUser) {
-          setAuthState({ uid: '' });
-        } else {
-          setAuthReady();
-          notifyAuthListeners();
-        }
+        restoreLocalSession();
+        if (!currentUser) setAuthState({ uid: '' });
         return null;
       }
     })();

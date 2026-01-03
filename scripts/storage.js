@@ -104,7 +104,7 @@ function writeLocalCloudIndex(uid, indexObj) {
   const serialized = safeJsonStringify(indexObj);
   if (!serialized.ok) return false;
   try {
-    storage.setItem(key, serialized.json);
+    storage.setItem(key, serialized.value);
     return true;
   } catch (err) {
     console.warn('Failed to write local cloud index', err);
@@ -119,7 +119,7 @@ function writeLocalCloudCharacter(uid, characterId, payload) {
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) return false;
   try {
-    storage.setItem(key, serialized.json);
+    storage.setItem(key, serialized.value);
     return true;
   } catch (err) {
     console.warn('Failed to write local cloud character snapshot', err);
@@ -132,8 +132,7 @@ function readLocalCloudCharacter(uid, characterId) {
   if (!storage) return null;
   const key = getLocalCloudCharacterKey(uid, characterId);
   const raw = storage.getItem(key);
-  if (!raw) return null;
-  return safeJsonParse(raw, null);
+  return raw || null;
 }
 
 function collectCharacterNameVariants(name) {
@@ -1764,7 +1763,7 @@ export async function saveCloudAutosave(name, payload) {
           updatedAt: Date.now(),
         },
       });
-      if (serialized.ok) storage.setItem(key, serialized.json);
+      if (serialized.ok) storage.setItem(key, serialized.value);
       emitSyncActivity({ type: 'local-cloud-autosave', name, queued: false, timestamp: Date.now() });
       return ts;
     } catch (err) {
@@ -1909,13 +1908,13 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
     const resolvedUid = uid || activeAuthUserId || 'local';
     const resolvedCharacterId = characterId || '';
     if (!resolvedCharacterId) throw new Error('Missing character id');
-    const payload = readLocalCloudCharacter(resolvedUid, resolvedCharacterId);
-    if (!payload) {
+    const raw = readLocalCloudCharacter(resolvedUid, resolvedCharacterId);
+    if (!raw) {
       const err = new Error('Character snapshot not found');
       err.name = 'NotFoundError';
       throw err;
     }
-    return payload;
+    return raw;
   }
   const targetPath = buildUserCharacterPath(uid, characterId);
   if (!targetPath) throw new Error('Missing user id or character id');
