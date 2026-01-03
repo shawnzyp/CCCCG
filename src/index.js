@@ -1,5 +1,15 @@
 const ALLOWED_ORIGIN = 'https://shawnzyp.github.io';
-const BUILD_ID = 'ccapp-2025-03-06-a';
+const BUILD_ID = 'ccapp-2025-03-06-b';
+const DEFAULT_USERNAME = 'Catalyst Core';
+const LIMITS = {
+  content: 2000,
+  embedTitle: 256,
+  embedDescription: 4096,
+  fieldName: 256,
+  fieldValue: 1024,
+  maxFields: 6,
+  maxDetailFields: 5,
+};
 
 const buildCorsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN,
@@ -82,21 +92,57 @@ const formatRollMessage = (roll) => {
   return `**${who}** rolled ${expr} = **${total}**${breakdown}`;
 };
 
-const buildRollDiscordPayload = (roll) => ({
-  embeds: [
-    {
-      title: 'Roll',
-      description: formatRollMessage(roll),
-    },
-  ],
-});
-
 const clampText = (text, limit) => {
   if (!text) return '';
   const value = String(text);
   if (value.length <= limit) return value;
   return `${value.slice(0, limit - 3)}...`;
 };
+
+const sanitizeEmbed = (embed) => {
+  if (!isPlainObject(embed)) return null;
+  const next = { ...embed };
+  if (next.title) next.title = clampText(next.title, LIMITS.embedTitle);
+  if (next.description) next.description = clampText(next.description, LIMITS.embedDescription);
+  if (Array.isArray(next.fields)) {
+    next.fields = next.fields.slice(0, LIMITS.maxFields).map((field) => {
+      if (!isPlainObject(field)) return null;
+      return {
+        name: clampText(field.name ?? '', LIMITS.fieldName),
+        value: clampText(field.value ?? '', LIMITS.fieldValue),
+        inline: Boolean(field.inline),
+      };
+    }).filter(Boolean);
+  }
+  return next;
+};
+
+const withDefaultUsername = (payload) => {
+  if (!isPlainObject(payload)) return payload;
+  if (payload.username) return payload;
+  return { ...payload, username: DEFAULT_USERNAME };
+};
+
+const sanitizeDiscordPayload = (payload) => {
+  if (!isPlainObject(payload)) return payload;
+  const next = { ...payload };
+  if (typeof next.content === 'string') {
+    next.content = clampText(next.content, LIMITS.content);
+  }
+  if (Array.isArray(next.embeds)) {
+    next.embeds = next.embeds.map(sanitizeEmbed).filter(Boolean);
+  }
+  return withDefaultUsername(next);
+};
+
+const buildRollDiscordPayload = (roll) => sanitizeDiscordPayload({
+  embeds: [
+    {
+      title: 'Roll',
+      description: clampText(formatRollMessage(roll), LIMITS.embedDescription),
+    },
+  ],
+});
 
 const pickActorName = (payload, actor) =>
   actor?.playerName
@@ -120,7 +166,7 @@ const buildEventFields = (detail) => {
     { key: 'target', label: 'Target' },
   ];
   for (const { key, label } of candidates) {
-    if (fields.length >= 5) break;
+    if (fields.length >= LIMITS.maxDetailFields) break;
     const value = detail[key];
     if (value == null) continue;
     if (typeof value === 'object') continue;
@@ -162,14 +208,14 @@ const buildEventDiscordPayload = (event, payload) => {
   const embed = {
     title: 'Event',
     description,
-    fields: [...fields, ...detailFields].slice(0, 6),
+    fields: [...fields, ...detailFields].slice(0, LIMITS.maxFields),
   };
-  return { embeds: [embed] };
+  return sanitizeDiscordPayload({ embeds: [embed] });
 };
 
 const isRawDiscordPayload = (payload) => {
   if (!isPlainObject(payload)) return false;
-  return Boolean(payload.content || payload.embeds || payload.username);
+  return Boolean(payload.content || payload.embeds);
 };
 
 const normalizeRequestPayload = (payload) => {
@@ -177,7 +223,7 @@ const normalizeRequestPayload = (payload) => {
     return { error: 'unknown_payload' };
   }
   if (isRawDiscordPayload(payload)) {
-    return { kind: 'discord', normalized: payload, build: payload };
+    return { kind: 'discord', normalized: payload, build: sanitizeDiscordPayload(payload) };
   }
   const event = payload.event;
   const hasEvent = typeof event === 'string' && event.trim().length > 0;
@@ -187,7 +233,7 @@ const normalizeRequestPayload = (payload) => {
       return {
         kind: 'event-discord',
         normalized: { event, payload: eventPayload },
-        build: eventPayload,
+        build: sanitizeDiscordPayload(eventPayload),
       };
     }
     return {
@@ -195,6 +241,9 @@ const normalizeRequestPayload = (payload) => {
       normalized: { event, payload: eventPayload },
       build: buildEventDiscordPayload(event, eventPayload),
     };
+  }
+  if ('event' in payload) {
+    return { error: 'unknown_payload' };
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'roll')) {
     const validation = validateRollPayload(payload.roll);
