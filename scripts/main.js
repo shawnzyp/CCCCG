@@ -2498,6 +2498,48 @@ function ensureDefaultMainTab(preferred = 'combat') {
   return activateTab(fallbackTarget);
 }
 
+function focusAfterLaunchOverlay() {
+  const sentinel = document.getElementById('app-root-focus-sentinel');
+  const fallback = qs('.tab[data-go]') || qs('[data-launch-shell]');
+  const target = sentinel || fallback;
+  if (target && typeof target.focus === 'function') {
+    try {
+      target.focus({ preventScroll: true });
+      return;
+    } catch {}
+    try {
+      target.focus();
+    } catch {}
+  }
+}
+
+function setLaunchOverlayInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const launchEl = document.getElementById('launch-animation');
+  if (!launchEl) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && launchEl.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
+  try {
+    if (shouldBeInteractive) {
+      launchEl.setAttribute('aria-hidden', 'false');
+      launchEl.removeAttribute('inert');
+      if ('inert' in launchEl) launchEl.inert = false;
+    } else {
+      launchEl.setAttribute('aria-hidden', 'true');
+      launchEl.setAttribute('inert', '');
+      if ('inert' in launchEl) launchEl.inert = true;
+    }
+  } catch {}
+}
+
 function forceBootUI(reason = 'launch-failsafe') {
   if (launchFailsafeTriggered) return;
   launchFailsafeTriggered = true;
@@ -2528,6 +2570,7 @@ function forceBootUI(reason = 'launch-failsafe') {
     ? document.getElementById('launch-animation')
     : null;
   if (launchShell && launchShell.parentNode) {
+    setLaunchOverlayInteractive(false);
     launchShell.parentNode.removeChild(launchShell);
   }
   markLaunchSequenceComplete();
@@ -2708,7 +2751,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 }
 async function setupLaunchAnimation(){
   try {
-    if (typeof document === 'undefined' || IS_JSDOM_ENV) {
+    if (typeof document === 'undefined') {
       unlockTouchControls();
       queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
@@ -2722,14 +2765,6 @@ async function setupLaunchAnimation(){
       return;
     }
 
-    lockTouchControls();
-    queueWelcomeModal({ preload: true });
-    queueWelcomeModal({ immediate: true });
-    clearLaunchFailsafeTimer();
-    launchFailsafeTimer = window.setTimeout(() => {
-      forceBootUI('launch-timeout');
-    }, LAUNCH_FAILSAFE_MS);
-
     const launchEl = document.getElementById('launch-animation');
     const video = launchEl ? launchEl.querySelector('video') : null;
     const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
@@ -2740,6 +2775,43 @@ async function setupLaunchAnimation(){
     let cleanupMessaging = null;
     let bypassLaunchMinimum = false;
     const userGestureListeners = [];
+
+    if (launchEl) {
+      setLaunchOverlayInteractive(true);
+    }
+
+    if (IS_JSDOM_ENV) {
+      const completeLaunch = () => {
+        if (!body.classList.contains('launching')) return;
+        body.classList.remove('launching');
+        setLaunchOverlayInteractive(false);
+        markLaunchSequenceComplete();
+        queueWelcomeModal({ immediate: true });
+      };
+      if (skipButton) {
+        skipButton.addEventListener('click', event => {
+          event.preventDefault();
+          completeLaunch();
+        });
+      }
+      window.addEventListener('launch-animation-skip', completeLaunch, { once: true });
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => completeLaunch());
+      } else {
+        window.setTimeout(() => completeLaunch(), 0);
+      }
+      return;
+    }
+
+    lockTouchControls();
+    queueWelcomeModal({ preload: true });
+    queueWelcomeModal({ immediate: true });
+    clearLaunchFailsafeTimer();
+    launchFailsafeTimer = window.setTimeout(() => {
+      forceBootUI('launch-timeout');
+    }, LAUNCH_FAILSAFE_MS);
 
   const clearTimer = timer => {
     if(timer){
@@ -2780,6 +2852,7 @@ async function setupLaunchAnimation(){
     const finalizeReveal = () => {
       if (launchFailsafeTriggered) return;
       clearLaunchFailsafeTimer();
+      setLaunchOverlayInteractive(false);
       body.classList.remove('launching');
       unlockTouchControls({ immediate: true });
       markLaunchSequenceComplete();
@@ -13695,10 +13768,6 @@ registerBootTask(() => {
   }
 });
 
-registerBootTask(() => {
-  subscribeCampaignLog(refreshCampaignLogFromCloud);
-  refreshCampaignLogFromCloud();
-});
 const btnLog = $('btn-log');
 registerBootTask(() => {
   if (btnLog) {
@@ -25606,6 +25675,36 @@ function createNewCharacterFromModal() {
   toast(`Switched to ${clean}`, 'success');
 }
 
+let cloudSaveUnsubscribe = null;
+let campaignLogUnsubscribe = null;
+
+function clearCloudSubscriptions() {
+  if (typeof cloudSaveUnsubscribe === 'function') {
+    try {
+      cloudSaveUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from cloud saves', err);
+    }
+  }
+  if (typeof campaignLogUnsubscribe === 'function') {
+    try {
+      campaignLogUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from campaign log', err);
+    }
+  }
+  cloudSaveUnsubscribe = null;
+  campaignLogUnsubscribe = null;
+}
+
+function syncCloudSubscriptions(uid) {
+  clearCloudSubscriptions();
+  if (!uid) return;
+  cloudSaveUnsubscribe = subscribeCloudSaves();
+  campaignLogUnsubscribe = subscribeCampaignLog(refreshCampaignLogFromCloud);
+  refreshCampaignLogFromCloud();
+}
+
 function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
   setClaimTokenAdminVisibility(!!isDm);
@@ -25614,6 +25713,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
     writeLastUserUid(uid);
+    syncCloudSubscriptions(uid);
     welcomeModalDismissed = true;
     dismissWelcomeModal();
     updateWelcomeContinue();
@@ -25642,6 +25742,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   }
   setActiveUserId('');
   setActiveAuthUserId('');
+  syncCloudSubscriptions('');
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
   if (!hasLocalSave && offlineBlankActive) {
@@ -25965,7 +26066,6 @@ registerBootTask(() => {
     })
     .catch(() => {});
 }
-  subscribeCloudSaves();
 });
 
 // == Resonance Points (RP) Module ============================================

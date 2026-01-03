@@ -45,7 +45,7 @@
 </svg>
 <noscript>This app requires JavaScript to run properly.</noscript>
 
-<div id="launch-animation" role="presentation" aria-hidden="true">
+<div id="launch-animation" role="presentation" aria-hidden="false">
   <video
     autoplay
     muted
@@ -115,6 +115,51 @@
       }
     };
 
+    const focusAfterLaunch = () => {
+      const sentinel = document.getElementById('app-root-focus-sentinel');
+      const fallback = document.querySelector('.tab[data-go], [data-launch-shell]');
+      const target = sentinel || fallback;
+      if (target && typeof target.focus === 'function') {
+        try {
+          target.focus({ preventScroll: true });
+          return;
+        } catch (err) {}
+        try {
+          target.focus();
+        } catch (err) {}
+      }
+    };
+
+    const setLaunchOverlayInteractive = isInteractive => {
+      if (!launchEl) return;
+      const shouldBeInteractive = Boolean(isInteractive);
+      if (!shouldBeInteractive) {
+        const active = document.activeElement;
+        if (active && launchEl.contains(active)) {
+          try {
+            active.blur();
+          } catch (err) {}
+          focusAfterLaunch();
+        }
+      }
+      try {
+        if (shouldBeInteractive) {
+          launchEl.removeAttribute('aria-hidden');
+          launchEl.setAttribute('aria-hidden', 'false');
+          launchEl.removeAttribute('inert');
+          if ('inert' in launchEl) {
+            launchEl.inert = false;
+          }
+        } else {
+          launchEl.setAttribute('aria-hidden', 'true');
+          launchEl.setAttribute('inert', '');
+          if ('inert' in launchEl) {
+            launchEl.inert = true;
+          }
+        }
+      } catch (err) {}
+    };
+
     const hideLaunch = () => {
       if(!body.classList.contains('launching')){
         return;
@@ -124,6 +169,7 @@
         window.clearTimeout(playRetryTimer);
         playRetryTimer = null;
       }
+      setLaunchOverlayInteractive(false);
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
       launchEl.setAttribute('data-hidden', 'true');
@@ -339,10 +385,12 @@
         window.addEventListener('load', () => scheduleFallback(), { once: true });
       }
     }
+    setLaunchOverlayInteractive(true);
   })();
 </script>
 
 <div class="app-shell" data-launch-shell>
+<div id="app-root-focus-sentinel" class="sr-only" tabindex="-1">App ready</div>
 <a href="#main" class="skip-link">Skip to main content</a>
 
 
@@ -3007,6 +3055,7 @@
       <button type="button" class="btn-sm" data-sync-prefetch>Download offline assets</button>
     </div>
     <p class="sync-panel__note" data-sync-prefetch-status hidden role="status" aria-live="polite"></p>
+    <p class="sync-panel__note" data-sync-auth-domain-warning hidden role="status" aria-live="polite"></p>
     <div class="sync-panel__section">
       <div class="sync-panel__section-header">
         <h3 class="sync-panel__section-title">Queued saves</h3>

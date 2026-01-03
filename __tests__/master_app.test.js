@@ -592,6 +592,29 @@ describe('Catalyst Core master application experience', () => {
     }
   });
 
+  test('closing the launch overlay moves focus before hiding', async () => {
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+
+    const launchEl = document.getElementById('launch-animation');
+    const skipLaunchButton = launchEl?.querySelector('[data-skip-launch]');
+    expect(launchEl).toBeTruthy();
+    expect(skipLaunchButton).toBeTruthy();
+    skipLaunchButton.focus();
+    expect(document.activeElement).toBe(skipLaunchButton);
+
+    skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await advanceAppTime(0);
+
+    const active = document.activeElement;
+    const stillFocusedInside = launchEl && active ? launchEl.contains(active) : false;
+    expect(stillFocusedInside).toBe(false);
+
+    if (launchEl && launchEl.isConnected) {
+      expect(launchEl.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
   test('player tools drawer provides resilient interactions and status updates', async () => {
     const capturedErrors = [];
     const errorHandler = event => {
@@ -1014,5 +1037,55 @@ describe('Catalyst Core master application experience', () => {
     if (capturedErrors.length > 0) {
       throw new Error(`Detected issues while validating offline caching and floating launcher coverage: ${capturedErrors.map(String).join('\n')}`);
     }
+  });
+
+  test('cloud storage skips RTDB access when signed out', async () => {
+    jest.resetModules();
+    const getFirebaseDatabase = jest.fn();
+    await jest.unstable_mockModule('../scripts/auth.js', () => ({
+      getFirebaseDatabase,
+    }));
+    const storage = await import('../scripts/storage.js');
+    storage.setActiveAuthUserId('');
+
+    await storage.listCloudSaves();
+    await storage.fetchCampaignLogEntries();
+    await storage.appendCampaignLogEntry({ id: 'entry-1', t: 1, name: 'Alpha', text: 'Test entry' });
+
+    expect(getFirebaseDatabase).not.toHaveBeenCalled();
+  });
+
+  test('cloud storage uses uid scoped campaign log and save refs', async () => {
+    jest.resetModules();
+    const refCalls = [];
+    const makeRef = () => ({
+      set: jest.fn().mockResolvedValue(),
+      once: jest.fn().mockResolvedValue({ val: () => ({}) }),
+      remove: jest.fn().mockResolvedValue(),
+      on: jest.fn(),
+      off: jest.fn(),
+      child: jest.fn().mockReturnThis(),
+      orderByKey: jest.fn().mockReturnThis(),
+      limitToLast: jest.fn().mockReturnThis(),
+    });
+    const getFirebaseDatabase = jest.fn().mockResolvedValue({
+      ref: path => {
+        refCalls.push(path);
+        return makeRef();
+      },
+    });
+    await jest.unstable_mockModule('../scripts/auth.js', () => ({
+      getFirebaseDatabase,
+    }));
+    const storage = await import('../scripts/storage.js');
+    storage.setActiveAuthUserId('user-123');
+
+    await storage.listCloudSaves();
+    await storage.fetchCampaignLogEntries();
+    await storage.appendCampaignLogEntry({ id: 'entry-2', t: 2, name: 'Beta', text: 'Second entry' });
+
+    expect(refCalls).toContain('saves/user-123');
+    expect(refCalls).toContain('campaignLogs/user-123');
+    expect(refCalls).toContain('campaignLogs/user-123/entry-2');
   });
 });
