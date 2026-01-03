@@ -1,0 +1,18 @@
+name: Syntax Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  node-syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check main.js syntax
+        run: node --check scripts/main.js
