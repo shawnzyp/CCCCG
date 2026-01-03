@@ -27,23 +27,52 @@ const normalizeWorkerUrl = (url) => {
   return `${url.replace(/\/$/, '')}/roll`;
 };
 
-const buildDiscordPayload = (payload = {}) => {
-  if (payload.roll && typeof payload.roll === 'object') {
-    return { roll: payload.roll };
+const parseTotalValue = (value) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
   }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const isValidRoll = (roll) => {
+  if (!roll || typeof roll !== 'object') return false;
+  const expr = roll.expr != null ? String(roll.expr).trim() : '';
+  if (!expr || expr.toLowerCase() === 'roll') return false;
+  return parseTotalValue(roll.total) != null;
+};
+
+const buildDiscordPayload = (payload = {}) => {
+  if (payload.content || payload.embeds) {
+    return payload;
+  }
+
+  const event = payload.event || payload.type || 'event';
+
+  if (payload.roll && typeof payload.roll === 'object') {
+    if (isValidRoll(payload.roll)) {
+      return { roll: payload.roll };
+    }
+    return { event, payload };
+  }
+
   const detail = payload.detail || {};
   const actor = payload.actor || {};
   const who = actor.playerName || actor.vigilanteName || detail.playerName || detail.characterName;
   const expr = detail.formula || detail.expr || detail.result || payload.type || 'Roll';
-  const total = detail.total ?? detail.result;
+  const total = parseTotalValue(detail.total ?? detail.result);
   const breakdown = detail.breakdown || detail.notes || '';
-  if (detail.before?.message || detail.after?.message) {
-    return { content: detail.after?.message || detail.before?.message };
-  }
-  if (expr || total != null || breakdown) {
+
+  if (expr && expr.toLowerCase() !== 'roll' && total != null) {
     return { roll: { who, expr, total, breakdown } };
   }
-  return null;
+
+  return { event, payload };
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

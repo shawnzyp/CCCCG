@@ -255,13 +255,13 @@ Note: Browsers block cross origin webhook requests with CORS. Use a server or Wo
 
 Recommended Cloudflare Worker proxy:
 
-Create a Worker at `workers/discord-roll-worker.js` and deploy it with Wrangler. Then POST to `/roll` with either a Discord payload or a roll payload. Configure the app meta tag `discord-proxy-url` to point at the Worker /roll URL.
+Use the Worker entrypoint at `src/index.js` and deploy it with Wrangler. POST to `/roll` or `/` with either a raw Discord payload, an event wrapper, or a roll wrapper. Configure the app meta tag `discord-proxy-url` to point at the Worker `/roll` URL.
 
 Wrangler config snippet:
 
 ```
 name = "ccccg-discord-roll"
-main = "workers/discord-roll-worker.js"
+main = "src/index.js"
 compatibility_date = "2025-01-22"
 ```
 
@@ -274,7 +274,7 @@ wrangler secret put DISCORD_WEBHOOK_URL
 Optional shared secret:
 
 ```
-wrangler secret put SHARED_SECRET
+wrangler secret put CCCG_PROXY_KEY
 ```
 
 Deploy:
@@ -290,7 +290,8 @@ fetch('https://your-worker.yourdomain.workers.dev/roll', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-CCCG-Secret': 'your-shared-secret'
+    'X-CCCG-Secret': 'your-shared-secret',
+    'X-Debug': '1'
   },
   body: JSON.stringify({
     roll: {
@@ -302,6 +303,29 @@ fetch('https://your-worker.yourdomain.workers.dev/roll', {
   })
 });
 ```
+
+Event wrapper format:
+
+```
+{
+  "event": "initiative.roll",
+  "payload": {
+    "actor": { "playerName": "Vigilante" },
+    "detail": { "summary": "Rolled initiative." }
+  }
+}
+```
+
+Raw Discord payload passthrough:
+
+```
+{
+  "content": "Hello, Discord.",
+  "embeds": []
+}
+```
+
+Debug header `X-Debug: 1` returns the normalized payload and embed build without posting to Discord.
 
 #### Rotating the DM PIN
 
