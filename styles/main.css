@@ -9006,7 +9006,8 @@ cursor: pointer;
 
 @media (min-width: 900px) {
   #player-tools-tab.pt-tab {
-    left: max(var(--pt-desktop-gutter), 12px, env(safe-area-inset-left));
+    left: 0;
+    margin-left: 0;
   }
 }
 
