@@ -296,6 +296,7 @@ function createPlayerToolsDrawer() {
   const scrim = drawer
     ? drawer.querySelector('[data-player-tools-scrim], [data-pt-scrim]')
     : null;
+  const shell = drawer ? drawer.querySelector('.pt-shell') : null;
   const tray = drawer ? drawer.querySelector('.pt-tray') : null;
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
@@ -344,6 +345,10 @@ function createPlayerToolsDrawer() {
   let batteryApply = null;
   let removeBatteryBridge = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
+  let tabSyncRaf = null;
+  let tabSyncDeadline = 0;
+  let resizeObserver = null;
+  let layoutCleanup = null;
 
   if (splash) {
     splash.style.display = 'none';
@@ -469,12 +474,14 @@ function createPlayerToolsDrawer() {
     const handlePointerDown = (event) => {
       if (!isOpen) return;
       if (tray && tray.contains(event.target)) return;
+      if (tab && tab.contains(event.target)) return;
       setDrawerOpen(false);
     };
 
     const handleClick = (event) => {
       if (!isOpen) return;
       if (tray && tray.contains(event.target)) return;
+      if (tab && tab.contains(event.target)) return;
       setDrawerOpen(false);
     };
 
@@ -486,6 +493,56 @@ function createPlayerToolsDrawer() {
       doc.removeEventListener('click', handleClick, true);
       removeOutsideCloseListeners = null;
     };
+  };
+
+  const win = doc.defaultView;
+  const tabDesktopQuery = win && typeof win.matchMedia === 'function'
+    ? win.matchMedia('(min-width: 900px)')
+    : null;
+
+  const isDesktop = () => (tabDesktopQuery ? tabDesktopQuery.matches : true);
+
+  const setTabOffset = (value) => {
+    if (!tab) return;
+    tab.style.setProperty('--pt-tab-x', `${Math.max(0, value)}px`);
+  };
+
+  const updateTabOffset = ({ forceShell = false } = {}) => {
+    if (!tab || !shell || !isDesktop()) return;
+    if (!forceShell && !isOpen) {
+      setTabOffset(0);
+      return;
+    }
+    const rect = shell.getBoundingClientRect();
+    setTabOffset(rect.right);
+  };
+
+  const syncTabWithShell = (duration = 480) => {
+    if (!win || typeof win.requestAnimationFrame !== 'function') {
+      updateTabOffset({ forceShell: true });
+      return;
+    }
+    if (!isDesktop()) {
+      updateTabOffset();
+      return;
+    }
+    if (tabSyncRaf) win.cancelAnimationFrame(tabSyncRaf);
+    tabSyncDeadline = (typeof win.performance?.now === 'function'
+      ? win.performance.now()
+      : Date.now()) + duration;
+
+    const step = (now) => {
+      updateTabOffset({ forceShell: true });
+      const clock = typeof now === 'number' ? now : Date.now();
+      if (clock < tabSyncDeadline) {
+        tabSyncRaf = win.requestAnimationFrame(step);
+      } else {
+        tabSyncRaf = null;
+        updateTabOffset({ forceShell: isOpen });
+      }
+    };
+
+    tabSyncRaf = win.requestAnimationFrame(step);
   };
 
   const setDrawerOpen = (open, { force = false } = {}) => {
@@ -523,6 +580,7 @@ function createPlayerToolsDrawer() {
       splashCleanupTimer = null;
     }
 
+    syncTabWithShell();
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });
   };
 
@@ -862,6 +920,7 @@ function createPlayerToolsDrawer() {
   setDrawerOpen(false, { force: true });
   updateClock();
   initBattery();
+  updateTabOffset();
 
   timeInterval = setInterval(updateClock, 15_000);
   updateCracks();
@@ -871,6 +930,30 @@ function createPlayerToolsDrawer() {
   setupInitiative();
   setupDiceRoller();
   setupCoinFlip();
+
+  if (win) {
+    const handleLayoutChange = () => updateTabOffset({ forceShell: isOpen });
+    win.addEventListener('resize', handleLayoutChange);
+    win.addEventListener('scroll', handleLayoutChange, { passive: true });
+    if (tabDesktopQuery && typeof tabDesktopQuery.addEventListener === 'function') {
+      tabDesktopQuery.addEventListener('change', handleLayoutChange);
+    }
+    if (typeof win.ResizeObserver === 'function' && shell) {
+      resizeObserver = new win.ResizeObserver(handleLayoutChange);
+      resizeObserver.observe(shell);
+    }
+    layoutCleanup = () => {
+      win.removeEventListener('resize', handleLayoutChange);
+      win.removeEventListener('scroll', handleLayoutChange);
+      if (tabDesktopQuery && typeof tabDesktopQuery.removeEventListener === 'function') {
+        tabDesktopQuery.removeEventListener('change', handleLayoutChange);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
+    };
+  }
 
   const teardown = () => {
     clearInterval(timeInterval);
@@ -896,6 +979,8 @@ function createPlayerToolsDrawer() {
     scrim && scrim.removeEventListener('click', handleScrimClick);
     gestureExit && gestureExit.removeEventListener('click', handleGestureExit);
     doc.removeEventListener('keydown', handleKeydown);
+    if (tabSyncRaf && win) win.cancelAnimationFrame(tabSyncRaf);
+    if (layoutCleanup) layoutCleanup();
 
     // Allow safe re-init (module re-eval / hot reload / duplicate load)
     try { drawer.dataset.ptInit = '0'; } catch (_) {}
