@@ -11732,15 +11732,15 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
 
   const total = rollTotal + modifier;
+  const combinedBreakdown = [
+    ...breakdownParts,
+    ...(resolution?.breakdown || []),
+  ].filter(Boolean);
 
   if (out) {
     const renderer = resultRenderer || ensureDiceResultRenderer(out);
     renderDiceResultValue(out, total, { renderer });
     if (out.dataset) {
-      const combinedBreakdown = [
-        ...breakdownParts,
-        ...(resolution?.breakdown || []),
-      ].filter(Boolean);
       if (combinedBreakdown.length) {
         out.dataset.rollBreakdown = combinedBreakdown.join(' | ');
       } else if (out.dataset.rollBreakdown) {
@@ -11782,6 +11782,32 @@ function rollWithBonus(name, bonus, out, opts = {}){
     message += ` [${metaSections.join(' | ')}]`;
   }
   logAction(message);
+
+  if (rollOptions && ['skill', 'save', 'attack'].includes(rollOptions.type)) {
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      const formulaBase = rollDetails.length
+        ? rollDetails.map(detail => `${detail.count}d${detail.sides}`).join(' + ')
+        : `1d${sides}`;
+      const formula = `${formulaBase}${modifier ? `${modifier >= 0 ? '+' : ''}${modifier}` : ''}`;
+      void sendEventToDiscordWorker({
+        type: 'roll.check',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
+          rollType: rollOptions.type,
+          name,
+          ability: rollOptions.ability || '',
+          skill: rollOptions.skill || '',
+          formula,
+          total,
+          breakdown: combinedBreakdown.join(' | '),
+          characterId: character.id,
+          playerName: character.playerName,
+        },
+        ts: Date.now(),
+      });
+    }
+  }
 
   if (typeof rollOptions.onRoll === 'function') {
     try {
