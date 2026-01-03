@@ -4282,6 +4282,7 @@ body:not(.no-hover) .modal .x:focus-visible{outline:2px solid var(--modal-accent
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 .modal.modal--load-save{display:flex;flex-direction:column}
 .modal.modal--load-save .catalog{flex:1 1 auto}
+.modal.modal--load-save .modal--load-save__status{margin:8px 0 0;color:var(--muted);font-size:.9rem;text-align:center;min-height:1.2em}
 .modal.modal--load-save .modal--load-save__actions{justify-content:center;margin-top:auto;margin-left:auto;margin-right:auto}
 #modal-load-list .modal,
 #modal-recover-char .modal,

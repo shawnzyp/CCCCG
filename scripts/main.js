@@ -85,6 +85,8 @@ import {
   loadCloud,
   loadCloudBackup,
 } from './storage.js';
+import { loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
   getActiveTab,
@@ -13918,6 +13920,8 @@ const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
   show('modal-load-list');
+  updateSaveLoadAuthState();
+  setSaveLoadStatus('');
 }
 registerBootTask(() => {
   if (btnLoad) {
@@ -14109,17 +14113,52 @@ if(recoverCharListEl){
 }
 
 const recoverBtn = $('recover-save');
-if(recoverBtn){
-  recoverBtn.addEventListener('click', async ()=>{
-    hide('modal-load-list');
-    await renderRecoverCharList();
-    show('modal-recover-char');
-  });
-}
-
+const loadCloudBtn = $('load-character');
 const exportCharacterBtn = $('export-character');
 const importCharacterBtn = $('import-character');
 const importCharacterFile = $('import-character-file');
+const saveLoadStatus = $('save-load-status');
+const saveLoadAuthNote = $('save-load-auth-note');
+
+let saveLoadBusy = false;
+const saveLoadButtons = [$('btn-save'), loadCloudBtn, recoverBtn, exportCharacterBtn, importCharacterBtn].filter(Boolean);
+
+function setSaveLoadStatus(message, { type = 'info' } = {}) {
+  if (!saveLoadStatus) return;
+  saveLoadStatus.textContent = message || '';
+  if (message) {
+    saveLoadStatus.dataset.status = type;
+  } else {
+    delete saveLoadStatus.dataset.status;
+  }
+}
+
+function setSaveLoadBusyState(isBusy) {
+  saveLoadBusy = isBusy;
+  saveLoadButtons.forEach(button => {
+    if (!button) return;
+    button.disabled = isBusy || button.dataset.cloudDisabled === 'true';
+    button.classList.toggle('loading', isBusy);
+  });
+}
+
+function updateSaveLoadAuthState() {
+  const { uid } = getAuthState();
+  const requiresAuth = Boolean(uid);
+  const message = requiresAuth ? '' : 'Sign in to use cloud Save/Load/Recover.';
+  if (saveLoadAuthNote) {
+    saveLoadAuthNote.textContent = message;
+  }
+  [ $('btn-save'), loadCloudBtn, recoverBtn ].forEach(button => {
+    if (!button) return;
+    button.dataset.cloudDisabled = requiresAuth ? 'false' : 'true';
+    button.disabled = saveLoadBusy || !requiresAuth;
+  });
+}
+
+registerBootTask(() => {
+  updateSaveLoadAuthState();
+});
 
 function resolveImportName(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';
@@ -14145,18 +14184,192 @@ function resolveImportName(name) {
   return { decision: 'copy', name: copyName };
 }
 
+function resolveSaveTargetName() {
+  let target = currentCharacter();
+  if (!target) {
+    const stored = readLastSaveName();
+    if (stored && stored.trim()) target = stored.trim();
+  }
+  const vig = $('superhero')?.value.trim();
+  const real = $('secret')?.value.trim();
+  if (vig) {
+    target = vig;
+  } else if (!target && real) {
+    target = real;
+  }
+  return target;
+}
+
+function applyCloudSnapshotPayload(rawPayload, { source } = {}) {
+  const name = rawPayload?.meta?.name || rawPayload?.character?.name || currentCharacter() || '';
+  const resolvedName = name || 'Cloud Save';
+  const { payload } = preflightSnapshotForLoad(resolvedName, rawPayload, { showRecoveryToast: false });
+  const applied = applyAppSnapshot(payload);
+  applyViewLockState();
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
+  if (useViewMode() === 'view' && savedViewMode !== 'edit') {
+    setMode('view', { skipPersist: true });
+  } else {
+    setMode('edit');
+  }
+  if (resolvedName) {
+    setCurrentCharacter(resolvedName);
+    syncMiniGamePlayerName();
+    writeLastSaveName(resolvedName);
+  }
+  queueCharacterConfirmation({
+    name: resolvedName || 'Character',
+    variant: 'loaded',
+    key: `cloud:${source || 'unknown'}:${resolvedName}:${payload?.meta?.savedAt ?? Date.now()}`,
+    meta: payload?.meta,
+  });
+}
+
+async function handleCloudSave() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to save to the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  const target = resolveSaveTargetName();
+  if (!target) {
+    setSaveLoadStatus('No character selected to save.', { type: 'error' });
+    toast('No character selected.', 'error');
+    return;
+  }
+  if (!confirm(`Save current progress for ${target}?`)) return;
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Saving to cloud…');
+  try {
+    const snapshot = createAppSnapshot();
+    const migrated = migrateSavePayload(snapshot);
+    const { payload } = buildCanonicalPayload(migrated);
+    const savedAt = Date.now();
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      name: target,
+      displayName: target,
+      ownerUid: uid,
+      uid,
+      savedAt,
+      updatedAt: savedAt,
+    };
+    payload.savedAt = payload.meta.savedAt;
+    payload.updatedAt = payload.meta.updatedAt;
+    payload.character = {
+      ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+      name: target,
+    };
+    const checksum = calculateSnapshotChecksum({ character: payload.character, ui: payload.ui });
+    payload.meta.checksum = checksum;
+    payload.checksum = checksum;
+    await saveCharacter(payload, target);
+    await saveCloudSave(uid, payload, { mirrorToRtdb: true });
+    markAutoSaveSynced(payload, JSON.stringify(payload));
+    cueSuccessfulSave();
+    setSaveLoadStatus('Cloud save complete.', { type: 'success' });
+    toast('Saved to cloud.', 'success');
+  } catch (err) {
+    console.error('Cloud save failed', err);
+    setSaveLoadStatus('Cloud save failed. Please try again.', { type: 'error' });
+    toast('Cloud save failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleCloudLoad() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to load from the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Loading cloud save…');
+  try {
+    const result = await loadCloudSave(uid);
+    if (!result || !result.data?.payload) {
+      setSaveLoadStatus('No cloud save found.', { type: 'error' });
+      toast('No cloud save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(result.data.payload);
+    applyCloudSnapshotPayload(payload, { source: result.source });
+    if (result.source === 'rtdb') {
+      setSaveLoadStatus('Loaded from legacy RTDB save. Use Recover Save to migrate.', { type: 'info' });
+    } else {
+      setSaveLoadStatus('Loaded from Firestore.', { type: 'success' });
+    }
+    toast('Cloud load complete.', 'success');
+  } catch (err) {
+    console.error('Cloud load failed', err);
+    setSaveLoadStatus('Cloud load failed. Please try again.', { type: 'error' });
+    toast('Cloud load failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleRecoverFromRTDB() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to recover from RTDB.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Recovering RTDB save…');
+  try {
+    const envelope = await recoverFromRTDB(uid);
+    if (!envelope?.payload) {
+      setSaveLoadStatus('No RTDB save found to recover.', { type: 'error' });
+      toast('No RTDB save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(envelope.payload);
+    applyCloudSnapshotPayload(payload, { source: 'rtdb' });
+    setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
+    toast('Recovery complete.', 'success');
+  } catch (err) {
+    console.error('Recover save failed', err);
+    setSaveLoadStatus('Recover failed. Please try again.', { type: 'error' });
+    toast('Recover failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+if (recoverBtn) {
+  recoverBtn.addEventListener('click', () => {
+    handleRecoverFromRTDB();
+  });
+}
+
+if (loadCloudBtn) {
+  loadCloudBtn.addEventListener('click', () => {
+    handleCloudLoad();
+  });
+}
+
 if (exportCharacterBtn) {
   exportCharacterBtn.addEventListener('click', async () => {
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Preparing export…');
     try {
-      const name = currentCharacter() || readLastSaveName();
+      const snapshot = createAppSnapshot();
+      const serialized = serializeSnapshotForExport(snapshot);
+      const payload = JSON.parse(serialized);
+      const name = payload?.meta?.name || payload?.character?.name || currentCharacter() || readLastSaveName();
       if (!name) {
+        setSaveLoadStatus('Select a character to export.', { type: 'error' });
         toast('Select a character to export.', 'info');
         return;
       }
-      const payload = await loadLocal(name);
-      const migrated = migrateSavePayload(payload);
-      const { payload: canonical } = buildCanonicalPayload(migrated);
-      const serialized = JSON.stringify(canonical, null, 2);
       const blob = new Blob([serialized], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -14166,10 +14379,15 @@ if (exportCharacterBtn) {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setSaveLoadStatus('Exported JSON file.', { type: 'success' });
       toast('Exported character JSON.', 'success');
     } catch (err) {
       console.error('Failed to export character', err);
+      setSaveLoadStatus('Failed to export character.', { type: 'error' });
       toast('Failed to export character.', 'error');
+    } finally {
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -14181,18 +14399,21 @@ if (importCharacterBtn && importCharacterFile) {
   importCharacterFile.addEventListener('change', async () => {
     const file = importCharacterFile.files?.[0];
     if (!file) return;
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Importing JSON…');
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const migrated = migrateSavePayload(parsed);
-      const { payload } = buildCanonicalPayload(migrated);
+      const payload = normalizeSnapshotPayload(parsed);
       const name = payload?.meta?.name || payload?.character?.name || '';
       if (!name) {
+        setSaveLoadStatus('Imported file missing character name.', { type: 'error' });
         toast('Imported file missing character name.', 'error');
         return;
       }
       const resolution = resolveImportName(name);
       if (resolution.decision === 'cancel') {
+        setSaveLoadStatus('Import cancelled.', { type: 'info' });
         toast('Import cancelled.', 'info');
         return;
       }
@@ -14215,12 +14436,16 @@ if (importCharacterBtn && importCharacterFile) {
       applyAppSnapshot(payloadWithName);
       setMode('edit');
       const suffix = resolution.decision === 'copy' ? ` as ${resolvedName}` : '';
+      setSaveLoadStatus('Imported JSON. Click Save to sync to cloud.', { type: 'success' });
       toast(`Imported ${name}${suffix}.`, 'success');
     } catch (err) {
       console.error('Failed to import character JSON', err);
+      setSaveLoadStatus('Failed to import character JSON.', { type: 'error' });
       toast('Failed to import character JSON.', 'error');
     } finally {
       importCharacterFile.value = '';
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -24763,62 +24988,12 @@ registerBootTask(() => {
   refreshSyncQueue();
 });
 
-$('btn-save').addEventListener('click', async () => {
-  const btn = $('btn-save');
-  let oldChar = currentCharacter();
-  if(!oldChar){
-    const stored = readLastSaveName();
-    if(stored && stored.trim()) oldChar = stored.trim();
-  }
-  const vig = $('superhero')?.value.trim();
-  const real = $('secret')?.value.trim();
-  let target = oldChar;
-  if (vig) {
-    target = vig;
-  } else if (!oldChar && real) {
-    target = real;
-  }
-  if (!target) return toast('No character selected', 'error');
-  if (!confirm(`Save current progress for ${target}?`)) return;
-  btn.classList.add('loading'); btn.disabled = true;
-  try {
-    const data = createAppSnapshot();
-    const serialized = JSON.stringify(data);
-    if (oldChar && vig && vig !== oldChar) {
-      await renameCharacter(oldChar, vig, data);
-    } else {
-      if (target !== oldChar) {
-        setCurrentCharacter(target);
-        syncMiniGamePlayerName();
-      }
-      await saveCharacter(data, target);
-    }
-    markAutoSaveSynced(data, serialized);
-    if (oldChar && vig && vig !== oldChar) {
-      queueCharacterConfirmation({
-        name: target,
-        variant: 'loaded',
-        key: `rename:${oldChar}:${target}:${data?.meta?.savedAt ?? Date.now()}`,
-        meta: data?.meta,
-      });
-    }
-    cueSuccessfulSave();
-    toast('Save successful', 'success');
-  } catch (e) {
-    console.error('Save failed', e);
-    if (isCharacterSaveQuotaError(e)) {
-      try {
-        await openCharacterList();
-      } catch (modalErr) {
-        console.error('Failed to open Load/Save panel after quota error', modalErr);
-      }
-    } else {
-      toast('Save failed', 'error');
-    }
-  } finally {
-    btn.classList.remove('loading'); btn.disabled = false;
-  }
-});
+const saveCloudButton = $('btn-save');
+if (saveCloudButton) {
+  saveCloudButton.addEventListener('click', () => {
+    handleCloudSave();
+  });
+}
 
 const heroInput = $('superhero');
 if (heroInput) {
@@ -25806,6 +25981,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
+    updateSaveLoadAuthState();
     return;
   }
   setActiveUserId('');
@@ -25823,6 +25999,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   welcomeSequenceComplete = false;
   updateWelcomeContinue();
   queueWelcomeModal({ immediate: true });
+  updateSaveLoadAuthState();
 }
 
 registerBootTask(() => {
