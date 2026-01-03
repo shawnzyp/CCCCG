@@ -2,6 +2,7 @@ const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
 const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
+const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
 
 let authInitPromise = null;
 let authInstance = null;
@@ -170,6 +171,85 @@ function fnv1aHash(input) {
     hash = (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
   }
   return hash.toString(16).padStart(8, '0');
+}
+
+function getPolicyFlagsFromPasswordPolicy(policy) {
+  const p = policy && typeof policy === 'object' ? policy : {};
+  return {
+    minLength: Number(p.minLength || p.minimumLength || 0) || 0,
+    requireUppercase: !!(p.requireUppercase || p.uppercaseRequired),
+    requireLowercase: !!(p.requireLowercase || p.lowercaseRequired),
+    requireNumber: !!(p.requireNumber || p.numberRequired),
+    requireSpecial: !!(p.requireSpecial || p.specialRequired),
+    disallowSpaces: !!(p.disallowSpaces || p.noSpaces),
+  };
+}
+
+function localPasswordBasicChecks(password, flags) {
+  if (typeof password !== 'string') {
+    return 'Password is required.';
+  }
+  const raw = password;
+  if (!raw) {
+    return 'Password is required.';
+  }
+  const minLen = flags.minLength > 0 ? flags.minLength : 8;
+  if (raw.length < minLen) {
+    return `Password must be at least ${minLen} characters.`;
+  }
+  if (flags.disallowSpaces && /\s/.test(raw)) {
+    return 'Password cannot contain spaces.';
+  }
+  if (flags.requireUppercase && !/[A-Z]/.test(raw)) {
+    return 'Password must include an uppercase letter.';
+  }
+  if (flags.requireLowercase && !/[a-z]/.test(raw)) {
+    return 'Password must include a lowercase letter.';
+  }
+  if (flags.requireNumber && !/[0-9]/.test(raw)) {
+    return 'Password must include a number.';
+  }
+  if (flags.requireSpecial && !/[^A-Za-z0-9]/.test(raw)) {
+    return 'Password must include a special character.';
+  }
+  return '';
+}
+
+async function assertPasswordCompliant(password) {
+  try {
+    const mod = await import('./password-policy.js');
+    const policy = mod?.PASSWORD_POLICY;
+    const flags = getPolicyFlagsFromPasswordPolicy(policy);
+
+    if (typeof mod?.getPasswordLengthError === 'function') {
+      const lengthError = mod.getPasswordLengthError(password, policy);
+      if (lengthError) {
+        throw new Error(lengthError);
+      }
+    } else {
+      const basicLenError = localPasswordBasicChecks(password, { ...flags, minLength: flags.minLength || 8 });
+      if (basicLenError) throw new Error(basicLenError);
+      return;
+    }
+
+    const otherError = localPasswordBasicChecks(password, flags);
+    if (otherError) {
+      throw new Error(otherError);
+    }
+    return;
+  } catch (err) {
+    const fallbackError = localPasswordBasicChecks(password, {
+      minLength: 8,
+      requireUppercase: false,
+      requireLowercase: false,
+      requireNumber: false,
+      requireSpecial: false,
+      disallowSpaces: false,
+    });
+    if (fallbackError) {
+      throw new Error(fallbackError);
+    }
+  }
 }
 
 async function hashPasswordWithSalt(password, salt) {
@@ -459,6 +539,7 @@ export function normalizeUsernameLocal(username) {
   if (!trimmed) return '';
   if (trimmed.length > 24) return '';
   if (!/^[a-z0-9._-]+$/.test(trimmed)) return '';
+  if (RESERVED_USERNAMES.has(trimmed)) return '';
   return trimmed;
 }
 
@@ -732,6 +813,9 @@ export async function signInWithUsernamePassword(username, password) {
     if (!normalized) {
       throw new Error('Username must use letters, numbers, periods, underscores, or dashes.');
     }
+    if (typeof password !== 'string' || !password) {
+      throw new Error('Invalid username or password.');
+    }
     const users = readLocalUsers();
     const record = users[normalized];
     if (!record?.uid || !record?.salt || !record?.pwHash) {
@@ -776,6 +860,7 @@ export async function createAccountWithUsernamePassword(username, password) {
     if (!normalized) {
       throw new Error('Username must use letters, numbers, periods, underscores, or dashes.');
     }
+    await assertPasswordCompliant(password);
     const users = readLocalUsers();
     if (users[normalized]) {
       throw new Error('Username unavailable');
