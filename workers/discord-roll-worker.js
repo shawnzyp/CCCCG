@@ -1,28 +1,21 @@
-const ALLOWED_ORIGINS = new Set([
-  'https://shawnzyp.github.io',
-  'http://localhost',
-  'http://127.0.0.1',
-]);
+const PRIMARY_ORIGIN = 'https://shawnzyp.github.io';
+const LOCALHOST_ORIGINS = new Set(['http://localhost', 'http://127.0.0.1']);
 
 function resolveCorsOrigin(origin) {
-  if (!origin) return '';
-  try {
-    const url = new URL(origin);
-    if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.protocol === 'http:') {
-      return origin;
-    }
-  } catch (_) {
-    return '';
+  if (origin && LOCALHOST_ORIGINS.has(origin)) {
+    return origin;
   }
-  return ALLOWED_ORIGINS.has(origin) ? origin : '';
+  return PRIMARY_ORIGIN;
 }
 
 function buildCorsHeaders(origin) {
   const allowedOrigin = resolveCorsOrigin(origin);
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-CCCG-Secret',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
   };
 }
 
@@ -56,71 +49,92 @@ function normalizePayload(payload) {
 
 function isAuthorized(request, secret) {
   if (!secret) return true;
-  const headerSecret = request.headers.get('X-CCCG-Secret');
-  const authHeader = request.headers.get('Authorization') || '';
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  return headerSecret === secret || bearer === secret;
+  const headerSecret = request.headers.get('X-CCCG-Secret') || '';
+  return headerSecret === secret;
 }
 
 async function forwardToDiscord(webhookUrl, payload) {
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const text = await response.text();
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        ok: false,
+        status: response.status,
+        body: text,
+      };
+    }
+    return { ok: true };
+  } catch (err) {
     return {
       ok: false,
-      status: response.status,
-      body: text,
+      status: 502,
+      body: err instanceof Error ? err.message : 'Discord request failed',
     };
   }
-  return { ok: true };
+}
+
+async function handleRequest(request, env) {
+  const url = new URL(request.url);
+  const origin = request.headers.get('Origin') || '';
+  const corsHeaders = buildCorsHeaders(origin);
+
+  if (url.pathname === '/roll' && request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (url.pathname === '/health' && request.method === 'GET') {
+    return new Response('ok', { status: 200, headers: corsHeaders });
+  }
+
+  if (url.pathname !== '/roll') {
+    return jsonResponse({ ok: false, status: 404, body: 'Not found' }, 404, origin);
+  }
+
+  if (request.method !== 'POST') {
+    return jsonResponse({ ok: false, status: 405, body: 'Method not allowed' }, 405, origin);
+  }
+
+  if (!env.DISCORD_WEBHOOK_URL) {
+    return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
+  }
+
+  if (!isAuthorized(request, env.CCCG_SECRET)) {
+    return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+  }
+
+  let payload = null;
+  try {
+    payload = await request.json();
+  } catch (err) {
+    return jsonResponse({ ok: false, status: 400, body: 'Invalid JSON payload' }, 400, origin);
+  }
+
+  const normalizedPayload = normalizePayload(payload);
+  if (!normalizedPayload) {
+    return jsonResponse({ ok: false, status: 400, body: 'Unsupported payload format' }, 400, origin);
+  }
+
+  const result = await forwardToDiscord(env.DISCORD_WEBHOOK_URL, normalizedPayload);
+  if (!result.ok) {
+    return jsonResponse({ ok: false, status: 502, body: result.body }, 502, origin);
+  }
+
+  return jsonResponse({ ok: true }, 200, origin);
 }
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
-    const corsHeaders = buildCorsHeaders(origin);
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders });
-    }
-
-    if (url.pathname !== '/roll') {
-      return jsonResponse({ ok: false, status: 404, body: 'Not found' }, 404, origin);
-    }
-
-    if (request.method !== 'POST') {
-      return jsonResponse({ ok: false, status: 405, body: 'Method not allowed' }, 405, origin);
-    }
-
-    if (!env.DISCORD_WEBHOOK_URL) {
-      return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
-    }
-
-    if (!isAuthorized(request, env.SHARED_SECRET)) {
-      return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
-    }
-
-    let payload = null;
     try {
-      payload = await request.json();
+      return await handleRequest(request, env);
     } catch (err) {
-      return jsonResponse({ ok: false, status: 400, body: 'Invalid JSON payload' }, 400, origin);
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      return jsonResponse({ ok: false, status: 500, body: message }, 500, origin);
     }
-
-    const normalizedPayload = normalizePayload(payload);
-    if (!normalizedPayload) {
-      return jsonResponse({ ok: false, status: 400, body: 'Unsupported payload format' }, 400, origin);
-    }
-
-    const result = await forwardToDiscord(env.DISCORD_WEBHOOK_URL, normalizedPayload);
-    if (!result.ok) {
-      return jsonResponse({ ok: false, status: 502, body: result.body }, 502, origin);
-    }
-
-    return jsonResponse({ ok: true }, 200, origin);
   },
 };
