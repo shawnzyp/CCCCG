@@ -19875,10 +19875,26 @@ function createCard(kind, pref = {}) {
           chk.type = 'checkbox';
           chk.dataset.f = f.f;
           chk.checked = !!pref[f.f];
-          if (kind === 'armor') {
+          if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
-              logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
+              if (kind === 'armor') {
+                logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
+              }
+              const character = getDiscordCharacterPayload();
+              if (character) {
+                void sendEventToDiscordWorker({
+                  type: 'gear.equip',
+                  actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+                  detail: {
+                    kind,
+                    name,
+                    equipped: chk.checked,
+                    characterId: character.id,
+                  },
+                  ts: Date.now(),
+                });
+              }
             });
           }
           label.appendChild(chk);
