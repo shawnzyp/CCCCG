@@ -2434,25 +2434,6 @@ function restoreUiAfterWelcome() {
         el.style.opacity = '';
       }
     });
-    '.app-shell',
-    '[data-launch-shell]',
-    '#phone',
-    '#player-os',
-  ];
-  selectors.forEach(selector => {
-    const el = document.querySelector(selector);
-    if (!el) return;
-    if (el.hidden) {
-      el.hidden = false;
-    }
-    if (el.classList?.contains('hidden')) {
-      el.classList.remove('hidden');
-    }
-    if (el.style) {
-      el.style.display = '';
-      el.style.visibility = '';
-      el.style.opacity = '';
-    }
   });
   scheduleFloatingLauncherClamp();
 }
