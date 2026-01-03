@@ -839,6 +839,12 @@ describe('Catalyst Core master application experience', () => {
     }
   });
 
+  test('exposes the Advanced Spellbook resource link', () => {
+    const link = document.querySelector('[data-resource-link="advanced-spellbook"]');
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toBe('https://amaranthpublishing.com/products/advanced-spellbook');
+  });
+
   test('stress tests interactive controls under rapid repeated interactions', async () => {
     const capturedErrors = [];
     const errorHandler = event => {
