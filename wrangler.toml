@@ -1,0 +1,7 @@
+name = "ccapp"
+main = "src/index.js"
+compatibility_date = "2026-01-03"
+workers_dev = true
+
+[observability]
+enabled = true
