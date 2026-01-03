@@ -463,6 +463,9 @@ describe('Catalyst Core master application experience', () => {
     jest.useFakeTimers();
     installDomScaffolding();
     installCoreMocks();
+    if (window.__CCCG_BOOT_STARTED__) {
+      delete window.__CCCG_BOOT_STARTED__;
+    }
 
     globalThis.fetch = jest.fn(async resource => readResourceFromDisk(typeof resource === 'string' ? resource : resource.url));
     globalThis.Response = Response;
@@ -590,6 +593,50 @@ describe('Catalyst Core master application experience', () => {
     if (capturedErrors.length > 0) {
       throw new Error(`Detected issues while exercising interactive elements: ${capturedErrors.map(String).join('\n')}`);
     }
+  });
+
+  test('closing the launch overlay moves focus before hiding', async () => {
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+
+    const launchEl = document.getElementById('launch-animation');
+    const skipLaunchButton = launchEl?.querySelector('[data-skip-launch]');
+    expect(launchEl).toBeTruthy();
+    expect(skipLaunchButton).toBeTruthy();
+    skipLaunchButton.focus();
+    expect(document.activeElement).toBe(skipLaunchButton);
+
+    skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await advanceAppTime(0);
+
+    const active = document.activeElement;
+    const stillFocusedInside = launchEl && active ? launchEl.contains(active) : false;
+    expect(stillFocusedInside).toBe(false);
+
+    if (launchEl && launchEl.isConnected) {
+      expect(launchEl.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  test('app shell is inert while launching and restored after skip', async () => {
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+
+    const appShell = document.querySelector('[data-launch-shell]');
+    expect(appShell).toBeTruthy();
+    expect(appShell.getAttribute('aria-hidden')).toBe('true');
+    expect(appShell.hasAttribute('inert')).toBe(true);
+
+    const skipLaunchButton = document.querySelector('[data-skip-launch]');
+    if (skipLaunchButton) {
+      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new Event('launch-animation-skip'));
+    }
+    await advanceAppTime(0);
+
+    expect(appShell.getAttribute('aria-hidden')).not.toBe('true');
+    expect(appShell.hasAttribute('inert')).toBe(false);
   });
 
   test('player tools drawer provides resilient interactions and status updates', async () => {
@@ -974,6 +1021,11 @@ describe('Catalyst Core master application experience', () => {
       window.dispatchEvent(new Event('launch-animation-skip'));
     }
     await advanceAppTime(1500);
+    const welcomeContinue = document.getElementById('welcome-continue');
+    if (welcomeContinue) {
+      welcomeContinue.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await advanceAppTime(0);
+    }
 
     const offlineButton = document.querySelector('[data-sync-prefetch]');
     const offlineStatus = document.querySelector('[data-sync-prefetch-status]');
@@ -983,13 +1035,20 @@ describe('Catalyst Core master application experience', () => {
     offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await advanceAppTime(0);
     await advanceAppTime(0);
+    for (let i = 0; i < 5 && cachePutCalls.length < manifest.assets.length; i += 1) {
+      await advanceAppTime(0);
+    }
+
+    for (let i = 0; i < 5 && !/Offline ready/i.test(offlineStatus.textContent); i += 1) {
+      await advanceAppTime(0);
+    }
 
     expect(mockCaches.open).toHaveBeenCalledWith(manifest.version);
     expect(cachePutCalls.length).toBeGreaterThanOrEqual(manifest.assets.length);
     expect(offlineStatus.textContent).toMatch(/Offline ready/i);
     expect(localStorage.getItem('cccg.offlineManifestVersion')).toBe(manifest.version);
 
-    window.navigator.onLine = false;
+    Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
     offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await advanceAppTime(0);
     expect(offlineStatus.textContent).toMatch(/Connect to the internet/i);
@@ -1014,5 +1073,59 @@ describe('Catalyst Core master application experience', () => {
     if (capturedErrors.length > 0) {
       throw new Error(`Detected issues while validating offline caching and floating launcher coverage: ${capturedErrors.map(String).join('\n')}`);
     }
+  });
+
+  test('cloud storage skips RTDB access when signed out', async () => {
+    const refCalls = [];
+    const storage = await import('../scripts/storage.js');
+    storage.setDatabaseRefFactory(path => {
+      refCalls.push(path);
+      return {
+        set: jest.fn().mockResolvedValue(),
+        once: jest.fn().mockResolvedValue({ val: () => ({}) }),
+        remove: jest.fn().mockResolvedValue(),
+        on: jest.fn(),
+        off: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+        orderByKey: jest.fn().mockReturnThis(),
+        limitToLast: jest.fn().mockReturnThis(),
+      };
+    });
+    storage.setActiveAuthUserId('');
+
+    await storage.listCloudSaves();
+    await storage.fetchCampaignLogEntries();
+    await storage.appendCampaignLogEntry({ id: 'entry-1', t: 1, name: 'Alpha', text: 'Test entry' });
+
+    storage.setDatabaseRefFactory(null);
+    expect(refCalls.length).toBe(0);
+  });
+
+  test('cloud storage uses uid scoped campaign log and save refs', async () => {
+    const refCalls = [];
+    const storage = await import('../scripts/storage.js');
+    storage.setDatabaseRefFactory(path => {
+      refCalls.push(path);
+      return {
+        set: jest.fn().mockResolvedValue(),
+        once: jest.fn().mockResolvedValue({ val: () => ({}) }),
+        remove: jest.fn().mockResolvedValue(),
+        on: jest.fn(),
+        off: jest.fn(),
+        child: jest.fn().mockReturnThis(),
+        orderByKey: jest.fn().mockReturnThis(),
+        limitToLast: jest.fn().mockReturnThis(),
+      };
+    });
+    storage.setActiveAuthUserId('user-123');
+
+    await storage.listCloudSaves();
+    await storage.fetchCampaignLogEntries();
+    await storage.appendCampaignLogEntry({ id: 'entry-2', t: 2, name: 'Beta', text: 'Second entry' });
+
+    storage.setDatabaseRefFactory(null);
+    expect(refCalls).toContain('saves/user-123');
+    expect(refCalls).toContain('campaignLogs/user-123');
+    expect(refCalls).toContain('campaignLogs/user-123/entry-2');
   });
 });

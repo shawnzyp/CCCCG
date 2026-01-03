@@ -24,6 +24,9 @@ let cloudSyncDisabled = false;
 let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
 let cloudSyncSupportToastShown = false;
+let cloudAuthNoticeShown = false;
+let topLevelRefWarningShown = false;
+let databaseRefFactory = null;
 
 if (cloudSyncUnsupported) {
   if (cloudSyncDisabledReason) {
@@ -706,7 +709,7 @@ function isCloudSyncAvailable() {
 
 function showToast(message, type = 'info') {
   try {
-    toast(message, type);
+    toast(message, { type });
   } catch {}
 }
 
@@ -718,6 +721,12 @@ function showCloudSyncUnsupportedNotice() {
   } catch (err) {
     console.error('Failed to display cloud sync support notice', err);
   }
+}
+
+function showCloudAuthRequiredNotice() {
+  if (cloudAuthNoticeShown) return;
+  cloudAuthNoticeShown = true;
+  showToast('Cloud sync requires sign-in.', 'info');
 }
 
 function disableCloudSync(reason) {
@@ -1004,8 +1013,23 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 }
 
 async function getDatabaseRef(path) {
+  const isDevHost = typeof window !== 'undefined'
+    && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1');
+  if (isDevHost && !topLevelRefWarningShown) {
+    if (path === CLOUD_SAVES_PATH || path === CLOUD_CAMPAIGN_LOG_PATH) {
+      topLevelRefWarningShown = true;
+      console.warn('Detected top-level RTDB ref. Use UID-scoped paths for saves and campaign logs.', { path });
+    }
+  }
+  if (typeof databaseRefFactory === 'function') {
+    return databaseRefFactory(path);
+  }
   const db = await getFirebaseDatabase();
   return db.ref(path);
+}
+
+export function setDatabaseRefFactory(factory) {
+  databaseRefFactory = typeof factory === 'function' ? factory : null;
 }
 
 function getServerTimestampValue() {
@@ -1016,11 +1040,13 @@ async function getCloudUrlsForOutbox() {
   const db = await getFirebaseDatabase();
   const databaseURL = db?.app?.options?.databaseURL;
   if (!databaseURL) return null;
+  const userPaths = getActiveUserPaths({ notify: false });
+  if (!userPaths) return null;
   const base = databaseURL.replace(/\/$/, '');
   return {
-    savesUrl: `${base}/${CLOUD_SAVES_PATH}`,
-    historyUrl: `${base}/${CLOUD_HISTORY_PATH}`,
-    autosavesUrl: `${base}/${CLOUD_AUTOSAVES_PATH}`,
+    savesUrl: `${base}/${userPaths.savesPath}`,
+    historyUrl: `${base}/${userPaths.historyPath}`,
+    autosavesUrl: `${base}/${userPaths.autosavesPath}`,
   };
 }
 
@@ -1051,10 +1077,23 @@ function getUserPaths(uid) {
     charactersPath: `${CLOUD_CHARACTERS_PATH}/${encodedUid}`,
     autosavesPath: `${CLOUD_AUTOSAVES_PATH}/${encodedUid}`,
     historyPath: `${CLOUD_HISTORY_PATH}/${encodedUid}`,
+    savesPath: `${CLOUD_SAVES_PATH}/${encodedUid}`,
+    campaignLogPath: `${CLOUD_CAMPAIGN_LOG_PATH}/${encodedUid}`,
     profilePath: `${CLOUD_USERS_PATH}/${encodedUid}/profile`,
     charactersIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/charactersIndex`,
     autosaveIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/autosaves`,
   };
+}
+
+function getActiveUserPaths({ notify = false } = {}) {
+  const uid = activeAuthUserId;
+  if (!uid) {
+    if (notify) {
+      showCloudAuthRequiredNotice();
+    }
+    return null;
+  }
+  return getUserPaths(uid);
 }
 
 export function buildUserCharacterPath(uid, characterId) {
@@ -1234,7 +1273,13 @@ async function attemptCloudSave(name, payload, ts) {
     error.cause = serialized.error;
     throw error;
   }
-  const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+  const userPaths = getActiveUserPaths();
+  if (!userPaths) {
+    const error = new Error('Cloud sync requires sign-in.');
+    error.name = 'AuthRequired';
+    throw error;
+  }
+  const ref = await getDatabaseRef(`${userPaths.savesPath}/${encodePath(name)}`);
   await ref.set(serialized.value);
 
   try {
@@ -1251,7 +1296,7 @@ async function attemptCloudSave(name, payload, ts) {
   }
 
   try {
-    await saveHistoryEntry(CLOUD_HISTORY_PATH, name, serialized.value, ts);
+    await saveHistoryEntry(userPaths.historyPath, name, serialized.value, ts);
   } catch (err) {
     console.warn('Failed to update cloud save history after successful save', err);
     emitSyncError({
@@ -1266,6 +1311,8 @@ async function attemptCloudSave(name, payload, ts) {
 }
 
 export async function appendCampaignLogEntry(entry = {}) {
+  const userPaths = getActiveUserPaths();
+  if (!userPaths) return null;
   const id = typeof entry.id === 'string' && entry.id ? entry.id : String(nextCampaignLogTimestamp());
   let ts = typeof entry.t === 'number' && Number.isFinite(entry.t) ? entry.t : Date.now();
   if (!Number.isFinite(ts) || ts <= 0) {
@@ -1289,7 +1336,7 @@ export async function appendCampaignLogEntry(entry = {}) {
     error.cause = serialized.error;
     throw error;
   }
-  const ref = await getDatabaseRef(`${CLOUD_CAMPAIGN_LOG_PATH}/${encodePath(id)}`);
+  const ref = await getDatabaseRef(`${userPaths.campaignLogPath}/${encodePath(id)}`);
   await ref.set(serialized.value);
 
   return { ...payload, id };
@@ -1297,12 +1344,16 @@ export async function appendCampaignLogEntry(entry = {}) {
 
 export async function deleteCampaignLogEntry(id) {
   if (typeof id !== 'string' || !id) return;
-  const ref = await getDatabaseRef(`${CLOUD_CAMPAIGN_LOG_PATH}/${encodePath(id)}`);
+  const userPaths = getActiveUserPaths();
+  if (!userPaths) return;
+  const ref = await getDatabaseRef(`${userPaths.campaignLogPath}/${encodePath(id)}`);
   await ref.remove();
 }
 
 export async function fetchCampaignLogEntries() {
-  const ref = await getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH);
+  const userPaths = getActiveUserPaths();
+  if (!userPaths) return [];
+  const ref = await getDatabaseRef(userPaths.campaignLogPath);
   const snapshot = await ref.once('value');
   const data = snapshot.val();
   if (!data) return [];
@@ -1330,12 +1381,19 @@ export async function fetchCampaignLogEntries() {
 
 export function subscribeCampaignLog(onChange) {
   try {
+    const userPaths = getActiveUserPaths();
+    if (!userPaths) {
+      if (typeof onChange === 'function') {
+        onChange();
+      }
+      return null;
+    }
     const handler = () => {
       if (typeof onChange === 'function') {
         onChange();
       }
     };
-    getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH)
+    getDatabaseRef(userPaths.campaignLogPath)
       .then(ref => {
         ref.on('value', handler);
       })
@@ -1348,7 +1406,7 @@ export function subscribeCampaignLog(onChange) {
     }
 
     return () => {
-      getDatabaseRef(CLOUD_CAMPAIGN_LOG_PATH)
+      getDatabaseRef(userPaths.campaignLogPath)
         .then(ref => ref.off('value', handler))
         .catch(() => {});
     };
@@ -1548,6 +1606,10 @@ export async function saveCloud(name, payload) {
     showCloudSyncUnsupportedNotice();
     return 'disabled';
   }
+  if (!activeAuthUserId) {
+    showCloudAuthRequiredNotice();
+    return 'disabled';
+  }
   if (!isNavigatorOffline()) {
     offlineQueueToastShown = false;
   }
@@ -1597,9 +1659,8 @@ export async function saveCloudAutosave(name, payload) {
     throw error;
   }
   if (!userPaths) {
-    const error = new Error('Autosave requires login');
-    error.name = 'InvalidAutosaveKey';
-    throw error;
+    showCloudAuthRequiredNotice();
+    return null;
   }
   const autosaveKey = characterId;
   const autosavePath = autosaveKey
@@ -1796,7 +1857,11 @@ export async function deleteCloudCharacter(uid, characterId) {
 export async function loadCloud(name, { signal } = {}) {
   try {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+    const userPaths = getActiveUserPaths({ notify: true });
+    if (!userPaths) {
+      throw new Error('Cloud sync requires sign-in.');
+    }
+    const ref = await getDatabaseRef(`${userPaths.savesPath}/${encodePath(name)}`);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (val !== null) return val;
@@ -1811,7 +1876,9 @@ export async function loadCloud(name, { signal } = {}) {
 
 export async function deleteCloud(name) {
   try {
-    const ref = await getDatabaseRef(`${CLOUD_SAVES_PATH}/${encodePath(name)}`);
+    const userPaths = getActiveUserPaths({ notify: true });
+    if (!userPaths) return;
+    const ref = await getDatabaseRef(`${userPaths.savesPath}/${encodePath(name)}`);
     await ref.remove();
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
@@ -1821,9 +1888,11 @@ export async function deleteCloud(name) {
   }
 }
 
-export async function listCloudSaves() {
+export async function listCloudSaves({ notify = false } = {}) {
   try {
-    const ref = await getDatabaseRef(CLOUD_SAVES_PATH);
+    const userPaths = getActiveUserPaths({ notify });
+    if (!userPaths) return [];
+    const ref = await getDatabaseRef(userPaths.savesPath);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     // Keys in the realtime database are URL-encoded because we escape them when
@@ -1835,9 +1904,11 @@ export async function listCloudSaves() {
   }
 }
 
-export async function listCloudBackups(name) {
+export async function listCloudBackups(name, { notify = true } = {}) {
   try {
-    const ref = await getDatabaseRef(`${CLOUD_HISTORY_PATH}/${encodePath(name)}`);
+    const userPaths = getActiveUserPaths({ notify });
+    if (!userPaths) return [];
+    const ref = await getDatabaseRef(`${userPaths.historyPath}/${encodePath(name)}`);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     return val
@@ -1854,8 +1925,7 @@ export async function listCloudBackups(name) {
 
 export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   try {
-    const uid = activeAuthUserId;
-    const userPaths = uid ? getUserPaths(uid) : null;
+    const userPaths = getActiveUserPaths();
     if (!userPaths) return [];
     const autosaveKey = characterId;
     if (!autosaveKey) return [];
@@ -1877,7 +1947,9 @@ export async function listCloudAutosaves(name, { characterId = '' } = {}) {
 
 export async function listCloudBackupNames() {
   try {
-    const ref = await getDatabaseRef(CLOUD_HISTORY_PATH);
+    const userPaths = getActiveUserPaths();
+    if (!userPaths) return [];
+    const ref = await getDatabaseRef(userPaths.historyPath);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
@@ -1889,8 +1961,7 @@ export async function listCloudBackupNames() {
 
 export async function listCloudAutosaveNames() {
   try {
-    const uid = activeAuthUserId;
-    const userPaths = uid ? getUserPaths(uid) : null;
+    const userPaths = getActiveUserPaths();
     if (!userPaths) return [];
     const indexRef = await getDatabaseRef(userPaths.autosaveIndexPath);
     const indexSnapshot = await indexRef.once('value');
@@ -1930,7 +2001,11 @@ export async function listCloudAutosaveNames() {
 
 export async function loadCloudBackup(name, ts) {
   try {
-    const ref = await getDatabaseRef(`${CLOUD_HISTORY_PATH}/${encodePath(name)}/${ts}`);
+    const userPaths = getActiveUserPaths();
+    if (!userPaths) {
+      throw new Error('Cloud sync requires sign-in.');
+    }
+    const ref = await getDatabaseRef(`${userPaths.historyPath}/${encodePath(name)}/${ts}`);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (val !== null) return val;
@@ -1942,8 +2017,7 @@ export async function loadCloudBackup(name, ts) {
 
 export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   try {
-    const uid = activeAuthUserId;
-    const urls = getUserPaths(uid);
+    const urls = getActiveUserPaths();
     const autosaveKey = characterId;
     if (!urls || !autosaveKey) throw new Error('Invalid autosave key');
     const ref = await getDatabaseRef(`${urls.autosavesPath}/${encodePath(autosaveKey)}/${ts}`);
@@ -2102,8 +2176,12 @@ export function subscribeCloudSaves(onChange = cacheCloudSaves) {
       }
       return null;
     }
+    const userPaths = getActiveUserPaths();
+    if (!userPaths) {
+      return null;
+    }
     const handler = () => onChange();
-    getDatabaseRef(CLOUD_SAVES_PATH)
+    getDatabaseRef(userPaths.savesPath)
       .then(ref => {
         ref.on('value', handler);
       })
@@ -2113,7 +2191,7 @@ export function subscribeCloudSaves(onChange = cacheCloudSaves) {
 
     onChange();
     return () => {
-      getDatabaseRef(CLOUD_SAVES_PATH)
+      getDatabaseRef(userPaths.savesPath)
         .then(ref => ref.off('value', handler))
         .catch(() => {});
     };

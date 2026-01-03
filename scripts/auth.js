@@ -1,6 +1,7 @@
 const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
 const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
+const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 
 let authInitPromise = null;
 let authInstance = null;
@@ -20,6 +21,8 @@ let authState = {
   user: null,
   isDm: false,
 };
+let authDomainWarningShown = false;
+let pendingAuthDomainWarning = null;
 const authListeners = new Set();
 
 function getFirebaseConfig() {
@@ -101,6 +104,37 @@ function logEffectiveFirebaseConfig(config) {
   });
 }
 
+function shouldShowAuthDiagnostics() {
+  if (typeof window === 'undefined') return false;
+  const host = window?.location?.hostname || '';
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  const debugFlag = window.__CCCG_DEBUG__ === true;
+  return isLocal || authState.isDm || debugFlag;
+}
+
+function showAuthDomainWarningBanner() {
+  if (typeof document === 'undefined') return;
+  const banner = document.querySelector('[data-sync-auth-domain-warning]');
+  if (!banner) return false;
+  banner.textContent = AUTH_DOMAIN_WARNING_MESSAGE;
+  banner.hidden = false;
+  banner.removeAttribute('hidden');
+  return true;
+}
+
+function maybeShowAuthDomainWarning() {
+  if (authDomainWarningShown || !pendingAuthDomainWarning) return;
+  if (!shouldShowAuthDiagnostics()) return;
+  const shown = showAuthDomainWarningBanner();
+  if (shown) {
+    authDomainWarningShown = true;
+  }
+}
+
+export function renderAuthDomainDiagnostics() {
+  maybeShowAuthDomainWarning();
+}
+
 function exposeFirebaseDebugHelper() {
   if (typeof window === 'undefined') return;
   window.__CCCG_DEBUG_FIREBASE__ = () => {
@@ -146,6 +180,8 @@ function warnIfProjectConfigMismatch(config) {
         host,
         authDomain
       });
+      pendingAuthDomainWarning = { host };
+      maybeShowAuthDomainWarning();
     }
   }
 }
@@ -310,6 +346,7 @@ async function initializeAuthInternal() {
         console.warn('Failed to sync profile username', err);
       });
     }
+    maybeShowAuthDomainWarning();
   });
   authInstance = auth;
   return auth;

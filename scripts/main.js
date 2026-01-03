@@ -43,6 +43,7 @@ import {
   normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
+  renderAuthDomainDiagnostics,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -2498,6 +2499,75 @@ function ensureDefaultMainTab(preferred = 'combat') {
   return activateTab(fallbackTarget);
 }
 
+function focusAfterLaunchOverlay() {
+  const sentinel = document.getElementById('app-root-focus-sentinel');
+  const fallback = qs('.tab[data-go]') || qs('[data-launch-shell]');
+  const target = sentinel || fallback;
+  if (target && typeof target.focus === 'function') {
+    try {
+      target.focus({ preventScroll: true });
+      return;
+    } catch {}
+    try {
+      target.focus();
+    } catch {}
+  }
+}
+
+function setAppShellInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
+  if (!appShell) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && appShell.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
+  try {
+    if (shouldBeInteractive) {
+      appShell.removeAttribute('aria-hidden');
+      appShell.removeAttribute('inert');
+      if ('inert' in appShell) appShell.inert = false;
+    } else {
+      appShell.setAttribute('aria-hidden', 'true');
+      appShell.setAttribute('inert', '');
+      if ('inert' in appShell) appShell.inert = true;
+    }
+  } catch {}
+}
+
+function setLaunchOverlayInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const launchEl = document.getElementById('launch-animation');
+  if (!launchEl) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && launchEl.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
+  try {
+    if (shouldBeInteractive) {
+      launchEl.setAttribute('aria-hidden', 'false');
+      launchEl.removeAttribute('inert');
+      if ('inert' in launchEl) launchEl.inert = false;
+    } else {
+      launchEl.setAttribute('aria-hidden', 'true');
+      launchEl.setAttribute('inert', '');
+      if ('inert' in launchEl) launchEl.inert = true;
+    }
+  } catch {}
+}
+
 function forceBootUI(reason = 'launch-failsafe') {
   if (launchFailsafeTriggered) return;
   launchFailsafeTriggered = true;
@@ -2507,6 +2577,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   }
   welcomeModalDismissed = true;
   welcomeSequenceComplete = true;
+  hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   unlockTouchControls({ immediate: true });
   restoreUiAfterWelcome();
@@ -2527,7 +2598,9 @@ function forceBootUI(reason = 'launch-failsafe') {
   const launchShell = typeof document !== 'undefined'
     ? document.getElementById('launch-animation')
     : null;
+  setAppShellInteractive(true);
   if (launchShell && launchShell.parentNode) {
+    setLaunchOverlayInteractive(false);
     launchShell.parentNode.removeChild(launchShell);
   }
   markLaunchSequenceComplete();
@@ -2537,12 +2610,9 @@ function forceBootUI(reason = 'launch-failsafe') {
 function hideWelcomeModalPanel() {
   const modal = getWelcomeModal();
   if (!modal) return;
-  const panel = modal.querySelector('.modal--welcome, .modal');
-  if (panel) {
-    panel.classList.add('hidden');
-    panel.setAttribute('aria-hidden', 'true');
-    panel.style.display = 'none';
-  }
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.style.display = 'none';
 }
 
 function prepareWelcomeModal() {
@@ -2659,10 +2729,10 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   const modal = getWelcomeModal();
   focusAfterWelcomeClose(modal);
-  hide(WELCOME_MODAL_ID);
   restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
@@ -2708,7 +2778,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 }
 async function setupLaunchAnimation(){
   try {
-    if (typeof document === 'undefined' || IS_JSDOM_ENV) {
+    if (typeof document === 'undefined') {
       unlockTouchControls();
       queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
@@ -2716,19 +2786,12 @@ async function setupLaunchAnimation(){
     }
     const body = document.body;
     if(!body || !body.classList.contains('launching')){
+      setAppShellInteractive(true);
       unlockTouchControls();
       queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
       return;
     }
-
-    lockTouchControls();
-    queueWelcomeModal({ preload: true });
-    queueWelcomeModal({ immediate: true });
-    clearLaunchFailsafeTimer();
-    launchFailsafeTimer = window.setTimeout(() => {
-      forceBootUI('launch-timeout');
-    }, LAUNCH_FAILSAFE_MS);
 
     const launchEl = document.getElementById('launch-animation');
     const video = launchEl ? launchEl.querySelector('video') : null;
@@ -2740,6 +2803,45 @@ async function setupLaunchAnimation(){
     let cleanupMessaging = null;
     let bypassLaunchMinimum = false;
     const userGestureListeners = [];
+
+    setAppShellInteractive(false);
+    if (launchEl) {
+      setLaunchOverlayInteractive(true);
+    }
+
+    if (IS_JSDOM_ENV) {
+      const completeLaunch = () => {
+        if (!body.classList.contains('launching')) return;
+        body.classList.remove('launching');
+        setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
+        markLaunchSequenceComplete();
+        queueWelcomeModal({ immediate: true });
+      };
+      if (skipButton) {
+        skipButton.addEventListener('click', event => {
+          event.preventDefault();
+          completeLaunch();
+        });
+      }
+      window.addEventListener('launch-animation-skip', completeLaunch, { once: true });
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => completeLaunch());
+      } else {
+        window.setTimeout(() => completeLaunch(), 0);
+      }
+      return;
+    }
+
+    lockTouchControls();
+    queueWelcomeModal({ preload: true });
+    queueWelcomeModal({ immediate: true });
+    clearLaunchFailsafeTimer();
+    launchFailsafeTimer = window.setTimeout(() => {
+      forceBootUI('launch-timeout');
+    }, LAUNCH_FAILSAFE_MS);
 
   const clearTimer = timer => {
     if(timer){
@@ -2777,12 +2879,14 @@ async function setupLaunchAnimation(){
     cleanupMessaging = null;
   };
 
-    const finalizeReveal = () => {
-      if (launchFailsafeTriggered) return;
-      clearLaunchFailsafeTimer();
-      body.classList.remove('launching');
-      unlockTouchControls({ immediate: true });
-      markLaunchSequenceComplete();
+      const finalizeReveal = () => {
+        if (launchFailsafeTriggered) return;
+        clearLaunchFailsafeTimer();
+        setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
+        body.classList.remove('launching');
+        unlockTouchControls({ immediate: true });
+        markLaunchSequenceComplete();
       queueWelcomeModal({ immediate: true });
       if(launchEl){
         launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
@@ -13695,10 +13799,6 @@ registerBootTask(() => {
   }
 });
 
-registerBootTask(() => {
-  subscribeCampaignLog(refreshCampaignLogFromCloud);
-  refreshCampaignLogFromCloud();
-});
 const btnLog = $('btn-log');
 registerBootTask(() => {
   if (btnLog) {
@@ -23956,6 +24056,7 @@ const syncPanelRetryBtn = syncPanel?.querySelector('[data-sync-retry]');
 const syncPanelClearErrorsBtn = syncPanel?.querySelector('[data-sync-clear-errors]');
 const syncPanelClearQueueBtn = syncPanel?.querySelector('[data-sync-clear-queue]');
 const syncPanelCloseBtn = syncPanel?.querySelector('[data-sync-close]');
+const syncPanelAuthRequiredEl = syncPanel?.querySelector('[data-sync-auth-required]');
 
 const SYNC_STATUS_LABELS = {
   online: 'Online',
@@ -24050,6 +24151,20 @@ function formatRelativeTime(timestamp) {
     }
   }
   return '';
+}
+
+function updateSyncAuthRequiredNote() {
+  if (!syncPanelAuthRequiredEl) return;
+  const { uid } = getAuthState();
+  if (!uid) {
+    syncPanelAuthRequiredEl.textContent = 'Sign in to enable cloud sync and multi-device saves.';
+    syncPanelAuthRequiredEl.hidden = false;
+    syncPanelAuthRequiredEl.removeAttribute('hidden');
+  } else {
+    syncPanelAuthRequiredEl.hidden = true;
+    syncPanelAuthRequiredEl.textContent = '';
+    syncPanelAuthRequiredEl.setAttribute('hidden', 'true');
+  }
 }
 
 const syncPanelOfflineBtn = syncPanel?.querySelector('[data-sync-prefetch]');
@@ -24437,6 +24552,8 @@ function toggleSyncPanel(forceOpen) {
     refreshSyncQueue();
     renderSyncErrors();
     updateLastSyncDisplay();
+    renderAuthDomainDiagnostics();
+    updateSyncAuthRequiredNote();
     requestAnimationFrame(() => {
       const focusTarget = syncPanelCloseBtn || syncPanel;
       try { focusTarget.focus({ preventScroll: true }); } catch {}
@@ -25562,7 +25679,7 @@ async function refreshClaimModal() {
     claimLegacyList.textContent = '';
     let legacyCloud = [];
     try {
-      legacyCloud = await listCloudSaves();
+      legacyCloud = await listCloudSaves({ notify: true });
     } catch (err) {
       console.warn('Failed to list legacy cloud saves', err);
     }
@@ -25606,6 +25723,36 @@ function createNewCharacterFromModal() {
   toast(`Switched to ${clean}`, 'success');
 }
 
+let cloudSaveUnsubscribe = null;
+let campaignLogUnsubscribe = null;
+
+function clearCloudSubscriptions() {
+  if (typeof cloudSaveUnsubscribe === 'function') {
+    try {
+      cloudSaveUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from cloud saves', err);
+    }
+  }
+  if (typeof campaignLogUnsubscribe === 'function') {
+    try {
+      campaignLogUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from campaign log', err);
+    }
+  }
+  cloudSaveUnsubscribe = null;
+  campaignLogUnsubscribe = null;
+}
+
+function syncCloudSubscriptions(uid) {
+  clearCloudSubscriptions();
+  if (!uid) return;
+  cloudSaveUnsubscribe = subscribeCloudSaves();
+  campaignLogUnsubscribe = subscribeCampaignLog(refreshCampaignLogFromCloud);
+  refreshCampaignLogFromCloud();
+}
+
 function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
   setClaimTokenAdminVisibility(!!isDm);
@@ -25614,6 +25761,8 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
     writeLastUserUid(uid);
+    syncCloudSubscriptions(uid);
+    updateSyncAuthRequiredNote();
     welcomeModalDismissed = true;
     dismissWelcomeModal();
     updateWelcomeContinue();
@@ -25642,6 +25791,8 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   }
   setActiveUserId('');
   setActiveAuthUserId('');
+  syncCloudSubscriptions('');
+  updateSyncAuthRequiredNote();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
   if (!hasLocalSave && offlineBlankActive) {
@@ -25965,7 +26116,6 @@ registerBootTask(() => {
     })
     .catch(() => {});
 }
-  subscribeCloudSaves();
 });
 
 // == Resonance Points (RP) Module ============================================
