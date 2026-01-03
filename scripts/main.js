@@ -206,6 +206,11 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+const bootScope = typeof window !== 'undefined' ? window : null;
+const bootAlreadyStarted = !!(bootScope && bootScope.__CCCG_BOOT_STARTED__);
+if (bootScope && !bootScope.__CCCG_BOOT_STARTED__) {
+  bootScope.__CCCG_BOOT_STARTED__ = true;
+}
 
 function cancelFx(el) {
   if (!el) return;
@@ -2181,6 +2186,7 @@ const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 const LAUNCH_DURATION_MS = 8000;
 const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
+const LAUNCH_FAILSAFE_MS = 2500;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const WELCOME_SEEN_KEY_PREFIX = 'cc:welcome-seen:';
@@ -2193,6 +2199,8 @@ let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
+let launchFailsafeTimer = null;
+let launchFailsafeTriggered = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2438,6 +2446,40 @@ function restoreUiAfterWelcome() {
   scheduleFloatingLauncherClamp();
 }
 
+function clearLaunchFailsafeTimer() {
+  if (!launchFailsafeTimer) return;
+  try {
+    clearTimeout(launchFailsafeTimer);
+  } catch {}
+  launchFailsafeTimer = null;
+}
+
+function ensureDefaultMainTab(preferred = 'combat') {
+  const active = getActiveTab();
+  if (active && qs(`.tab[data-go="${active}"]`)) return true;
+  const fallbackButton = qs(`.tab[data-go="${preferred}"]`) || qs('.tab[data-go]');
+  const fallbackTarget = fallbackButton ? fallbackButton.getAttribute('data-go') : null;
+  if (!fallbackTarget) return false;
+  return activateTab(fallbackTarget);
+}
+
+function forceBootUI(reason = 'launch-failsafe') {
+  if (launchFailsafeTriggered) return;
+  launchFailsafeTriggered = true;
+  clearLaunchFailsafeTimer();
+  if (reason) {
+    console.warn(`Forcing UI boot (${reason}).`);
+  }
+  unlockTouchControls({ immediate: true });
+  restoreUiAfterWelcome();
+  const body = typeof document !== 'undefined' ? document.body : null;
+  if (body && body.classList.contains('launching')) {
+    body.classList.remove('launching');
+  }
+  markLaunchSequenceComplete();
+  ensureDefaultMainTab('combat');
+}
+
 function hideWelcomeModalPanel() {
   const modal = getWelcomeModal();
   if (!modal) return;
@@ -2611,34 +2653,43 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
-  if (typeof document === 'undefined' || IS_JSDOM_ENV) {
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
-  const body = document.body;
-  if(!body || !body.classList.contains('launching')){
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
+  try {
+    if (bootAlreadyStarted) {
+      forceBootUI('duplicate-boot');
+      return;
+    }
+    if (typeof document === 'undefined' || IS_JSDOM_ENV) {
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      markLaunchSequenceComplete();
+      return;
+    }
+    const body = document.body;
+    if(!body || !body.classList.contains('launching')){
+      unlockTouchControls();
+      queueWelcomeModal({ immediate: true });
+      markLaunchSequenceComplete();
+      return;
+    }
 
-  lockTouchControls();
-  queueWelcomeModal({ preload: true });
-  queueWelcomeModal({ immediate: true });
+    lockTouchControls();
+    queueWelcomeModal({ preload: true });
+    queueWelcomeModal({ immediate: true });
+    clearLaunchFailsafeTimer();
+    launchFailsafeTimer = window.setTimeout(() => {
+      forceBootUI('launch-timeout');
+    }, LAUNCH_FAILSAFE_MS);
 
-  const launchEl = document.getElementById('launch-animation');
-  const video = launchEl ? launchEl.querySelector('video') : null;
-  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  let revealCalled = false;
-  let playbackStartedAt = null;
-  let fallbackTimer = null;
-  let awaitingGesture = false;
-  let cleanupMessaging = null;
-  let bypassLaunchMinimum = false;
-  const userGestureListeners = [];
+    const launchEl = document.getElementById('launch-animation');
+    const video = launchEl ? launchEl.querySelector('video') : null;
+    const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+    let revealCalled = false;
+    let playbackStartedAt = null;
+    let fallbackTimer = null;
+    let awaitingGesture = false;
+    let cleanupMessaging = null;
+    let bypassLaunchMinimum = false;
+    const userGestureListeners = [];
 
   const clearTimer = timer => {
     if(timer){
@@ -2676,16 +2727,17 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     cleanupMessaging = null;
   };
 
-  const finalizeReveal = () => {
-    body.classList.remove('launching');
-    unlockTouchControls({ immediate: true });
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
-      window.setTimeout(cleanupLaunchShell, 1000);
-    }
-  };
+    const finalizeReveal = () => {
+      clearLaunchFailsafeTimer();
+      body.classList.remove('launching');
+      unlockTouchControls({ immediate: true });
+      markLaunchSequenceComplete();
+      queueWelcomeModal({ immediate: true });
+      if(launchEl){
+        launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
+        window.setTimeout(cleanupLaunchShell, 1000);
+      }
+    };
 
   const revealApp = () => {
     if(revealCalled) return;
@@ -2929,20 +2981,21 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       .catch(() => {});
   };
 
-  const finalizeLaunch = () => {
-    if(revealCalled) return;
-    fallbackTimer = clearTimer(fallbackTimer);
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
+    const finalizeLaunch = () => {
+      if(revealCalled) return;
+      clearLaunchFailsafeTimer();
+      fallbackTimer = clearTimer(fallbackTimer);
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      if(!IS_JSDOM_ENV){
+        try {
+          video.pause();
+        } catch {
+          /* ignore inability to pause */
+        }
+        notifyServiceWorkerVideoPlayed();
       }
-      notifyServiceWorkerVideoPlayed();
-    }
-    revealApp();
-  };
+      revealApp();
+    };
 
   if(skipButton){
     skipButton.addEventListener('click', event => {
@@ -3087,16 +3140,20 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     scheduleFallback(LAUNCH_MAX_WAIT);
   };
 
-  if(video.readyState >= 1){
-    beginPlayback();
-  } else {
-    video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-    try {
-      video.load();
-    } catch (err) {
-      // ignore load failures while waiting for metadata
+    if(video.readyState >= 1){
+      beginPlayback();
+    } else {
+      video.addEventListener('loadedmetadata', beginPlayback, { once: true });
+      try {
+        video.load();
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
+      scheduleFallback(LAUNCH_MAX_WAIT);
     }
-    scheduleFallback(LAUNCH_MAX_WAIT);
+  } catch (err) {
+    console.error('Launch animation failed; continuing boot.', err);
+    forceBootUI('launch-error');
   }
 })();
 
@@ -4502,32 +4559,36 @@ const handleTabActivation = (btn, target) => {
 let lastInstantTabTarget = '';
 let lastInstantTabTime = 0;
 
-tabButtons.forEach(btn => {
-  btn.addEventListener('pointerdown', event => {
-    if (!isInstantPointerEvent(event)) return;
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    if (handleTabActivation(btn, target)) {
-      lastInstantTabTarget = target;
-      lastInstantTabTime = getPointerTimestamp();
-    }
-  });
+if (!bootAlreadyStarted) {
+  tabButtons.forEach(btn => {
+    btn.addEventListener('pointerdown', event => {
+      if (!isInstantPointerEvent(event)) return;
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      if (handleTabActivation(btn, target)) {
+        lastInstantTabTarget = target;
+        lastInstantTabTime = getPointerTimestamp();
+      }
+    });
 
-  btn.addEventListener('click', () => {
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    const now = getPointerTimestamp();
-    if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-      return;
-    }
-    if (!handleTabActivation(btn, target)) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-    }
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      const now = getPointerTimestamp();
+      if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+        return;
+      }
+      if (!handleTabActivation(btn, target)) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+      }
+    });
   });
-});
+} else {
+  console.warn('Boot already started; skipping duplicate tab listener setup.');
+}
 
 let hasAnimatedInitialTab = false;
 onTabChange(name => {
@@ -4557,7 +4618,10 @@ if (!shouldForceCombatTab) {
 } else {
   scrollToTopOfCombat();
 }
-activateTab(initialTab);
+const activatedInitialTab = activateTab(initialTab);
+if (!activatedInitialTab) {
+  ensureDefaultMainTab('combat');
+}
 
 const tickerDrawerPreferenceKeys = {
   open: 'ticker-open',
