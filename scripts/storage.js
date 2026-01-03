@@ -26,6 +26,7 @@ let cloudSyncDisabledReason = '';
 let cloudSyncSupportToastShown = false;
 let cloudAuthNoticeShown = false;
 let topLevelRefWarningShown = false;
+let databaseRefFactory = null;
 
 if (cloudSyncUnsupported) {
   if (cloudSyncDisabledReason) {
@@ -1020,8 +1021,15 @@ async function getDatabaseRef(path) {
       console.warn('Detected top-level RTDB ref. Use UID-scoped paths for saves and campaign logs.', { path });
     }
   }
+  if (typeof databaseRefFactory === 'function') {
+    return databaseRefFactory(path);
+  }
   const db = await getFirebaseDatabase();
   return db.ref(path);
+}
+
+export function setDatabaseRefFactory(factory) {
+  databaseRefFactory = typeof factory === 'function' ? factory : null;
 }
 
 function getServerTimestampValue() {

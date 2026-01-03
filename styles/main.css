@@ -4828,12 +4828,26 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   display:flex;
   flex-direction:column;
   gap:clamp(4px, 1.2vh, 6px);
+  overflow-y:auto;
+  flex:1 1 auto;
 }
 .modal--welcome .modal__lead{
   margin:0;
   color:color-mix(in srgb, var(--text) 92%, transparent);
   line-height:1.45;
   font-size:clamp(.95rem, 2.8vw, 1.05rem);
+}
+.modal--welcome .modal__legacy-copy{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:0;
+  color:color-mix(in srgb, var(--text) 88%, transparent);
+  font-size:clamp(.82rem, 2.5vw, .95rem);
+  line-height:1.45;
+}
+.modal--welcome .modal__legacy-copy p{
+  margin:0;
 }
 .modal--welcome .modal__hint{
   margin:4px 0 0;
