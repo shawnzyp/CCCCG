@@ -13100,6 +13100,34 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.2, amplitude: 0.3 },
     ],
   },
+  'prompt-open': {
+    volume: 0.06,
+    segments: [
+      {
+        frequency: 680,
+        type: 'sawtooth',
+        duration: 0.08,
+        volume: 0.05,
+        attack: 0.002,
+        release: 0.05,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.5, amplitude: 0.4 },
+          { ratio: 2.4, amplitude: 0.3 },
+          { ratio: 3.2, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.03,
+        frequency: 1180,
+        type: 'sine',
+        duration: 0.28,
+        volume: 0.04,
+        attack: 0.012,
+        release: 0.2,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 2, amplitude: 0.22 },
   equip: {
     volume: 0.24,
     segments: [
@@ -14425,6 +14453,14 @@ registerBootTask(() => {
 });
 let activeCampaignEditEntryId = null;
 
+function openNarrativeModal(id) {
+  const opened = show(id);
+  if (opened) {
+    playActionCue('prompt-open');
+  }
+  return opened;
+}
+
 function resetCampaignLogEditor(){
   activeCampaignEditEntryId = null;
   const field = $('campaign-edit-text');
@@ -14449,7 +14485,7 @@ function openCampaignLogEditor(id){
   if(meta){
     meta.textContent = `${fmt(entry.t)} ${entry.name}`;
   }
-  show('modal-campaign-edit');
+  openNarrativeModal('modal-campaign-edit');
   if(typeof requestAnimationFrame === 'function'){
     requestAnimationFrame(()=>{
       const textarea = $('campaign-edit-text');
@@ -14561,7 +14597,7 @@ registerBootTask(() => {
   if(btnCampaignBacklog){
     btnCampaignBacklog.addEventListener('click', ()=>{
       updateCampaignLogViews();
-      show('modal-campaign-backlog');
+      openNarrativeModal('modal-campaign-backlog');
     });
   }
 });
@@ -14569,13 +14605,13 @@ registerBootTask(() => {
 const btnLog = $('btn-log');
 registerBootTask(() => {
   if (btnLog) {
-    btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+    btnLog.addEventListener('click', ()=>{ renderLogs(); openNarrativeModal('modal-log'); });
   }
 });
 const btnLogFull = $('log-full');
 registerBootTask(() => {
   if (btnLogFull) {
-    btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
+    btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); openNarrativeModal('modal-log-full'); });
   }
 });
 const creditsLedgerList = $('credits-ledger-list');
@@ -14653,7 +14689,7 @@ registerBootTask(() => {
 const btnCampaign = $('btn-campaign');
 registerBootTask(() => {
   if (btnCampaign) {
-    btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
+    btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); openNarrativeModal('modal-campaign'); });
   }
 });
 const btnHelp = $('btn-help');
@@ -17491,8 +17527,12 @@ function requestConcentrationDrop(card, power, proceed) {
   }
   state.pendingConcentrationAction = proceed;
   elements.concentrationPromptText.textContent = `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} to use ${power.name}?`;
+  const wasOpen = elements.concentrationPrompt.dataset.open === 'true';
   elements.concentrationPrompt.style.display = 'flex';
   elements.concentrationPrompt.dataset.open = 'true';
+  if (!wasOpen) {
+    playActionCue('prompt-open');
+  }
   showPowerMessage(card, `Concentration conflict: drop ${activeConcentrationEffect?.name || 'current effect'} to continue.`, 'warning');
   return true;
 }
