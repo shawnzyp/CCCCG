@@ -11454,6 +11454,18 @@ function sendAbilityUseEvent({ name, kind, power } = {}) {
   });
 }
 
+function resolveAbilityUseCue(power) {
+  if (!power || typeof power !== 'object') return null;
+  const spCost = Number(power.spCost);
+  if (Number.isFinite(spCost)) {
+    return spCost <= suggestSpCost('Core') ? 'ability-minor' : 'ability-major';
+  }
+  const intensity = typeof power.intensity === 'string' ? power.intensity : '';
+  if (intensity === 'Minor') return 'ability-minor';
+  if (POWER_INTENSITIES.includes(intensity)) return 'ability-major';
+  return null;
+}
+
 function isActiveCharacterName(name) {
   if (!name) return false;
   const vigilanteName = $('superhero')?.value?.trim() || '';
@@ -12272,6 +12284,8 @@ function rollWithBonus(name, bonus, out, opts = {}){
   const modifier = resolution && Number.isFinite(resolution.modifier)
     ? resolution.modifier
     : fallbackBonus;
+  const dcRaw = Number(rollOptions.dc);
+  const dc = Number.isFinite(dcRaw) ? dcRaw : null;
 
   const normalizeDiceSet = set => {
     if (!set) return null;
@@ -12349,6 +12363,10 @@ function rollWithBonus(name, bonus, out, opts = {}){
     ...breakdownParts,
     ...(resolution?.breakdown || []),
   ].filter(Boolean);
+  const rollSucceeded = dc !== null ? total >= dc : null;
+  if (rollSucceeded !== null) {
+    playActionCue(rollSucceeded ? 'roll-success' : 'roll-failure');
+  }
 
   if (out) {
     const renderer = resultRenderer || ensureDiceResultRenderer(out);
@@ -12440,6 +12458,8 @@ function rollWithBonus(name, bonus, out, opts = {}){
         name,
         output: out,
         options: { ...rollOptions, mode: rollMode },
+        dc,
+        success: rollSucceeded,
         sides,
         rolls: rollDetails,
         rollMode,
@@ -12931,6 +12951,66 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.2, amplitude: 0.2 },
     ],
   },
+  'roll-success': {
+    volume: 0.28,
+    type: 'sine',
+    segments: [
+      {
+        frequency: 1240,
+        duration: 0.18,
+        attack: 0.004,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 2, amplitude: 0.5 },
+          { ratio: 3, amplitude: 0.3 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 820,
+        duration: 0.11,
+        attack: 0.002,
+        release: 0.08,
+        type: 'square',
+        partials: [
+          { ratio: 1, amplitude: 0.4 },
+          { ratio: 1.6, amplitude: 0.28 },
+          { ratio: 2.4, amplitude: 0.18 },
+        ],
+      },
+    ],
+  },
+  'roll-failure': {
+    volume: 0.3,
+    type: 'triangle',
+    segments: [
+      {
+        frequency: 180,
+        duration: 0.26,
+        attack: 0.01,
+        release: 0.2,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 0.6, amplitude: 0.55 },
+          { ratio: 1.4, amplitude: 0.3 },
+        ],
+      },
+      {
+        delay: 0.05,
+        frequency: 320,
+        duration: 0.16,
+        attack: 0.008,
+        release: 0.12,
+        type: 'sawtooth',
+        partials: [
+          { ratio: 1, amplitude: 0.4 },
+          { ratio: 2.2, amplitude: 0.22 },
+          { ratio: 3.4, amplitude: 0.16 },
+        ],
+      },
+    ],
+  },
   'dm-roll': {
     frequency: 420,
     type: 'square',
@@ -12983,6 +13063,66 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 1, amplitude: 1 },
       { ratio: 1.4, amplitude: 0.5 },
       { ratio: 2.2, amplitude: 0.3 },
+    ],
+  },
+  equip: {
+    volume: 0.24,
+    segments: [
+      {
+        frequency: 980,
+        type: 'square',
+        duration: 0.05,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 2.4, amplitude: 0.35 },
+          { ratio: 3.6, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.015,
+        frequency: 620,
+        type: 'triangle',
+        duration: 0.12,
+        attack: 0.004,
+        release: 0.08,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.5, amplitude: 0.35 },
+          { ratio: 2.2, amplitude: 0.2 },
+        ],
+      },
+    ],
+  },
+  unequip: {
+    volume: 0.2,
+    segments: [
+      {
+        frequency: 240,
+        type: 'sawtooth',
+        duration: 0.14,
+        attack: 0.01,
+        release: 0.1,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.7, amplitude: 0.3 },
+          { ratio: 2.6, amplitude: 0.18 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 180,
+        type: 'triangle',
+        duration: 0.2,
+        attack: 0.02,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.4, amplitude: 0.35 },
+          { ratio: 2.1, amplitude: 0.2 },
+        ],
+      },
     ],
   },
   'credits-gain': {
@@ -13218,6 +13358,101 @@ const AUDIO_CUE_SETTINGS = {
           { ratio: 1, amplitude: 0.55 },
           { ratio: 1.6, amplitude: 0.3 },
           { ratio: 2.4, amplitude: 0.18 },
+  'ability-minor': {
+    volume: 0.24,
+    segments: [
+      {
+        frequency: 940,
+        type: 'triangle',
+        duration: 0.07,
+        attack: 0.002,
+        release: 0.035,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.9, amplitude: 0.4 },
+          { ratio: 2.8, amplitude: 0.25 },
+        ],
+      },
+      {
+        delay: 0.018,
+        frequency: 240,
+        type: 'sawtooth',
+        duration: 0.14,
+        attack: 0.006,
+        release: 0.09,
+        partials: [
+          { ratio: 1, amplitude: 0.75 },
+          { ratio: 0.55, amplitude: 0.45 },
+          { ratio: 1.6, amplitude: 0.25 },
+        ],
+      },
+    ],
+  },
+  'ability-major': {
+    volume: 0.28,
+    segments: [
+      {
+        frequency: 220,
+        type: 'sine',
+        duration: 0.18,
+        attack: 0.015,
+        release: 0.12,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.5, amplitude: 0.35 },
+          { ratio: 2.2, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.03,
+        frequency: 360,
+        type: 'triangle',
+        duration: 0.22,
+        attack: 0.01,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.6, amplitude: 0.4 },
+          { ratio: 2.4, amplitude: 0.25 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 520,
+        type: 'triangle',
+        duration: 0.26,
+        attack: 0.008,
+        release: 0.16,
+        partials: [
+          { ratio: 1, amplitude: 0.75 },
+          { ratio: 1.7, amplitude: 0.45 },
+          { ratio: 2.6, amplitude: 0.28 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 980,
+        type: 'square',
+        duration: 0.06,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.5 },
+          { ratio: 2.4, amplitude: 0.35 },
+          { ratio: 3.6, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.018,
+        frequency: 1180,
+        type: 'square',
+        duration: 0.05,
+        attack: 0.002,
+        release: 0.028,
+        partials: [
+          { ratio: 1, amplitude: 0.45 },
+          { ratio: 2.8, amplitude: 0.3 },
+          { ratio: 4.2, amplitude: 0.18 },
         ],
       },
     ],
@@ -17191,6 +17426,10 @@ function finalizePowerUse(card, power) {
     showPowerMessage(card, `Insufficient SP to use this ${labelLower}.`, 'error');
     return;
   }
+  const abilityCue = resolveAbilityUseCue(power);
+  if (abilityCue) {
+    playActionCue(abilityCue);
+  }
   const label = getPowerCardLabel(card);
   logAction(`${label} used: ${power.name} — ${power.rulesText}`);
   const abilityKind = card?.dataset?.kind === 'sig' ? 'signature move' : 'power';
@@ -17272,6 +17511,7 @@ function handleRollPowerSave(card, { outputs: providedOutputs } = {}) {
     type: 'save',
     ability,
     baseBonuses,
+    dc,
     onRoll: ({ total }) => {
       const passed = total >= dc;
       const resultText = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
@@ -20987,6 +21227,7 @@ function createCard(kind, pref = {}) {
           if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
+              playActionCue(chk.checked ? 'equip' : 'unequip');
               if (kind === 'armor') {
                 logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
               }
@@ -21105,6 +21346,10 @@ function createCard(kind, pref = {}) {
       const powerData = (kind === 'power' || kind === 'sig') && powerCardStates.has(card)
         ? serializePowerCard(card)
         : null;
+      const abilityCue = resolveAbilityUseCue(powerData);
+      if (abilityCue) {
+        playActionCue(abilityCue);
+      }
       sendAbilityUseEvent({ name, kind: abilityKind, power: powerData });
       const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
