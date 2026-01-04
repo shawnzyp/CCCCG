@@ -86,7 +86,7 @@ import {
   loadCloudBackup,
 } from './storage.js';
 import { buildCloudSaveEnvelope, loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
-import { normalizeImportedEnvelope, normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
+import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
   getActiveTab,
@@ -14413,6 +14413,7 @@ async function handleCloudSave() {
     cueSuccessfulSave();
     setSaveLoadStatus('Cloud save complete.', { type: 'success' });
     toast('Saved to cloud.', 'success');
+    hide('modal-load-list');
   } catch (err) {
     console.error('Cloud save failed', err);
     setSaveLoadStatus('Cloud save failed. Please try again.', { type: 'error' });
@@ -14447,6 +14448,7 @@ async function handleCloudLoad() {
       setSaveLoadStatus('Loaded from Firestore.', { type: 'success' });
     }
     toast('Cloud load complete.', 'success');
+    hide('modal-load-list');
   } catch (err) {
     console.error('Cloud load failed', err);
     setSaveLoadStatus('Cloud load failed. Please try again.', { type: 'error' });
@@ -14477,6 +14479,7 @@ async function handleRecoverFromRTDB() {
     applyCloudSnapshotPayload(payload, { source: 'rtdb' });
     setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
     toast('Recovery complete.', 'success');
+    hide('modal-load-list');
   } catch (err) {
     console.error('Recover save failed', err);
     setSaveLoadStatus('Recover failed. Please try again.', { type: 'error' });
@@ -14506,8 +14509,8 @@ if (exportCharacterBtn) {
     try {
       const snapshot = createAppSnapshot();
       const serialized = serializeSnapshotForExport(snapshot);
-      const payload = JSON.parse(serialized);
-      const name = payload?.meta?.name || payload?.character?.name || currentCharacter() || readLastSaveName();
+      const payload = normalizeSnapshotPayload(snapshot);
+      const name = resolveSaveTargetName() || payload?.meta?.name || payload?.character?.name || currentCharacter() || readLastSaveName();
       if (!name) {
         setSaveLoadStatus('Select a character to export.', { type: 'error' });
         toast('Select a character to export.', 'info');
@@ -14547,13 +14550,15 @@ if (importCharacterBtn && importCharacterFile) {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const envelope = normalizeImportedEnvelope(parsed);
-      if (!envelope?.payload) {
+      const rawPayload = parsed && typeof parsed === 'object' && parsed.payload && typeof parsed.payload === 'object'
+        ? parsed.payload
+        : parsed;
+      const payload = normalizeSnapshotPayload(rawPayload);
+      if (!payload) {
         setSaveLoadStatus('Import file is missing data.', { type: 'error' });
         toast('Import file missing data.', 'error');
         return;
       }
-      const payload = normalizeSnapshotPayload(envelope);
       const name = payload?.meta?.name || payload?.character?.name || '';
       if (!name) {
         setSaveLoadStatus('Imported file missing character name.', { type: 'error' });

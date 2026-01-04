@@ -1,5 +1,5 @@
 import { buildCanonicalPayload, migrateSavePayload } from './characters.js';
-import { buildCloudSaveEnvelope, normalizeCloudSaveEnvelope } from './cloud-save-service.js';
+import { buildCloudSaveEnvelope, normalizeCloudSaveEnvelope } from './cloud-save-helpers.js';
 
 function isEnvelopeShape(raw) {
   return !!(raw && typeof raw === 'object' && 'payload' in raw && ('updatedAt' in raw || 'schemaVersion' in raw));

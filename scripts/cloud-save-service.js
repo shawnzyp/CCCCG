@@ -1,18 +1,17 @@
 import { getFirebaseDatabase, getFirebaseFirestore } from './auth.js';
-
-export const CLOUD_SAVE_SCHEMA_VERSION = 1;
+import {
+  buildCloudSaveEnvelope,
+  normalizeCloudSaveEnvelope,
+  resolveUpdatedAt,
+  selectLatestCloudEntry,
+} from './cloud-save-helpers.js';
 const FIRESTORE_SAVE_COLLECTION = 'saves';
 const FIRESTORE_PRIMARY_DOC = 'primary';
 
-function resolveUpdatedAt(entry) {
-  if (!entry || typeof entry !== 'object') return 0;
-  const direct = Number(entry.updatedAt);
-  if (Number.isFinite(direct)) return direct;
-  const nested = Number(entry?.meta?.updatedAt);
-  return Number.isFinite(nested) ? nested : 0;
-}
-
 function getFirestoreServerTimestamp(firestore) {
+  if (firestore?.FieldValue?.serverTimestamp && typeof firestore.FieldValue.serverTimestamp === 'function') {
+    return firestore.FieldValue.serverTimestamp();
+  }
   const fieldValue = firestore?.constructor?.FieldValue;
   if (fieldValue && typeof fieldValue.serverTimestamp === 'function') {
     return fieldValue.serverTimestamp();
@@ -30,34 +29,6 @@ function coerceCloudPayload(payload) {
     }
   }
   return payload;
-}
-
-export function buildCloudSaveEnvelope(payload, { updatedAt = Date.now(), schemaVersion = CLOUD_SAVE_SCHEMA_VERSION, migratedAt, firestoreSyncedAt } = {}) {
-  const envelope = {
-    schemaVersion,
-    updatedAt,
-    payload,
-  };
-  if (typeof migratedAt === 'number' && Number.isFinite(migratedAt)) {
-    envelope.migratedAt = migratedAt;
-  }
-  if (typeof firestoreSyncedAt === 'number' && Number.isFinite(firestoreSyncedAt)) {
-    envelope.firestoreSyncedAt = firestoreSyncedAt;
-  }
-  return envelope;
-}
-
-export function normalizeCloudSaveEnvelope(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  if (!raw.payload || typeof raw.payload !== 'object') return null;
-  const updatedAt = resolveUpdatedAt(raw);
-  return {
-    schemaVersion: Number(raw.schemaVersion) || CLOUD_SAVE_SCHEMA_VERSION,
-    updatedAt,
-    payload: raw.payload,
-    migratedAt: Number(raw.migratedAt) || 0,
-    firestoreSyncedAt: Number(raw.firestoreSyncedAt) || 0,
-  };
 }
 
 async function loadRtdbEnvelope(uid) {
