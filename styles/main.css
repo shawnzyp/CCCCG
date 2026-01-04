@@ -1262,7 +1262,7 @@ label[data-animate-title]{
   background:var(--tab-bg);
   color:var(--tab-fg);
   box-shadow:0 12px 28px color-mix(in srgb,var(--accent) 22%, transparent);
-  overflow:hidden;
+  overflow:visible;
   transition:background-color var(--transition-duration-medium) var(--transition-ease),color var(--transition-duration-medium) var(--transition-ease),box-shadow var(--transition-duration-medium) var(--transition-ease),transform var(--transition-duration-short) var(--transition-ease);
   --tab-icon-primary:var(--tab-fg);
   --tab-icon-secondary:color-mix(in srgb,var(--tab-icon-primary) 72%, transparent);
@@ -4282,6 +4282,7 @@ body:not(.no-hover) .modal .x:focus-visible{outline:2px solid var(--modal-accent
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 .modal.modal--load-save{display:flex;flex-direction:column}
 .modal.modal--load-save .catalog{flex:1 1 auto}
+.modal.modal--load-save .modal--load-save__status{margin:8px 0 0;color:var(--muted);font-size:.9rem;text-align:center;min-height:1.2em}
 .modal.modal--load-save .modal--load-save__actions{justify-content:center;margin-top:auto;margin-left:auto;margin-right:auto}
 #modal-load-list .modal,
 #modal-recover-char .modal,
@@ -4828,12 +4829,26 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   display:flex;
   flex-direction:column;
   gap:clamp(4px, 1.2vh, 6px);
+  overflow-y:auto;
+  flex:1 1 auto;
 }
 .modal--welcome .modal__lead{
   margin:0;
   color:color-mix(in srgb, var(--text) 92%, transparent);
   line-height:1.45;
   font-size:clamp(.95rem, 2.8vw, 1.05rem);
+}
+.modal--welcome .modal__legacy-copy{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:0;
+  color:color-mix(in srgb, var(--text) 88%, transparent);
+  font-size:clamp(.82rem, 2.5vw, .95rem);
+  line-height:1.45;
+}
+.modal--welcome .modal__legacy-copy p{
+  margin:0;
 }
 .modal--welcome .modal__hint{
   margin:4px 0 0;
@@ -8414,14 +8429,16 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 :root {
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --pt-launcher-top: 50%;
+  --pt-launcher-left: max(0px, env(safe-area-inset-left, 0px));
 }
 
 /* Player Tools tray trigger (vertical tab on the left edge) */
 .player-tools-tab {
   position: fixed;
-  inset-block: 50%;
-  inset-inline-start: max(0px, env(safe-area-inset-left, 0px));
-  transform: translateY(-50%);
+  top: var(--pt-launcher-top, 50%);
+  left: var(--pt-launcher-left, max(0px, env(safe-area-inset-left, 0px)));
+  transform: translate3d(0, 0, 0);
   z-index: 1500;
   display: inline-flex;
   align-items: center;
@@ -8978,15 +8995,15 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 #floating-launcher,
 .floating-launcher,
 .pt-floating-launcher {
-  left: max(12px, env(safe-area-inset-left));
+  left: var(--pt-launcher-left, max(12px, env(safe-area-inset-left)));
   right: auto;
 }
 
 #player-tools-tab.pt-tab{
 position: fixed;
-top: 50%;
-left: max(0px, env(safe-area-inset-left, 0px));
-transform: translateY(-50%);
+top: var(--pt-launcher-top, 50%);
+left: var(--pt-launcher-left, max(0px, env(safe-area-inset-left, 0px)));
+transform: translate3d(0, 0, 0);
 z-index: 1500;
 
 display: inline-flex;
@@ -9006,7 +9023,9 @@ cursor: pointer;
 
 @media (min-width: 900px) {
   #player-tools-tab.pt-tab {
-    left: max(var(--pt-desktop-gutter), 12px, env(safe-area-inset-left));
+    left: var(--pt-launcher-left, 0px);
+    margin-left: 0;
+    transform: translate3d(var(--pt-tab-x, 0px), 0, 0);
   }
 }
 

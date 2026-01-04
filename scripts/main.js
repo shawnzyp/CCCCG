@@ -42,7 +42,9 @@ import {
   checkUsernameAvailability,
   normalizeUsername,
   getAuthState,
+  ensureGuestSession,
   getFirebaseDatabase,
+  renderAuthDomainDiagnostics,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -83,6 +85,8 @@ import {
   loadCloud,
   loadCloudBackup,
 } from './storage.js';
+import { buildCloudSaveEnvelope, loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
   getActiveTab,
@@ -206,6 +210,40 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+const bootScope = typeof window !== 'undefined' ? window : null;
+const bootAlreadyStarted = !!(bootScope && bootScope.__CCCG_BOOT_STARTED__);
+if (bootScope && !bootScope.__CCCG_BOOT_STARTED__) {
+  bootScope.__CCCG_BOOT_STARTED__ = true;
+}
+if (bootAlreadyStarted) {
+  console.warn('Boot already started; skipping duplicate initialization.');
+}
+const bootTasks = [];
+let bootTasksRan = false;
+const registerBootTask = task => {
+  if (!bootAlreadyStarted && typeof task === 'function') {
+    bootTasks.push(task);
+  }
+};
+const runBootTasksOnce = () => {
+  if (bootTasksRan || bootAlreadyStarted) return;
+  bootTasksRan = true;
+  const run = () => {
+    const tasks = bootTasks.splice(0, bootTasks.length);
+    tasks.forEach(task => {
+      try {
+        task();
+      } catch (err) {
+        console.error('Boot task failed', err);
+      }
+    });
+  };
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+};
 
 function cancelFx(el) {
   if (!el) return;
@@ -241,7 +279,7 @@ if (typeof window !== 'undefined') {
       removeListener: noop,
       dispatchEvent: () => false,
     });
-    window.matchMedia = query => {
+    const overriddenMatchMedia = query => {
       if (typeof query === 'string') {
         const normalizedQuery = query.toLowerCase();
         if (normalizedQuery.includes(REDUCED_MOTION_TOKEN)) {
@@ -259,6 +297,15 @@ if (typeof window !== 'undefined') {
         return createSuppressedMediaQueryList(query, false);
       }
     };
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+      const canOverride = !descriptor || descriptor.writable || descriptor.configurable;
+      if (canOverride) {
+        window.matchMedia = overriddenMatchMedia;
+      }
+    } catch (err) {
+      /* ignore failures to override matchMedia */
+    }
   }
 
   const disableSaveDataPreference = () => {
@@ -369,7 +416,9 @@ function bootstrapDmToolsOnDemand() {
   attachDmBootstrapHandler($('dm-tools-toggle'));
 }
 
-bootstrapDmToolsOnDemand();
+registerBootTask(() => {
+  bootstrapDmToolsOnDemand();
+});
 
 
 const AUGMENT_CATEGORIES = ['Control', 'Protection', 'Aggression', 'Transcendence', 'Customization'];
@@ -556,7 +605,7 @@ const AUGMENTS = [
   createAugment({
     id: 'power-syphon',
     group: 'Aggression',
-    name: 'Power Syphon',
+    name: 'Power Siphon',
     summary: 'You feed on the backlash.',
     effects: [
       'When hit by an energy-type attack, regain 1 SP.',
@@ -1218,7 +1267,9 @@ function ensureToastContent(message) {
 }
 
 const PRIORITY_ALERT_TITLE = 'O.M.N.I: Priority Transmission';
-setupPriorityTransmissionAlert();
+registerBootTask(() => {
+  setupPriorityTransmissionAlert();
+});
 
 function setupPriorityTransmissionAlert(){
   if (typeof document === 'undefined') return;
@@ -2097,13 +2148,15 @@ function setupMiniGamePlayerSync() {
   }
 }
 
-if (typeof document !== 'undefined') {
-  setupMiniGamePlayerSync();
-  if (miniGameReminderAction) {
-    miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+registerBootTask(() => {
+  if (typeof document !== 'undefined') {
+    setupMiniGamePlayerSync();
+    if (miniGameReminderAction) {
+      miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+    }
+    updateMiniGameReminder();
   }
-  updateMiniGameReminder();
-}
+});
 
 function detectPlatform(){
   if(typeof navigator === 'undefined'){
@@ -2172,6 +2225,7 @@ const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 const LAUNCH_DURATION_MS = 8000;
 const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
 const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
+const LAUNCH_FAILSAFE_MS = 2500;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const WELCOME_SEEN_KEY_PREFIX = 'cc:welcome-seen:';
@@ -2184,6 +2238,10 @@ let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
+let launchFailsafeTimer = null;
+let launchFailsafeTriggered = false;
+let bootCompletionHandled = false;
+let postBootHooksRan = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2285,6 +2343,87 @@ function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}
 let playerToolsTabElement = null;
 const FLOATING_LAUNCHER_MARGIN = 12;
 let floatingLauncherClampFrame = null;
+let playerToolsLauncherFrame = null;
+
+const clamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
+const ccClamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
+
+const getSafeAreaInsetLeft = () => {
+  if (typeof window === 'undefined') return 0;
+  const root = document.documentElement;
+  if (!root) return 0;
+  const raw = window.getComputedStyle(root).getPropertyValue('--safe-area-left') || '0px';
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getSafeAreaInsetTop = () => {
+  if (typeof window === 'undefined') return 0;
+  const root = document.documentElement;
+  if (!root) return 0;
+  const raw = window.getComputedStyle(root).getPropertyValue('--safe-area-top') || '0px';
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
+  if (typeof document === 'undefined' || !playerToolsTabElement) return;
+  const header = document.querySelector('header');
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
+  const tickerDrawer = document.querySelector('[data-ticker-drawer]');
+  const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
+  const tickerOpen = tickerDrawer?.getAttribute('data-state') !== 'closed';
+  const tickerHeight = tickerOpen && tickerPanel ? tickerPanel.getBoundingClientRect().height : 0;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+  const baseOffset = clamp(viewportHeight * 0.30, 180, 520);
+  const safeTop = getSafeAreaInsetTop();
+  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const launcherRect = playerToolsTabElement.getBoundingClientRect();
+  const launcherWidth = launcherRect.width || 0;
+  const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
+  const safeTop = getSafeAreaInsetTop();
+  const launcherRect = playerToolsTabElement.getBoundingClientRect();
+  const launcherHeight = launcherRect.height || 0;
+  const launcherWidth = launcherRect.width || 0;
+  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const topMargin = 12;
+  const maxTop = Math.max(topMargin, viewportHeight - launcherHeight - topMargin - safeTop);
+  const clampedTop = ccClamp(top, topMargin + safeTop, maxTop);
+  const safeLeft = getSafeAreaInsetLeft();
+  const baseLeft = safeLeft + 12;
+  let left = baseLeft;
+
+  if (document.body?.classList.contains('player-tools-open')) {
+    const shell = document.querySelector('.player-tools-shell, .player-tools-phone__shell, #player-tools-drawer .pt-device__shell');
+    if (shell) {
+      const shellRect = shell.getBoundingClientRect();
+      if (Number.isFinite(shellRect.left)) {
+        left = shellRect.left - (launcherWidth * 0.35);
+      }
+    }
+  }
+
+  const maxLeft = Math.max(baseLeft, (window.innerWidth || 0) - launcherWidth - 12);
+  left = clamp(left, baseLeft, maxLeft);
+
+  document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(top)}px`);
+  left = ccClamp(left, baseLeft, maxLeft);
+
+  document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(clampedTop)}px`);
+  document.documentElement.style.setProperty('--pt-launcher-left', `${Math.round(left)}px`);
+  playerToolsTabElement.dataset.launcherReason = reason;
+}
+
+const schedulePlayerToolsLauncherReposition = (reason = 'unknown') => {
+  if (playerToolsLauncherFrame) return;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame
+    : (cb => setTimeout(cb, 16));
+  playerToolsLauncherFrame = schedule(() => {
+    playerToolsLauncherFrame = null;
+    ccRepositionPlayerToolsLauncher(reason);
+  });
+};
 
 function getPlayerToolsTabElement() {
   if (playerToolsTabElement && playerToolsTabElement.isConnected) {
@@ -2425,43 +2564,168 @@ function restoreUiAfterWelcome() {
         el.style.opacity = '';
       }
     });
-    '.app-shell',
-    '[data-launch-shell]',
-    '#phone',
-    '#player-os',
-  ];
-  selectors.forEach(selector => {
-    const el = document.querySelector(selector);
-    if (!el) return;
-    if (el.hidden) {
-      el.hidden = false;
-    }
-    if (el.classList?.contains('hidden')) {
-      el.classList.remove('hidden');
-    }
-    if (el.style) {
-      el.style.display = '';
-      el.style.visibility = '';
-      el.style.opacity = '';
-    }
   });
   scheduleFloatingLauncherClamp();
+}
+
+function clearLaunchFailsafeTimer() {
+  if (!launchFailsafeTimer) return;
+  try {
+    clearTimeout(launchFailsafeTimer);
+  } catch {}
+  launchFailsafeTimer = null;
+}
+
+function ensureDefaultMainTab(preferred = 'combat') {
+  const active = getActiveTab();
+  if (active && qs(`.tab[data-go="${active}"]`)) return true;
+  const fallbackButton = qs(`.tab[data-go="${preferred}"]`) || qs('.tab[data-go]');
+  const fallbackTarget = fallbackButton ? fallbackButton.getAttribute('data-go') : null;
+  if (!fallbackTarget) return false;
+  return activateTab(fallbackTarget);
+}
+
+function focusAfterLaunchOverlay() {
+  const sentinel = document.getElementById('app-root-focus-sentinel');
+  const fallback = qs('.tab[data-go]') || qs('[data-launch-shell]');
+  const target = sentinel || fallback;
+  if (target && typeof target.focus === 'function') {
+    try {
+      target.focus({ preventScroll: true });
+      return;
+    } catch {}
+    try {
+      target.focus();
+    } catch {}
+  }
+}
+
+function setAppShellInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const appShell = document.querySelector('[data-launch-shell]') || document.querySelector('.app-shell');
+  if (!appShell) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && appShell.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
+  try {
+    if (shouldBeInteractive) {
+      appShell.removeAttribute('aria-hidden');
+      appShell.removeAttribute('inert');
+      if ('inert' in appShell) appShell.inert = false;
+    } else {
+      appShell.setAttribute('aria-hidden', 'true');
+      appShell.setAttribute('inert', '');
+      if ('inert' in appShell) appShell.inert = true;
+    }
+  } catch {}
+}
+
+function setLaunchOverlayInteractive(isInteractive) {
+  if (typeof document === 'undefined') return;
+  const launchEl = document.getElementById('launch-animation');
+  if (!launchEl) return;
+  const shouldBeInteractive = Boolean(isInteractive);
+  if (!shouldBeInteractive) {
+    const active = document.activeElement;
+    if (active && launchEl.contains(active)) {
+      try {
+        active.blur();
+      } catch {}
+      focusAfterLaunchOverlay();
+    }
+  }
+  try {
+    if (shouldBeInteractive) {
+      launchEl.setAttribute('aria-hidden', 'false');
+      launchEl.removeAttribute('inert');
+      if ('inert' in launchEl) launchEl.inert = false;
+    } else {
+      launchEl.setAttribute('aria-hidden', 'true');
+      launchEl.setAttribute('inert', '');
+      if ('inert' in launchEl) launchEl.inert = true;
+    }
+  } catch {}
+}
+
+function runPostBootUIHooksOnce() {
+  if (postBootHooksRan) return;
+  postBootHooksRan = true;
+  bootCompletionHandled = true;
+  // Force-boot paths skip the standard launch callback, so always run the
+  // shared post-boot hooks here to keep onboarding/welcome flows consistent.
+  queueWelcomeModal({ immediate: true });
+  schedulePlayerToolsLauncherReposition('post-boot');
+}
+
+function forceBootUIOnce(reason = 'launch-failsafe') {
+  if (bootCompletionHandled) return;
+  forceBootUI(reason);
+}
+
+function forceBootUI(reason = 'launch-failsafe') {
+  if (launchFailsafeTriggered) return;
+  launchFailsafeTriggered = true;
+  clearLaunchFailsafeTimer();
+  if (reason) {
+    console.warn(`Forcing UI boot (${reason}).`);
+  }
+  hide(WELCOME_MODAL_ID);
+  hideWelcomeModalPanel();
+  unlockTouchControls({ immediate: true });
+  restoreUiAfterWelcome();
+  const body = typeof document !== 'undefined' ? document.body : null;
+  if (body && body.classList.contains('launching')) {
+    body.classList.remove('launching');
+  }
+  if (body) {
+    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal], [inert]');
+    inertTargets.forEach(el => {
+      try {
+        el.removeAttribute('data-cc-inert-by-modal');
+        el.removeAttribute('inert');
+        if ('inert' in el) el.inert = false;
+      } catch {}
+    });
+  }
+  const launchShell = typeof document !== 'undefined'
+    ? document.getElementById('launch-animation')
+    : null;
+  setAppShellInteractive(true);
+  if (launchShell && launchShell.parentNode) {
+    setLaunchOverlayInteractive(false);
+    launchShell.parentNode.removeChild(launchShell);
+  }
+  markLaunchSequenceComplete();
+  ensureDefaultMainTab('combat');
+  runPostBootUIHooksOnce();
 }
 
 function hideWelcomeModalPanel() {
   const modal = getWelcomeModal();
   if (!modal) return;
-  const panel = modal.querySelector('.modal--welcome, .modal');
-  if (panel) {
-    panel.classList.add('hidden');
-    panel.setAttribute('aria-hidden', 'true');
-    panel.style.display = 'none';
-  }
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.style.display = 'none';
 }
 
 function prepareWelcomeModal() {
   const modal = getWelcomeModal();
   if (!modal) return null;
+  const panel = modal.querySelector('.modal--welcome, .modal');
+  if (panel) {
+    panel.classList.remove('hidden');
+    panel.removeAttribute('aria-hidden');
+    if (panel.style) {
+      panel.style.display = '';
+    }
+  }
   if (!welcomeModalPrepared) {
     welcomeModalPrepared = true;
     try {
@@ -2565,10 +2829,10 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
+  hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   const modal = getWelcomeModal();
   focusAfterWelcomeClose(modal);
-  hide(WELCOME_MODAL_ID);
   restoreUiAfterWelcome();
   setPlayerToolsTabHidden(false);
   unlockTouchControls();
@@ -2612,35 +2876,71 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     maybeShowWelcomeModal();
   });
 }
-(async function setupLaunchAnimation(){
-  if (typeof document === 'undefined' || IS_JSDOM_ENV) {
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
-  const body = document.body;
-  if(!body || !body.classList.contains('launching')){
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
+async function setupLaunchAnimation(){
+  try {
+    if (typeof document === 'undefined') {
+      unlockTouchControls();
+      markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
+      return;
+    }
+    const body = document.body;
+    if(!body || !body.classList.contains('launching')){
+      setAppShellInteractive(true);
+      unlockTouchControls();
+      markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
+      return;
+    }
 
-  lockTouchControls();
-  queueWelcomeModal({ preload: true });
-  queueWelcomeModal({ immediate: true });
+    const launchEl = document.getElementById('launch-animation');
+    const video = launchEl ? launchEl.querySelector('video') : null;
+    const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+    let revealCalled = false;
+    let playbackStartedAt = null;
+    let fallbackTimer = null;
+    let awaitingGesture = false;
+    let cleanupMessaging = null;
+    let bypassLaunchMinimum = false;
+    const userGestureListeners = [];
 
-  const launchEl = document.getElementById('launch-animation');
-  const video = launchEl ? launchEl.querySelector('video') : null;
-  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  let revealCalled = false;
-  let playbackStartedAt = null;
-  let fallbackTimer = null;
-  let awaitingGesture = false;
-  let cleanupMessaging = null;
-  let bypassLaunchMinimum = false;
-  const userGestureListeners = [];
+    setAppShellInteractive(false);
+    if (launchEl) {
+      setLaunchOverlayInteractive(true);
+    }
+
+    if (IS_JSDOM_ENV) {
+      const completeLaunch = () => {
+        if (!body.classList.contains('launching')) return;
+        body.classList.remove('launching');
+        setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
+        markLaunchSequenceComplete();
+        runPostBootUIHooksOnce();
+      };
+      if (skipButton) {
+        skipButton.addEventListener('click', event => {
+          event.preventDefault();
+          completeLaunch();
+        });
+      }
+      window.addEventListener('launch-animation-skip', completeLaunch, { once: true });
+      unlockTouchControls();
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => completeLaunch());
+      } else {
+        window.setTimeout(() => completeLaunch(), 0);
+      }
+      return;
+    }
+
+    lockTouchControls();
+    queueWelcomeModal({ preload: true });
+    queueWelcomeModal({ immediate: true });
+    clearLaunchFailsafeTimer();
+    launchFailsafeTimer = window.setTimeout(() => {
+      forceBootUIOnce('launch-timeout');
+    }, LAUNCH_FAILSAFE_MS);
 
   const clearTimer = timer => {
     if(timer){
@@ -2678,17 +2978,23 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     cleanupMessaging = null;
   };
 
-  const finalizeReveal = () => {
-    body.classList.remove('launching');
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
-      window.setTimeout(cleanupLaunchShell, 1000);
-    }
-  };
+      const finalizeReveal = () => {
+        if (launchFailsafeTriggered) return;
+        clearLaunchFailsafeTimer();
+        setLaunchOverlayInteractive(false);
+        setAppShellInteractive(true);
+        body.classList.remove('launching');
+        unlockTouchControls({ immediate: true });
+        markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
+      if(launchEl){
+        launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
+        window.setTimeout(cleanupLaunchShell, 1000);
+      }
+    };
 
   const revealApp = () => {
+    if (launchFailsafeTriggered) return;
     if(revealCalled) return;
     revealCalled = true;
     detachMessaging();
@@ -2930,20 +3236,22 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       .catch(() => {});
   };
 
-  const finalizeLaunch = () => {
-    if(revealCalled) return;
-    fallbackTimer = clearTimer(fallbackTimer);
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
+    const finalizeLaunch = () => {
+      if (launchFailsafeTriggered) return;
+      if(revealCalled) return;
+      clearLaunchFailsafeTimer();
+      fallbackTimer = clearTimer(fallbackTimer);
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      if(!IS_JSDOM_ENV){
+        try {
+          video.pause();
+        } catch {
+          /* ignore inability to pause */
+        }
+        notifyServiceWorkerVideoPlayed();
       }
-      notifyServiceWorkerVideoPlayed();
-    }
-    revealApp();
-  };
+      revealApp();
+    };
 
   if(skipButton){
     skipButton.addEventListener('click', event => {
@@ -3088,24 +3396,33 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     scheduleFallback(LAUNCH_MAX_WAIT);
   };
 
-  if(video.readyState >= 1){
-    beginPlayback();
-  } else {
-    video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-    try {
-      video.load();
-    } catch (err) {
-      // ignore load failures while waiting for metadata
+    if(video.readyState >= 1){
+      beginPlayback();
+    } else {
+      video.addEventListener('loadedmetadata', beginPlayback, { once: true });
+      try {
+        video.load();
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
+      scheduleFallback(LAUNCH_MAX_WAIT);
     }
-    scheduleFallback(LAUNCH_MAX_WAIT);
+  } catch (err) {
+    console.error('Launch animation failed; continuing boot.', err);
+    forceBootUIOnce('launch-error');
   }
-})();
+}
+registerBootTask(() => {
+  void setupLaunchAnimation();
+});
 
-// Ensure numeric inputs accept only digits and trigger numeric keypad
-document.addEventListener('input', e => {
-  if(e.target.matches('input[inputmode="numeric"]')){
-    e.target.value = e.target.value.replace(/[^0-9]/g,'');
-  }
+registerBootTask(() => {
+  // Ensure numeric inputs accept only digits and trigger numeric keypad
+  document.addEventListener('input', e => {
+    if(e.target.matches('input[inputmode="numeric"]')){
+      e.target.value = e.target.value.replace(/[^0-9]/g,'');
+    }
+  });
 });
 // Load the optional confetti library lazily so tests and offline environments
 // don't attempt a network import on startup.
@@ -3142,38 +3459,47 @@ function enableAnimations(e){
 }
 // Use capture so the lock is evaluated before other handlers. Do not use `once`
 // so clicks from pull-to-refresh are ignored until a real interaction occurs.
-document.addEventListener('click', enableAnimations, true);
-document.addEventListener('keydown', enableAnimations, true);
+registerBootTask(() => {
+  document.addEventListener('click', enableAnimations, true);
+  document.addEventListener('keydown', enableAnimations, true);
+});
 // Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
-document.addEventListener('click', e=>{
-  if(!animationsEnabled) return;
-  const el=e.target.closest(INTERACTIVE_SEL);
-  if(el){
-    if(el.id==='player-tools-tab') return;
-    el.classList.add('action-anim');
-    el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
-  }
-}, true);
+registerBootTask(() => {
+  document.addEventListener('click', e=>{
+    if(!animationsEnabled) return;
+    const el=e.target.closest(INTERACTIVE_SEL);
+    if(el){
+      if(el.id==='player-tools-tab') return;
+      el.classList.add('action-anim');
+      el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
+    }
+  }, true);
+});
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
-function handleAudioContextPriming(e){
+let audioContextGestureReady = false;
+function primeAudioContextFromGestureOnce(){
   if(audioContextPrimed) return;
-  if(e.type==='pointerdown'){
-    const interactive=e.target?.closest?.(INTERACTIVE_SEL);
-    if(!interactive) return;
-  }
   audioContextPrimed = true;
-  document.removeEventListener('pointerdown', handleAudioContextPriming, true);
-  document.removeEventListener('keydown', handleAudioContextPriming, true);
+  audioContextGestureReady = true;
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointerdown', primeAudioContextFromGestureOnce);
+    window.removeEventListener('keydown', primeAudioContextFromGestureOnce);
+  }
+  // AudioContext creation/resume must come from a user gesture to satisfy
+  // autoplay policies; defer priming until the first real interaction.
   try {
     primeAudioContext();
   } catch {
     /* noop */
   }
 }
-document.addEventListener('pointerdown', handleAudioContextPriming, true);
-document.addEventListener('keydown', handleAudioContextPriming, true);
+registerBootTask(() => {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('pointerdown', primeAudioContextFromGestureOnce, { once: true, passive: true });
+  window.addEventListener('keydown', primeAudioContextFromGestureOnce, { once: true });
+});
 
 /* ========= view mode ========= */
 const VIEW_LOCK_SKIP_TYPES = new Set(['button','submit','reset','file','color','range','hidden','image']);
@@ -3849,7 +4175,9 @@ function initCardEditToggles(){
   syncToggles();
 }
 
-patchValueAccessors();
+registerBootTask(() => {
+  patchValueAccessors();
+});
 
 let storedMode = 'view';
 try {
@@ -3857,12 +4185,16 @@ try {
   if (raw === '1' || raw === 'view') storedMode = 'view';
   else if (raw === '0' || raw === 'edit') storedMode = 'edit';
 } catch {}
-setMode(storedMode, { skipPersist: true });
+registerBootTask(() => {
+  setMode(storedMode, { skipPersist: true });
+});
 
 window.setMode = setMode;
 window.useViewMode = useViewMode;
 
-initCardEditToggles();
+registerBootTask(() => {
+  initCardEditToggles();
+});
 
 /* ========= viewport ========= */
 function setVh(){
@@ -3880,14 +4212,16 @@ function setVh(){
   const vh = candidate * 0.01;
   style.setProperty('--vh', `${vh}px`);
 }
-setVh();
-// Update the CSS viewport height variable on resize or orientation changes
-window.addEventListener('resize', setVh);
-window.addEventListener('orientationchange', setVh);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', setVh);
-  window.visualViewport.addEventListener('scroll', setVh);
-}
+registerBootTask(() => {
+  setVh();
+  // Update the CSS viewport height variable on resize or orientation changes
+  window.addEventListener('resize', setVh);
+  window.addEventListener('orientationchange', setVh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setVh);
+    window.visualViewport.addEventListener('scroll', setVh);
+  }
+});
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 const ICON_LOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75C16.5 4.26472 14.4853 2.25 12 2.25C9.51472 2.25 7.5 4.26472 7.5 6.75V10.5M6.75 21.75H17.25C18.4926 21.75 19.5 20.7426 19.5 19.5V12.75C19.5 11.5074 18.4926 10.5 17.25 10.5H6.75C5.50736 10.5 4.5 11.5074 4.5 12.75V19.5C4.5 20.7426 5.50736 21.75 6.75 21.75Z"/></svg>';
 const ICON_UNLOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75C13.5 4.26472 15.5147 2.25 18 2.25C20.4853 2.25 22.5 4.26472 22.5 6.75V10.5M3.75 21.75H14.25C15.4926 21.75 16.5 20.7426 16.5 19.5V12.75C16.5 11.5074 15.4926 10.5 14.25 10.5H3.75C2.50736 10.5 1.5 11.5074 1.5 12.75V19.5C1.5 20.7426 2.50736 21.75 3.75 21.75Z"/></svg>';
@@ -4045,28 +4379,34 @@ function debounce(fn, delay){
 }
 
 const debouncedSetVh = debounce(setVh, 100);
-window.addEventListener('resize', debouncedSetVh, { passive: true });
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', debouncedSetVh, { passive: true });
-}
-
-// prevent negative numbers in numeric inputs
-document.addEventListener('input', e=>{
-  const el = e.target;
-  if(el.matches('input[type="number"]') && el.value !== '' && Number(el.value) < 0){
-    el.value = 0;
+registerBootTask(() => {
+  window.addEventListener('resize', debouncedSetVh, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', debouncedSetVh, { passive: true });
   }
+});
+
+registerBootTask(() => {
+  // prevent negative numbers in numeric inputs
+  document.addEventListener('input', e=>{
+    const el = e.target;
+    if(el.matches('input[type="number"]') && el.value !== '' && Number(el.value) < 0){
+      el.value = 0;
+    }
+  });
 });
 
 /* ========= theme ========= */
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
-if (themeSpinnerEl) {
-  themeSpinnerEl.addEventListener('animationend', () => {
-    themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
-  });
-}
+registerBootTask(() => {
+  if (themeSpinnerEl) {
+    themeSpinnerEl.addEventListener('animationend', () => {
+      themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
+    });
+  }
+});
 const themeOverlayStyle = root ? root.style : null;
 
 const normalizeThemeOverlayUrl = imagePath => {
@@ -4265,7 +4605,9 @@ function loadTheme(){
   if (stored && !THEMES.includes(stored)) setStoredTheme(theme);
   applyTheme(theme, { animate: false });
 }
-loadTheme();
+registerBootTask(() => {
+  loadTheme();
+});
 
 function toggleTheme(){
   const curr = getStoredTheme() || 'dark';
@@ -4322,7 +4664,9 @@ function bindClassificationTheme(id){
   sel.addEventListener('change', apply);
   apply();
 }
-bindClassificationTheme('classification');
+registerBootTask(() => {
+  bindClassificationTheme('classification');
+});
 
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
@@ -4446,31 +4790,35 @@ if (btnMenu && menuActions) {
     btnMenu.classList.add('open');
   };
 
-  btnMenu.addEventListener('click', () => {
-    if (isMenuOpen && !menuActions.hidden) hideMenu();
-    else showMenu();
-  });
+  registerBootTask(() => {
+    btnMenu.addEventListener('click', () => {
+      if (isMenuOpen && !menuActions.hidden) hideMenu();
+      else showMenu();
+    });
 
-  document.addEventListener('click', e => {
-    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
-  });
+    document.addEventListener('click', e => {
+      if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
+    });
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') hideMenu();
-  });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideMenu();
+    });
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
+    });
   });
 }
 
 /* ========= header ========= */
-if (themeToggleEl) {
-  themeToggleEl.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleTheme();
-  });
-}
+registerBootTask(() => {
+  if (themeToggleEl) {
+    themeToggleEl.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleTheme();
+    });
+  }
+});
 
 /* ========= tabs ========= */
 const tabButtons = Array.from(qsa('.tab'));
@@ -4503,47 +4851,51 @@ const handleTabActivation = (btn, target) => {
 let lastInstantTabTarget = '';
 let lastInstantTabTime = 0;
 
-tabButtons.forEach(btn => {
-  btn.addEventListener('pointerdown', event => {
-    if (!isInstantPointerEvent(event)) return;
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    if (handleTabActivation(btn, target)) {
-      lastInstantTabTarget = target;
-      lastInstantTabTime = getPointerTimestamp();
-    }
-  });
+registerBootTask(() => {
+  tabButtons.forEach(btn => {
+    btn.addEventListener('pointerdown', event => {
+      if (!isInstantPointerEvent(event)) return;
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      if (handleTabActivation(btn, target)) {
+        lastInstantTabTarget = target;
+        lastInstantTabTime = getPointerTimestamp();
+      }
+    });
 
-  btn.addEventListener('click', () => {
-    const target = btn.getAttribute('data-go');
-    if (!target) return;
-    const now = getPointerTimestamp();
-    if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-      return;
-    }
-    if (!handleTabActivation(btn, target)) {
-      lastInstantTabTarget = '';
-      lastInstantTabTime = 0;
-    }
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-go');
+      if (!target) return;
+      const now = getPointerTimestamp();
+      if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+        return;
+      }
+      if (!handleTabActivation(btn, target)) {
+        lastInstantTabTarget = '';
+        lastInstantTabTime = 0;
+      }
+    });
   });
 });
 
 let hasAnimatedInitialTab = false;
-onTabChange(name => {
-  if (!hasAnimatedInitialTab) {
-    hasAnimatedInitialTab = true;
-    lastClickedTab = null;
-    return;
-  }
-  if (lastClickedTab === name) {
-    lastClickedTab = null;
-    return;
-  }
-  const btn = qs(`.tab[data-go="${name}"]`);
-  const iconContainer = btn?.querySelector('.tab__icon');
-  if (iconContainer) triggerTabIconAnimation(iconContainer);
+registerBootTask(() => {
+  onTabChange(name => {
+    if (!hasAnimatedInitialTab) {
+      hasAnimatedInitialTab = true;
+      lastClickedTab = null;
+      return;
+    }
+    if (lastClickedTab === name) {
+      lastClickedTab = null;
+      return;
+    }
+    const btn = qs(`.tab[data-go="${name}"]`);
+    const iconContainer = btn?.querySelector('.tab__icon');
+    if (iconContainer) triggerTabIconAnimation(iconContainer);
+  });
 });
 
 const navigationType = getNavigationType();
@@ -4558,7 +4910,12 @@ if (!shouldForceCombatTab) {
 } else {
   scrollToTopOfCombat();
 }
-activateTab(initialTab);
+registerBootTask(() => {
+  const activatedInitialTab = activateTab(initialTab);
+  if (!activatedInitialTab) {
+    ensureDefaultMainTab('combat');
+  }
+});
 
 const tickerDrawerPreferenceKeys = {
   open: 'ticker-open',
@@ -4626,6 +4983,9 @@ const persistTickerPreference = nextOpen => {
 const tickerDrawer = qs('[data-ticker-drawer]');
 const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
 const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
+let pauseTickerAnimations = () => {};
+let resumeTickerAnimations = () => {};
+registerBootTask(() => {
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
@@ -4738,6 +5098,39 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     setToggleIcon(nextOpen);
   };
 
+  const setTickerOpen = (nextOpen, reason = '') => {
+    if (typeof nextOpen !== 'boolean') return;
+    if (isAnimating) {
+      finalizeAnimation();
+    }
+    if (nextOpen) {
+      if (tickerPanel.hidden) {
+        tickerPanel.hidden = false;
+      }
+      resumeTickerAnimations();
+    } else {
+      pauseTickerAnimations();
+    }
+    if (nextOpen === isOpen) {
+      persistTickerPreference(nextOpen);
+      setDrawerState(nextOpen ? 'open' : 'closed');
+      updateToggleState(nextOpen);
+      if (nextOpen) {
+        tickerPanel.style.height = '';
+      } else {
+        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
+      }
+      setPanelOffset();
+      isTickerDrawerOpen = nextOpen;
+      tickerPanel.hidden = !nextOpen;
+      schedulePlayerToolsLauncherReposition(`ticker-${nextOpen ? 'open' : 'closed'}:${reason}`);
+      return;
+    }
+    animateDrawer(nextOpen);
+    persistTickerPreference(nextOpen);
+    schedulePlayerToolsLauncherReposition(`ticker-${nextOpen ? 'open' : 'closed'}:${reason}`);
+  };
+
   const finalizeAnimation = () => {
     tickerPanel.classList.remove('is-animating');
     setDrawerState(isOpen ? 'open' : 'closed');
@@ -4750,6 +5143,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     setPanelOffset();
     isTickerDrawerOpen = isOpen;
     isAnimating = false;
+    tickerPanel.hidden = !isOpen;
   };
 
   const animateDrawer = nextOpen => {
@@ -4789,32 +5183,11 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       return;
     }
     const nextOpen = !isOpen;
-    animateDrawer(nextOpen);
-    persistTickerPreference(nextOpen);
+    setTickerOpen(nextOpen, 'toggle');
   });
 
   setTickerDrawerOpen = nextOpen => {
-    if (typeof nextOpen !== 'boolean') {
-      return;
-    }
-    if (isAnimating) {
-      finalizeAnimation();
-    }
-    if (nextOpen === isOpen) {
-      persistTickerPreference(nextOpen);
-      setDrawerState(nextOpen ? 'open' : 'closed');
-      updateToggleState(nextOpen);
-      if (nextOpen) {
-        tickerPanel.style.height = '';
-      } else {
-        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
-      }
-      setPanelOffset();
-      isTickerDrawerOpen = nextOpen;
-      return;
-    }
-    animateDrawer(nextOpen);
-    persistTickerPreference(nextOpen);
+    setTickerOpen(nextOpen, 'programmatic');
   };
 
   setDrawerState(isOpen ? 'open' : 'closed');
@@ -4822,8 +5195,17 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   if(!isOpen){
     tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
   }
+  tickerPanel.hidden = !isOpen;
   setPanelOffset();
+  schedulePlayerToolsLauncherReposition('ticker-init');
+
+  window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (!isOpen) return;
+    setTickerOpen(false, 'escape');
+  });
 }
+});
 
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
@@ -4850,6 +5232,20 @@ if(tickerTrack && tickerText){
       updateTicker();
     }
   });
+  pauseTickerAnimations = (() => {
+    const prev = pauseTickerAnimations;
+    return () => {
+      prev();
+      tickerTrack.style.animationPlayState = 'paused';
+    };
+  })();
+  resumeTickerAnimations = (() => {
+    const prev = resumeTickerAnimations;
+    return () => {
+      prev();
+      tickerTrack.style.animationPlayState = 'running';
+    };
+  })();
 }
 
 const m24nTrack = qs('[data-m24n-ticker-track]');
@@ -4870,6 +5266,7 @@ if(m24nTrack && m24nText){
   let rotationStart = 0;
   let animationTimer = null;
   let bufferTimer = null;
+  let tickerPaused = false;
 
   function clearTimers(){
     if(animationTimer){
@@ -4885,6 +5282,22 @@ if(m24nTrack && m24nText){
   function resetTrack(){
     m24nTrack.classList.remove('is-animating');
     m24nTrack.style.transform = 'translate3d(100%,0,0)';
+  }
+
+  function pauseM24nTicker(){
+    tickerPaused = true;
+    clearTimers();
+    resetTrack();
+    m24nTrack.style.animationPlayState = 'paused';
+  }
+
+  function resumeM24nTicker(){
+    if (!tickerPaused) return;
+    tickerPaused = false;
+    m24nTrack.style.animationPlayState = 'running';
+    if (headlines.length) {
+      scheduleNextHeadline();
+    }
   }
 
   function updateHeadlineDuration(){
@@ -4982,6 +5395,7 @@ if(m24nTrack && m24nText){
 
   function scheduleNextHeadline(){
     clearTimers();
+    if (tickerPaused) return;
     if(!headlines.length){
       return;
     }
@@ -5002,6 +5416,7 @@ if(m24nTrack && m24nText){
     m24nText.textContent = headline;
     resetTrack();
     requestAnimationFrame(() => {
+      if (tickerPaused) return;
       const duration = updateHeadlineDuration();
       void m24nTrack.offsetWidth;
       m24nTrack.classList.add('is-animating');
@@ -5020,10 +5435,14 @@ if(m24nTrack && m24nText){
 
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden'){
-      clearTimers();
-      resetTrack();
+      pauseM24nTicker();
     }else if(headlines.length && !animationTimer && !bufferTimer){
       bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+    }else{
+      resumeM24nTicker();
+      if(headlines.length && !animationTimer && !bufferTimer){
+        bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+      }
     }
   });
 
@@ -5043,6 +5462,21 @@ if(m24nTrack && m24nText){
       console.warn('Failed to refresh MN24/7 ticker', err);
     }
   });
+
+  pauseTickerAnimations = (() => {
+    const prev = pauseTickerAnimations;
+    return () => {
+      prev();
+      pauseM24nTicker();
+    };
+  })();
+  resumeTickerAnimations = (() => {
+    const prev = resumeTickerAnimations;
+    return () => {
+      prev();
+      resumeM24nTicker();
+    };
+  })();
 }
 
 /* ========= ability grid + autos ========= */
@@ -5056,7 +5490,9 @@ abilGrid.innerHTML = ABILS.map(a=>`
       <span class="mod" id="${a}-mod">+0</span>
     </div>
   </div>`).join('');
-ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
+registerBootTask(() => {
+  ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
+});
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
@@ -6897,8 +7333,11 @@ if (elPlayerToolsTab) {
   const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
   setPlayerToolsTabHidden(shouldHideTab);
   scheduleFloatingLauncherClamp();
+  schedulePlayerToolsLauncherReposition('init');
   window.addEventListener('resize', scheduleFloatingLauncherClamp, { passive: true });
   window.addEventListener('orientationchange', scheduleFloatingLauncherClamp, { passive: true });
+  window.addEventListener('resize', () => schedulePlayerToolsLauncherReposition('resize'), { passive: true });
+  window.addEventListener('orientationchange', () => schedulePlayerToolsLauncherReposition('orientation'), { passive: true });
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -7460,7 +7899,9 @@ const ensurePlayerRewardBroadcastChannel = (name) => {
   }
 };
 
-PLAYER_REWARD_CHANNEL_NAMES.forEach(ensurePlayerRewardBroadcastChannel);
+registerBootTask(() => {
+  PLAYER_REWARD_CHANNEL_NAMES.forEach(ensurePlayerRewardBroadcastChannel);
+});
 
 const hydratePlayerRewardHistory = () => {
   if (isDmSessionActive()) return;
@@ -7478,59 +7919,65 @@ const hydratePlayerRewardHistory = () => {
   }
 };
 
-hydratePlayerRewardHistory();
+registerBootTask(() => {
+  hydratePlayerRewardHistory();
+});
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('message', (event) => {
-    if (isDmSessionActive()) return;
-    const origin = event?.origin || '';
-    if (origin && !isAllowedRewardOrigin(origin)) return;
-    handlePlayerRewardEnvelope(event?.data, { source: 'message', reveal: true });
-  }, false);
+registerBootTask(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('message', (event) => {
+      if (isDmSessionActive()) return;
+      const origin = event?.origin || '';
+      if (origin && !isAllowedRewardOrigin(origin)) return;
+      handlePlayerRewardEnvelope(event?.data, { source: 'message', reveal: true });
+    }, false);
 
-  window.addEventListener('storage', (event) => {
-    if (isDmSessionActive()) return;
-    if (event.key !== PLAYER_REWARD_HISTORY_STORAGE_KEY) return;
-    const next = (() => {
-      if (!event.newValue) return [];
-      try {
-        const parsed = JSON.parse(event.newValue);
-        return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
-      } catch {
-        return [];
+    window.addEventListener('storage', (event) => {
+      if (isDmSessionActive()) return;
+      if (event.key !== PLAYER_REWARD_HISTORY_STORAGE_KEY) return;
+      const next = (() => {
+        if (!event.newValue) return [];
+        try {
+          const parsed = JSON.parse(event.newValue);
+          return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+        } catch {
+          return [];
+        }
+      })();
+      playerRewardHistory = next
+        .map(entry => sanitizePlayerRewardHistoryItem(entry))
+        .filter(Boolean)
+        .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
+      playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
+      dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
+        source: 'storage',
+        reveal: true,
+        dmSession: isDmSessionActive(),
+      });
+      if (!playerRewardHistory.length) {
+        acknowledgePlayerReward('');
+        return;
       }
-    })();
-    playerRewardHistory = next
-      .map(entry => sanitizePlayerRewardHistoryItem(entry))
-      .filter(Boolean)
-      .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
-    playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
-    dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
-      source: 'storage',
-      reveal: true,
-      dmSession: isDmSessionActive(),
+      if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
+        if (isPlayerToolsDrawerOpen) {
+          acknowledgePlayerReward(playerRewardLatestSignature);
+        } else {
+          showPlayerRewardBadge();
+        }
+      }
     });
-    if (!playerRewardHistory.length) {
-      acknowledgePlayerReward('');
-      return;
-    }
-    if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
-      if (isPlayerToolsDrawerOpen) {
-        acknowledgePlayerReward(playerRewardLatestSignature);
-      } else {
-        showPlayerRewardBadge();
-      }
-    }
-  });
-}
+  }
+});
 
-if (elAugmentSearch) {
-  elAugmentSearch.addEventListener('input', event => {
-    augmentState.search = typeof event?.target?.value === 'string' ? event.target.value : '';
-    persistAugmentState();
-    refreshAugmentUI();
-  });
-}
+registerBootTask(() => {
+  if (elAugmentSearch) {
+    elAugmentSearch.addEventListener('input', event => {
+      augmentState.search = typeof event?.target?.value === 'string' ? event.target.value : '';
+      persistAugmentState();
+      refreshAugmentUI();
+    });
+  }
+});
 
 augmentFilterButtons.forEach(button => {
   if (!button) return;
@@ -7597,6 +8044,7 @@ if (elCombatRewardReminderButton) {
 if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
     isPlayerToolsDrawerOpen = Boolean(open);
+    schedulePlayerToolsLauncherReposition(open ? 'player-tools-open' : 'player-tools-close');
     if (elLevelRewardReminderTrigger) {
       if (open && levelRewardPendingCount > 0) {
         if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
@@ -7787,7 +8235,9 @@ function getCharacterPowerSettings() {
   };
 }
 
-syncPowerDcRadios(powerDcFormulaField?.value || 'Proficiency');
+registerBootTask(() => {
+  syncPowerDcRadios(powerDcFormulaField?.value || 'Proficiency');
+});
 powerDcModeRadios.forEach(radio => {
   if (!radio) return;
   radio.addEventListener('change', () => {
@@ -7881,7 +8331,9 @@ if (elPowerSaveAbility) {
   });
 }
 
-refreshCasterAbilitySuggestion({ force: true });
+registerBootTask(() => {
+  refreshCasterAbilitySuggestion({ force: true });
+});
 
 if (elInitiativeRollBtn && elInitiativeRollResult) {
   const initiativeOutcomeClasses = ['initiative-roll--crit-high', 'initiative-roll--crit-low'];
@@ -8555,7 +9007,9 @@ function launchFireworks(){
 }
 
 // set initial tier display
-updateLevelOutputs(getLevelEntry(currentLevelIdx));
+registerBootTask(() => {
+  updateLevelOutputs(getLevelEntry(currentLevelIdx));
+});
 
 function getLevelCelebrationType(prevIdx, nextIdx) {
   if (!Number.isFinite(prevIdx) || !Number.isFinite(nextIdx) || nextIdx <= prevIdx) {
@@ -10070,6 +10524,23 @@ function renderLevelRewardReminders() {
         toast(`+1 ${abilityName} applied`, { type: 'success', meta: { source: 'level-reward' } });
         window.dmNotify?.(`Level reward applied: +1 ${abilityName}`, { actionScope: 'major' });
         logAction(`Level reward applied: +1 ${abilityName}`);
+        const character = getDiscordCharacterPayload();
+        if (character) {
+          const currentLevelEntry = getLevelEntry(currentLevelIdx);
+          const levelLabel = formatLevelLabel(currentLevelEntry);
+          void sendEventToDiscordWorker({
+            type: 'level.reward',
+            actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+            detail: {
+              previousLevel: levelLabel,
+              newLevel: levelLabel,
+              rewardSummary: `+1 ${abilityName}`,
+              characterId: character.id,
+              playerName: character.playerName,
+            },
+            ts: Date.now(),
+          });
+        }
         renderLevelRewardReminders();
       });
       control.appendChild(select);
@@ -10395,8 +10866,29 @@ function updateXP(){
   const levelProgressResult = shouldApplyProgress
     ? applyLevelProgress(levelNumber, { suppressNotifications: !xpInitialized, silent: !xpInitialized })
     : null;
+  const rewardSummary = levelProgressResult?.newLevelEntries?.length
+    ? levelProgressResult.newLevelEntries
+      .map(entry => formatLevelRewardSummary(entry))
+      .filter(Boolean)
+      .join('; ')
+    : '';
   if (xpInitialized && idx !== prevIdx) {
     logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      void sendEventToDiscordWorker({
+        type: 'level.up',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
+          previousLevel: formatLevelLabel(prevLevel),
+          newLevel: formatLevelLabel(levelEntry),
+          rewardSummary,
+          characterId: character.id,
+          playerName: character.playerName,
+        },
+        ts: Date.now(),
+      });
+    }
   }
   if (xpInitialized && idx > prevIdx) {
     const celebrationType = getLevelCelebrationType(prevIdx, idx);
@@ -10417,15 +10909,9 @@ function updateXP(){
       : `${baseMessage}.`;
     toast(toastMessage, 'success');
     window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
-    if (levelProgressResult?.newLevelEntries?.length) {
-      const rewardSummary = levelProgressResult.newLevelEntries
-        .map(entry => formatLevelRewardSummary(entry))
-        .filter(Boolean)
-        .join('; ');
-      if (rewardSummary) {
-        window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`, { actionScope: 'major' });
-        logAction(`Level bonuses applied: ${rewardSummary}`);
-      }
+    if (rewardSummary) {
+      window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`, { actionScope: 'major' });
+      logAction(`Level bonuses applied: ${rewardSummary}`);
     }
   } else if (xpInitialized && idx < prevIdx) {
     window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
@@ -10622,16 +11108,18 @@ function updateDerived(){
   updateCreditsGearSummary();
   refreshPowerCards();
 }
-ABILS.forEach(a=> {
-  const el = $(a);
-  el.addEventListener('change', () => {
-    window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`, { actionScope: 'major' });
-    updateDerived();
+registerBootTask(() => {
+  ABILS.forEach(a=> {
+    const el = $(a);
+    el.addEventListener('change', () => {
+      window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`, { actionScope: 'major' });
+      updateDerived();
+    });
   });
+  ['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
+  ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
+  SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 });
-['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
-ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
-SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
 function setXP(v){
   if (!elXP || typeof elXP.value === 'undefined') {
@@ -10916,6 +11404,55 @@ function sendImmediateCharacterUpdate(type, before, after, reason) {
   });
 }
 
+function getHpSnapshot() {
+  if (!elHPBar) return null;
+  return {
+    current: num(elHPBar.value),
+    max: num(elHPBar.max),
+    temp: elHPTemp ? num(elHPTemp.value) : 0,
+  };
+}
+
+function sendStatusEvent(type, detail) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  void sendEventToDiscordWorker({
+    type,
+    actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+    detail: {
+      ...detail,
+      characterId: character.id,
+      playerName: character.playerName,
+    },
+    ts: Date.now(),
+  });
+}
+
+function sendAbilityUseEvent({ name, kind, power } = {}) {
+  const character = getDiscordCharacterPayload();
+  if (!character || !name || !kind) return;
+  const detail = {
+    name,
+    kind,
+    characterId: character.id,
+    playerName: character.playerName,
+  };
+  if (power && typeof power === 'object') {
+    if (Number.isFinite(power.spCost)) detail.spCost = power.spCost;
+    if (typeof power.uses === 'string' && power.uses) detail.uses = power.uses;
+    if (Number.isFinite(power.cooldown)) detail.cooldown = power.cooldown;
+    if (power.usageTracker && typeof power.usageTracker === 'object') {
+      detail.usageTracker = { ...power.usageTracker };
+    }
+  }
+  void sendEventToDiscordWorker({
+    type: 'ability.use',
+    actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+    detail,
+    ts: Date.now(),
+  });
+}
+
 function isActiveCharacterName(name) {
   if (!name) return false;
   const vigilanteName = $('superhero')?.value?.trim() || '';
@@ -11054,6 +11591,11 @@ $('hp-dmg').addEventListener('click', async ()=>{
   if(down){
     toast('Player is down', 'warning');
     logAction('Player is down.');
+    sendStatusEvent('status.downed', {
+      outcome: 'downed',
+      counts: getDeathSaveCounts(),
+      hp: getHpSnapshot(),
+    });
   }
 });
 $('hp-heal').addEventListener('click', async ()=>{
@@ -11064,7 +11606,9 @@ $('hp-full').addEventListener('click', async ()=>{
   const diff = num(elHPBar.max) - num(elHPBar.value);
   setHP(num(elHPBar.max));
 });
-$('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
+registerBootTask(() => {
+  $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
+});
 
 function changeSP(delta){
   const current = num(elSPBar.value);
@@ -11087,7 +11631,9 @@ function changeSP(delta){
   setSP(next);
   return true;
 }
-qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
+registerBootTask(() => {
+  qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
+});
 $('long-rest').addEventListener('click', ()=>{
   closeSpSettings();
   if(!confirm('Take a long rest?')) return;
@@ -11179,7 +11725,9 @@ if (hpRollSaveButton) {
     if (elHPRollInput) elHPRollInput.value='';
   });
 }
-qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
+registerBootTask(() => {
+  qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
+});
 
 function setSpSettingsExpanded(expanded){
   if (!elSPSettingsToggle) return;
@@ -11216,7 +11764,9 @@ if (spSettingsSaveButton) {
     closeSpSettings();
   });
 }
-qsa('#modal-sp-settings [data-close]').forEach(b=> b.addEventListener('click', closeSpSettings));
+registerBootTask(() => {
+  qsa('#modal-sp-settings [data-close]').forEach(b=> b.addEventListener('click', closeSpSettings));
+});
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
@@ -11231,6 +11781,8 @@ const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 const FALLBACK_ACTOR_NAME = 'A Mysterious Force';
 const CAMPAIGN_LOG_LOCAL_KEY = 'campaign-log';
 const CAMPAIGN_LOG_VISIBLE_LIMIT = 100;
+const DISCORD_LOG_DEBOUNCE_MS = 750;
+const pendingDiscordActionLogs = new Map();
 let campaignLogEntries = normalizeCampaignLogEntries(safeParse(CAMPAIGN_LOG_LOCAL_KEY));
 let campaignBacklogEntries = [];
 let lastLocalCampaignTimestamp = campaignLogEntries.length
@@ -11254,15 +11806,51 @@ function renderLogs(){
 function renderFullLogs(){
   $('full-log-action').innerHTML = actionLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
-function logAction(text){
+function queueDiscordActionLog({ text, timestamp, actionScope }) {
+  const character = getDiscordCharacterPayload();
+  if (!character) return;
+  const type = 'action.log';
+  const existing = pendingDiscordActionLogs.get(type);
+  const update = existing || { timeout: null, payload: {} };
+  update.payload = { text, timestamp, actionScope };
+  if (update.timeout) {
+    clearTimeout(update.timeout);
+  }
+  update.timeout = setTimeout(() => {
+    pendingDiscordActionLogs.delete(type);
+    void sendEventToDiscordWorker({
+      type,
+      actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+      detail: {
+        text: update.payload.text,
+        ts: update.payload.timestamp,
+        characterId: character.id,
+        playerName: character.playerName,
+        ...(update.payload.actionScope ? { actionScope: update.payload.actionScope } : {}),
+      },
+      ts: update.payload.timestamp,
+    });
+  }, DISCORD_LOG_DEBOUNCE_MS);
+  pendingDiscordActionLogs.set(type, update);
+}
+
+function logAction(text, meta = {}){
   try{
     if(sessionStorage.getItem('dmLoggedIn') === '1'){
       text = `DM: ${text}`;
     }
   }catch{}
-  pushLog(actionLog, {t:Date.now(), text}, 'action-log');
+  const timestamp = Date.now();
+  const scopeCandidate = meta.actionScope ?? meta.scope ?? meta.kind ?? meta.actionType;
+  const actionScope = typeof scopeCandidate === 'string' && scopeCandidate ? scopeCandidate : null;
+  pushLog(actionLog, {t:timestamp, text}, 'action-log');
   renderLogs();
   renderFullLogs();
+  if (actionScope) {
+    queueDiscordActionLog({ text, timestamp, actionScope });
+  } else {
+    queueDiscordActionLog({ text, timestamp });
+  }
 }
 window.logAction = logAction;
 window.queueCampaignLogEntry = queueCampaignLogEntry;
@@ -11417,6 +12005,16 @@ function queueCampaignLogEntry(text, options = {}){
   if (typeof text !== 'string' || !text.trim()) return null;
   const entry = createCampaignEntry(text, options);
   mergeCampaignEntry(entry);
+  const sessionLogMessage = `[${entry.t}] ${entry.name}: ${entry.text}`;
+  sendEventToDiscordWorker({
+    type: 'session.log',
+    detail: {
+      text: entry.text,
+      name: entry.name,
+      t: entry.t,
+      before: { message: sessionLogMessage },
+    },
+  });
   if (options.sync === false) return entry;
   (async () => {
     try{
@@ -11453,7 +12051,9 @@ function updateCampaignLogEntry(id, text, options = {}){
 
 window.updateCampaignLogEntry = updateCampaignLogEntry;
 
-updateCampaignLogViews();
+registerBootTask(() => {
+  updateCampaignLogViews();
+});
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 let serviceWorkerUpdateHandled = false;
@@ -11733,15 +12333,15 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
 
   const total = rollTotal + modifier;
+  const combinedBreakdown = [
+    ...breakdownParts,
+    ...(resolution?.breakdown || []),
+  ].filter(Boolean);
 
   if (out) {
     const renderer = resultRenderer || ensureDiceResultRenderer(out);
     renderDiceResultValue(out, total, { renderer });
     if (out.dataset) {
-      const combinedBreakdown = [
-        ...breakdownParts,
-        ...(resolution?.breakdown || []),
-      ].filter(Boolean);
       if (combinedBreakdown.length) {
         out.dataset.rollBreakdown = combinedBreakdown.join(' | ');
       } else if (out.dataset.rollBreakdown) {
@@ -11784,6 +12384,32 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
   logAction(message);
 
+  if (rollOptions && ['skill', 'save', 'attack'].includes(rollOptions.type)) {
+    const character = getDiscordCharacterPayload();
+    if (character) {
+      const formulaBase = rollDetails.length
+        ? rollDetails.map(detail => `${detail.count}d${detail.sides}`).join(' + ')
+        : `1d${sides}`;
+      const formula = `${formulaBase}${modifier ? `${modifier >= 0 ? '+' : ''}${modifier}` : ''}`;
+      void sendEventToDiscordWorker({
+        type: 'roll.check',
+        actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+        detail: {
+          rollType: rollOptions.type,
+          name,
+          ability: rollOptions.ability || '',
+          skill: rollOptions.skill || '',
+          formula,
+          total,
+          breakdown: combinedBreakdown.join(' | '),
+          characterId: character.id,
+          playerName: character.playerName,
+        },
+        ts: Date.now(),
+      });
+    }
+  }
+
   if (typeof rollOptions.onRoll === 'function') {
     try {
       const baseBonusValue = resolution && Number.isFinite(resolution.baseBonus)
@@ -11813,8 +12439,10 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
   return total;
 }
-renderLogs();
-renderFullLogs();
+registerBootTask(() => {
+  renderLogs();
+  renderFullLogs();
+});
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');
@@ -12456,10 +13084,11 @@ function ensureAudioContext(){
   if(typeof window === 'undefined') return null;
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if(!Ctx) return null;
+  if(!audioContext && !audioContextGestureReady) return null;
   if(!audioContext){
     audioContext = new Ctx();
   }
-  if(audioContext?.state === 'suspended'){
+  if(audioContext?.state === 'suspended' && audioContextGestureReady){
     audioContext.resume?.().catch(()=>{});
   }
   return audioContext;
@@ -13082,7 +13711,9 @@ function resetDeathSaves(){
   }
   syncDeathSaveGauge();
 }
-$('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
+registerBootTask(() => {
+  $('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
+});
 
 async function checkDeathProgress(){
   if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
@@ -13107,13 +13738,13 @@ async function checkDeathProgress(){
   }
   syncDeathSaveGauge();
 }
-if (deathCheckboxes.length) {
-  deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
-}
-syncDeathSaveGauge();
-updateDeathSaveAvailability();
-
-$('pt-roll-death-save')?.addEventListener('click', ()=>{
+registerBootTask(() => {
+  if (deathCheckboxes.length) {
+    deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
+  }
+  syncDeathSaveGauge();
+  updateDeathSaveAvailability();
+  $('pt-roll-death-save')?.addEventListener('click', ()=>{
   if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
@@ -13175,6 +13806,11 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
     toast('Natural 20. You stabilize and regain 1 HP.', 'success');
     logAction('Death save: natural 20, stabilized to 1 HP.');
     updateDeathSaveAvailability();
+    sendStatusEvent('status.deathsave', {
+      outcome: rollOutcome,
+      counts: getDeathSaveCounts(),
+      hp: getHpSnapshot(),
+    });
     syncDeathSaveGauge({ lastRoll: rollOutcome });
     return;
   } else if (total >= 10) {
@@ -13193,8 +13829,14 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
     const { failures } = getDeathSaveCounts();
     markBoxes(deathFailures, failures + failIncrements);
   }
+  sendStatusEvent('status.deathsave', {
+    outcome: rollOutcome,
+    counts: getDeathSaveCounts(),
+    hp: getHpSnapshot(),
+  });
   checkDeathProgress();
   syncDeathSaveGauge({ lastRoll: rollOutcome });
+  });
 });
 let activeCampaignEditEntryId = null;
 
@@ -13282,18 +13924,17 @@ if (btnCampaignAdd) {
 }
 
 const campaignLogContainer = $('campaign-log');
-if(campaignLogContainer){
-  campaignLogContainer.addEventListener('click', handleCampaignLogClick);
-}
-
 const campaignBacklogContainer = $('campaign-backlog');
-if(campaignBacklogContainer){
-  campaignBacklogContainer.addEventListener('click', handleCampaignLogClick);
-}
-
 const campaignEditSave = $('campaign-edit-save');
-if(campaignEditSave){
-  campaignEditSave.addEventListener('click', ()=>{
+registerBootTask(() => {
+  if(campaignLogContainer){
+    campaignLogContainer.addEventListener('click', handleCampaignLogClick);
+  }
+  if(campaignBacklogContainer){
+    campaignBacklogContainer.addEventListener('click', handleCampaignLogClick);
+  }
+  if(campaignEditSave){
+    campaignEditSave.addEventListener('click', ()=>{
     if(!activeCampaignEditEntryId) return;
     const field = $('campaign-edit-text');
     if(!field) return;
@@ -13318,40 +13959,40 @@ if(campaignEditSave){
     try{ toast('Campaign log entry updated', 'success'); }catch{}
     hide('modal-campaign-edit');
     resetCampaignLogEditor();
+    });
+  }
+  qsa('#modal-campaign-edit [data-close]').forEach(btn=>{
+    btn.addEventListener('click', resetCampaignLogEditor);
   });
-}
-
-qsa('#modal-campaign-edit [data-close]').forEach(btn=>{
-  btn.addEventListener('click', resetCampaignLogEditor);
+  const campaignEditOverlay = $('modal-campaign-edit');
+  if(campaignEditOverlay){
+    campaignEditOverlay.addEventListener('click', event=>{
+      if(event.target === campaignEditOverlay){
+        resetCampaignLogEditor();
+      }
+    }, { capture: true });
+  }
+  const btnCampaignBacklog = $('campaign-view-backlog');
+  if(btnCampaignBacklog){
+    btnCampaignBacklog.addEventListener('click', ()=>{
+      updateCampaignLogViews();
+      show('modal-campaign-backlog');
+    });
+  }
 });
 
-const campaignEditOverlay = $('modal-campaign-edit');
-if(campaignEditOverlay){
-  campaignEditOverlay.addEventListener('click', event=>{
-    if(event.target === campaignEditOverlay){
-      resetCampaignLogEditor();
-    }
-  }, { capture: true });
-}
-
-const btnCampaignBacklog = $('campaign-view-backlog');
-if(btnCampaignBacklog){
-  btnCampaignBacklog.addEventListener('click', ()=>{
-    updateCampaignLogViews();
-    show('modal-campaign-backlog');
-  });
-}
-
-subscribeCampaignLog(refreshCampaignLogFromCloud);
-refreshCampaignLogFromCloud();
 const btnLog = $('btn-log');
-if (btnLog) {
-  btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-}
+registerBootTask(() => {
+  if (btnLog) {
+    btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+  }
+});
 const btnLogFull = $('log-full');
-if (btnLogFull) {
-  btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
-}
+registerBootTask(() => {
+  if (btnLogFull) {
+    btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
+  }
+});
 const creditsLedgerList = $('credits-ledger-list');
 const creditsLedgerFilterButtons = Array.from(qsa('[data-ledger-filter]'));
 let creditsLedgerFilter = 'all';
@@ -13399,41 +14040,55 @@ function renderCreditsLedger() {
   creditsLedgerList.innerHTML = html;
 }
 
-creditsLedgerFilterButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn?.dataset?.ledgerFilter || 'all';
-    setCreditsLedgerFilter(target);
+registerBootTask(() => {
+  creditsLedgerFilterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn?.dataset?.ledgerFilter || 'all';
+      setCreditsLedgerFilter(target);
+    });
   });
 });
 
 const btnCreditsLedger = $('btn-credits-ledger');
-if (btnCreditsLedger) {
-  btnCreditsLedger.addEventListener('click', () => {
-    setCreditsLedgerFilter('all');
-    show('modal-credits-ledger');
-  });
-}
+registerBootTask(() => {
+  if (btnCreditsLedger) {
+    btnCreditsLedger.addEventListener('click', () => {
+      setCreditsLedgerFilter('all');
+      show('modal-credits-ledger');
+    });
+  }
+});
 
-document.addEventListener('credits-ledger-updated', () => {
-  renderCreditsLedger();
+registerBootTask(() => {
+  document.addEventListener('credits-ledger-updated', () => {
+    renderCreditsLedger();
+  });
 });
 
 const btnCampaign = $('btn-campaign');
-if (btnCampaign) {
-  btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
-}
+registerBootTask(() => {
+  if (btnCampaign) {
+    btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
+  }
+});
 const btnHelp = $('btn-help');
-if (btnHelp) {
-  btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
-}
+registerBootTask(() => {
+  if (btnHelp) {
+    btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
+  }
+});
 const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
   show('modal-load-list');
+  updateSaveLoadAuthState();
+  setSaveLoadStatus('');
 }
-if (btnLoad) {
-  btnLoad.addEventListener('click', openCharacterList);
-}
+registerBootTask(() => {
+  if (btnLoad) {
+    btnLoad.addEventListener('click', openCharacterList);
+  }
+});
 window.openCharacterList = openCharacterList;
 
 async function renderCharacterList(){
@@ -13469,25 +14124,29 @@ async function renderCharacterList(){
   selectedChar = current;
 }
 
-document.addEventListener('character-saved', renderCharacterList);
-document.addEventListener('character-deleted', renderCharacterList);
-document.addEventListener('character-cloud-update', event => {
-  const detail = event?.detail || {};
-  const name = detail.name;
-  const payload = detail.payload;
-  if (!name || !payload) return;
-  const current = currentCharacter();
-  if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
-  try {
-    const applied = applyAppSnapshot(payload);
-    if (applied) {
-      applyViewLockState();
+registerBootTask(() => {
+  document.addEventListener('character-saved', renderCharacterList);
+  document.addEventListener('character-deleted', renderCharacterList);
+  document.addEventListener('character-cloud-update', event => {
+    const detail = event?.detail || {};
+    const name = detail.name;
+    const payload = detail.payload;
+    if (!name || !payload) return;
+    const current = currentCharacter();
+    if (canonicalCharacterKey(current) !== canonicalCharacterKey(name)) return;
+    try {
+      const applied = applyAppSnapshot(payload);
+      if (applied) {
+        applyViewLockState();
+      }
+    } catch (err) {
+      console.error('Failed to apply cloud-updated character', err);
     }
-  } catch (err) {
-    console.error('Failed to apply cloud-updated character', err);
-  }
+  });
 });
-window.addEventListener('storage', renderCharacterList);
+registerBootTask(() => {
+  window.addEventListener('storage', renderCharacterList);
+});
 
 async function renderRecoverCharList(){
   const list = $('recover-char-list');
@@ -13615,17 +14274,52 @@ if(recoverCharListEl){
 }
 
 const recoverBtn = $('recover-save');
-if(recoverBtn){
-  recoverBtn.addEventListener('click', async ()=>{
-    hide('modal-load-list');
-    await renderRecoverCharList();
-    show('modal-recover-char');
-  });
-}
-
+const loadCloudBtn = $('load-character');
 const exportCharacterBtn = $('export-character');
 const importCharacterBtn = $('import-character');
 const importCharacterFile = $('import-character-file');
+const saveLoadStatus = $('save-load-status');
+const saveLoadAuthNote = $('save-load-auth-note');
+
+let saveLoadBusy = false;
+const saveLoadButtons = [$('btn-save'), loadCloudBtn, recoverBtn, exportCharacterBtn, importCharacterBtn].filter(Boolean);
+
+function setSaveLoadStatus(message, { type = 'info' } = {}) {
+  if (!saveLoadStatus) return;
+  saveLoadStatus.textContent = message || '';
+  if (message) {
+    saveLoadStatus.dataset.status = type;
+  } else {
+    delete saveLoadStatus.dataset.status;
+  }
+}
+
+function setSaveLoadBusyState(isBusy) {
+  saveLoadBusy = isBusy;
+  saveLoadButtons.forEach(button => {
+    if (!button) return;
+    button.disabled = isBusy || button.dataset.cloudDisabled === 'true';
+    button.classList.toggle('loading', isBusy);
+  });
+}
+
+function updateSaveLoadAuthState() {
+  const { uid } = getAuthState();
+  const requiresAuth = Boolean(uid);
+  const message = requiresAuth ? '' : 'Sign in to use cloud Save/Load/Recover.';
+  if (saveLoadAuthNote) {
+    saveLoadAuthNote.textContent = message;
+  }
+  [ $('btn-save'), loadCloudBtn, recoverBtn ].forEach(button => {
+    if (!button) return;
+    button.dataset.cloudDisabled = requiresAuth ? 'false' : 'true';
+    button.disabled = saveLoadBusy || !requiresAuth;
+  });
+}
+
+registerBootTask(() => {
+  updateSaveLoadAuthState();
+});
 
 function resolveImportName(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';
@@ -13651,18 +14345,195 @@ function resolveImportName(name) {
   return { decision: 'copy', name: copyName };
 }
 
+function resolveSaveTargetName() {
+  let target = currentCharacter();
+  if (!target) {
+    const stored = readLastSaveName();
+    if (stored && stored.trim()) target = stored.trim();
+  }
+  const vig = $('superhero')?.value.trim();
+  const real = $('secret')?.value.trim();
+  if (vig) {
+    target = vig;
+  } else if (!target && real) {
+    target = real;
+  }
+  return target;
+}
+
+function applyCloudSnapshotPayload(rawPayload, { source } = {}) {
+  const name = rawPayload?.meta?.name || rawPayload?.character?.name || currentCharacter() || '';
+  const resolvedName = name || 'Cloud Save';
+  const { payload } = preflightSnapshotForLoad(resolvedName, rawPayload, { showRecoveryToast: false });
+  const applied = applyAppSnapshot(payload);
+  applyViewLockState();
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
+  if (useViewMode() === 'view' && savedViewMode !== 'edit') {
+    setMode('view', { skipPersist: true });
+  } else {
+    setMode('edit');
+  }
+  if (resolvedName) {
+    setCurrentCharacter(resolvedName);
+    syncMiniGamePlayerName();
+    writeLastSaveName(resolvedName);
+  }
+  queueCharacterConfirmation({
+    name: resolvedName || 'Character',
+    variant: 'loaded',
+    key: `cloud:${source || 'unknown'}:${resolvedName}:${payload?.meta?.savedAt ?? Date.now()}`,
+    meta: payload?.meta,
+  });
+}
+
+async function handleCloudSave() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to save to the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  const target = resolveSaveTargetName();
+  if (!target) {
+    setSaveLoadStatus('No character selected to save.', { type: 'error' });
+    toast('No character selected.', 'error');
+    return;
+  }
+  if (!confirm(`Save current progress for ${target}?`)) return;
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Saving to cloud…');
+  try {
+    const snapshot = createAppSnapshot();
+    const payload = normalizeSnapshotPayload(snapshot);
+    const savedAt = Date.now();
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      name: target,
+      displayName: target,
+      ownerUid: uid,
+      uid,
+      savedAt,
+      updatedAt: savedAt,
+    };
+    payload.savedAt = payload.meta.savedAt;
+    payload.updatedAt = payload.meta.updatedAt;
+    payload.character = {
+      ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+      name: target,
+    };
+    const checksum = calculateSnapshotChecksum({ character: payload.character, ui: payload.ui });
+    payload.meta.checksum = checksum;
+    payload.checksum = checksum;
+    const envelope = buildCloudSaveEnvelope(payload, { updatedAt: savedAt });
+    await saveCharacter(payload, target);
+    await saveCloudSave(uid, envelope, { mirrorToRtdb: true });
+    markAutoSaveSynced(payload, JSON.stringify(payload));
+    cueSuccessfulSave();
+    setSaveLoadStatus('Cloud save complete.', { type: 'success' });
+    toast('Saved to cloud.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Cloud save failed', err);
+    setSaveLoadStatus('Cloud save failed. Please try again.', { type: 'error' });
+    toast('Cloud save failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleCloudLoad() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to load from the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Loading cloud save…');
+  try {
+    const result = await loadCloudSave(uid);
+    if (!result || !result.data?.payload) {
+      setSaveLoadStatus('No cloud save found.', { type: 'error' });
+      toast('No cloud save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(result.data);
+    applyCloudSnapshotPayload(payload, { source: result.source });
+    if (result.source === 'rtdb') {
+      setSaveLoadStatus('Loaded from legacy RTDB save. Use Recover Save to migrate.', { type: 'info' });
+    } else {
+      setSaveLoadStatus('Loaded from Firestore.', { type: 'success' });
+    }
+    toast('Cloud load complete.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Cloud load failed', err);
+    setSaveLoadStatus('Cloud load failed. Please try again.', { type: 'error' });
+    toast('Cloud load failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleRecoverFromRTDB() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to recover from RTDB.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Recovering RTDB save…');
+  try {
+    const envelope = await recoverFromRTDB(uid);
+    if (!envelope?.payload) {
+      setSaveLoadStatus('No RTDB save found to recover.', { type: 'error' });
+      toast('No RTDB save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(envelope);
+    applyCloudSnapshotPayload(payload, { source: 'rtdb' });
+    setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
+    toast('Recovery complete.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Recover save failed', err);
+    setSaveLoadStatus('Recover failed. Please try again.', { type: 'error' });
+    toast('Recover failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+if (recoverBtn) {
+  recoverBtn.addEventListener('click', () => {
+    handleRecoverFromRTDB();
+  });
+}
+
+if (loadCloudBtn) {
+  loadCloudBtn.addEventListener('click', () => {
+    handleCloudLoad();
+  });
+}
+
 if (exportCharacterBtn) {
   exportCharacterBtn.addEventListener('click', async () => {
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Preparing export…');
     try {
-      const name = currentCharacter() || readLastSaveName();
+      const snapshot = createAppSnapshot();
+      const serialized = serializeSnapshotForExport(snapshot);
+      const payload = normalizeSnapshotPayload(snapshot);
+      const name = resolveSaveTargetName() || payload?.meta?.name || payload?.character?.name || currentCharacter() || readLastSaveName();
       if (!name) {
+        setSaveLoadStatus('Select a character to export.', { type: 'error' });
         toast('Select a character to export.', 'info');
         return;
       }
-      const payload = await loadLocal(name);
-      const migrated = migrateSavePayload(payload);
-      const { payload: canonical } = buildCanonicalPayload(migrated);
-      const serialized = JSON.stringify(canonical, null, 2);
       const blob = new Blob([serialized], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -13672,10 +14543,15 @@ if (exportCharacterBtn) {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setSaveLoadStatus('Exported JSON file.', { type: 'success' });
       toast('Exported character JSON.', 'success');
     } catch (err) {
       console.error('Failed to export character', err);
+      setSaveLoadStatus('Failed to export character.', { type: 'error' });
       toast('Failed to export character.', 'error');
+    } finally {
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -13687,18 +14563,29 @@ if (importCharacterBtn && importCharacterFile) {
   importCharacterFile.addEventListener('change', async () => {
     const file = importCharacterFile.files?.[0];
     if (!file) return;
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Importing JSON…');
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const migrated = migrateSavePayload(parsed);
-      const { payload } = buildCanonicalPayload(migrated);
+      const rawPayload = parsed && typeof parsed === 'object' && parsed.payload && typeof parsed.payload === 'object'
+        ? parsed.payload
+        : parsed;
+      const payload = normalizeSnapshotPayload(rawPayload);
+      if (!payload) {
+        setSaveLoadStatus('Import file is missing data.', { type: 'error' });
+        toast('Import file missing data.', 'error');
+        return;
+      }
       const name = payload?.meta?.name || payload?.character?.name || '';
       if (!name) {
+        setSaveLoadStatus('Imported file missing character name.', { type: 'error' });
         toast('Imported file missing character name.', 'error');
         return;
       }
       const resolution = resolveImportName(name);
       if (resolution.decision === 'cancel') {
+        setSaveLoadStatus('Import cancelled.', { type: 'info' });
         toast('Import cancelled.', 'info');
         return;
       }
@@ -13721,12 +14608,16 @@ if (importCharacterBtn && importCharacterFile) {
       applyAppSnapshot(payloadWithName);
       setMode('edit');
       const suffix = resolution.decision === 'copy' ? ` as ${resolvedName}` : '';
+      setSaveLoadStatus('Imported JSON. Click Save to sync to cloud.', { type: 'success' });
       toast(`Imported ${name}${suffix}.`, 'success');
     } catch (err) {
       console.error('Failed to import character JSON', err);
+      setSaveLoadStatus('Failed to import character JSON.', { type: 'error' });
       toast('Failed to import character JSON.', 'error');
     } finally {
       importCharacterFile.value = '';
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -13809,7 +14700,9 @@ async function doLoad(){
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
 if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+registerBootTask(() => {
+  qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+});
 
 function openCharacterModalByName(name){
   if(!name) return;
@@ -16027,6 +16920,8 @@ function finalizePowerUse(card, power) {
   }
   const label = getPowerCardLabel(card);
   logAction(`${label} used: ${power.name} — ${power.rulesText}`);
+  const abilityKind = card?.dataset?.kind === 'sig' ? 'signature move' : 'power';
+  sendAbilityUseEvent({ name: power.name, kind: abilityKind, power });
   toast(`${power.name} activated.`, 'success');
   if (power.concentration) {
     activeConcentrationEffect = { card, name: power.name };
@@ -16778,7 +17673,9 @@ function exposePowerMeta() {
   } catch (_) {}
 }
 
-exposePowerMeta();
+registerBootTask(() => {
+  exposePowerMeta();
+});
 
 function goToWizardStep(step) {
   const steps = powerEditorState.steps || [];
@@ -19506,7 +20403,9 @@ function updateMedalIndicators() {
   updateMedalEmptyState();
 }
 
-updateMedalIndicators();
+registerBootTask(() => {
+  updateMedalIndicators();
+});
 
 const GEAR_CARD_KINDS = new Set(['weapon', 'armor', 'item']);
 
@@ -19812,10 +20711,26 @@ function createCard(kind, pref = {}) {
           chk.type = 'checkbox';
           chk.dataset.f = f.f;
           chk.checked = !!pref[f.f];
-          if (kind === 'armor') {
+          if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
-              logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
+              if (kind === 'armor') {
+                logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
+              }
+              const character = getDiscordCharacterPayload();
+              if (character) {
+                void sendEventToDiscordWorker({
+                  type: 'gear.equip',
+                  actor: { vigilanteName: character.vigilanteName, uid: character.uid },
+                  detail: {
+                    kind,
+                    name,
+                    equipped: chk.checked,
+                    characterId: character.id,
+                  },
+                  ts: Date.now(),
+                });
+              }
             });
           }
           label.appendChild(chk);
@@ -19913,6 +20828,11 @@ function createCard(kind, pref = {}) {
       const nameField = qs("[data-f='name']", card);
       const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
+      const abilityKind = kind === 'sig' ? 'signature move' : kind;
+      const powerData = (kind === 'power' || kind === 'sig') && powerCardStates.has(card)
+        ? serializePowerCard(card)
+        : null;
+      sendAbilityUseEvent({ name, kind: abilityKind, power: powerData });
       const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
         opts.sides = HAMMERSPACE_DIE_SIDES;
@@ -20264,7 +21184,9 @@ let dmPowerPresets = Array.isArray(initialDmCatalogState.powerPresets)
   ? initialDmCatalogState.powerPresets.slice()
   : [];
 let refreshPowerPresetMenu = () => {};
-rebuildCatalogPriceIndex();
+registerBootTask(() => {
+  rebuildCatalogPriceIndex();
+});
 const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
@@ -20293,7 +21215,9 @@ subscribeDmCatalog(state => {
   requestCatalogRender();
   try { refreshPowerPresetMenu(); } catch {}
 });
-setupPowerPresetMenu();
+registerBootTask(() => {
+  setupPowerPresetMenu();
+});
 const catalogOverlay = $('modal-catalog');
 if (catalogOverlay) {
   catalogOverlay.addEventListener('transitionend', e => {
@@ -21911,7 +22835,9 @@ function renderEnc(){
   }
   updateCombatantActiveDisplay();
 }
-$('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
+registerBootTask(() => {
+  $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
+});
 $('enc-add').addEventListener('click', ()=>{
   const name=$('enc-name').value.trim();
   const initValue=Number($('enc-init').value);
@@ -21947,7 +22873,9 @@ $('enc-reset').addEventListener('click', ()=>{
   renderEnc();
   saveEnc();
 });
-qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
+registerBootTask(() => {
+  qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
+});
 
 const encPresetNameInput = $('enc-preset-name');
 const encPresetSaveButton = $('enc-preset-save');
@@ -22064,7 +22992,9 @@ if (encPresetList) {
   });
 }
 
-renderEncounterPresetList();
+registerBootTask(() => {
+  renderEncounterPresetList();
+});
 
 /* ========= Save / Load ========= */
 const SNAPSHOT_FORM_VERSION = 1;
@@ -23055,9 +23985,11 @@ function notifyAutosaveStorageFailure(err) {
   }
 }
 
-initializeAutosaveController({
-  getCurrentCharacter: currentCharacter,
-  saveAutoBackup,
+registerBootTask(() => {
+  initializeAutosaveController({
+    getCurrentCharacter: currentCharacter,
+    saveAutoBackup,
+  });
 });
 
 function captureAutosaveSnapshot(options = {}) {
@@ -23122,29 +24054,33 @@ const pushHistory = debounce(() => {
   captureAutosaveSnapshot();
 }, 500);
 
-document.addEventListener('input', pushHistory);
-document.addEventListener('change', pushHistory);
-document.addEventListener('dm-tab-will-change', () => {
-  captureAutosaveSnapshot();
+registerBootTask(() => {
+  document.addEventListener('input', pushHistory);
+  document.addEventListener('change', pushHistory);
 });
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      flushAutosave('visibilitychange');
-    }
-  }, { passive: true });
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', event => {
-    if (event && event.persisted) return;
-    flushAutosave('pagehide');
-  }, { capture: true });
-  window.addEventListener('beforeunload', () => {
+registerBootTask(() => {
+  document.addEventListener('dm-tab-will-change', () => {
     captureAutosaveSnapshot();
   });
-}
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushAutosave('visibilitychange');
+      }
+    }, { passive: true });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', event => {
+      if (event && event.persisted) return;
+      flushAutosave('pagehide');
+    }, { capture: true });
+    window.addEventListener('beforeunload', () => {
+      captureAutosaveSnapshot();
+    });
+  }
+});
 
 function undo(){
   if(histIdx > 0){ histIdx--; applyAppSnapshot(history[histIdx]); }
@@ -23371,13 +24307,15 @@ function flushAutosave(reason){
   }
 }
 
-if(typeof window !== 'undefined'){
-  window.addEventListener('focus', () => {
-    if(isAutoSaveDirty()){
-      performScheduledAutoSave();
-    }
-  }, { passive: true });
-}
+registerBootTask(() => {
+  if(typeof window !== 'undefined'){
+    window.addEventListener('focus', () => {
+      if(isAutoSaveDirty()){
+        performScheduledAutoSave();
+      }
+    }, { passive: true });
+  }
+});
 
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
@@ -23534,6 +24472,7 @@ const syncPanelRetryBtn = syncPanel?.querySelector('[data-sync-retry]');
 const syncPanelClearErrorsBtn = syncPanel?.querySelector('[data-sync-clear-errors]');
 const syncPanelClearQueueBtn = syncPanel?.querySelector('[data-sync-clear-queue]');
 const syncPanelCloseBtn = syncPanel?.querySelector('[data-sync-close]');
+const syncPanelAuthRequiredEl = syncPanel?.querySelector('[data-sync-auth-required]');
 
 const SYNC_STATUS_LABELS = {
   online: 'Online',
@@ -23628,6 +24567,20 @@ function formatRelativeTime(timestamp) {
     }
   }
   return '';
+}
+
+function updateSyncAuthRequiredNote() {
+  if (!syncPanelAuthRequiredEl) return;
+  const { uid } = getAuthState();
+  if (!uid) {
+    syncPanelAuthRequiredEl.textContent = 'Sign in to enable cloud sync and multi-device saves.';
+    syncPanelAuthRequiredEl.hidden = false;
+    syncPanelAuthRequiredEl.removeAttribute('hidden');
+  } else {
+    syncPanelAuthRequiredEl.hidden = true;
+    syncPanelAuthRequiredEl.textContent = '';
+    syncPanelAuthRequiredEl.setAttribute('hidden', 'true');
+  }
 }
 
 const syncPanelOfflineBtn = syncPanel?.querySelector('[data-sync-prefetch]');
@@ -24015,6 +24968,8 @@ function toggleSyncPanel(forceOpen) {
     refreshSyncQueue();
     renderSyncErrors();
     updateLastSyncDisplay();
+    renderAuthDomainDiagnostics();
+    updateSyncAuthRequiredNote();
     requestAnimationFrame(() => {
       const focusTarget = syncPanelCloseBtn || syncPanel;
       try { focusTarget.focus({ preventScroll: true }); } catch {}
@@ -24098,19 +25053,21 @@ if (syncStatusTrigger) {
   });
 }
 
-if (syncPanelCloseBtn) {
-  syncPanelCloseBtn.addEventListener('click', () => toggleSyncPanel(false));
-}
-
-if (syncPanelBackdrop) {
-  syncPanelBackdrop.addEventListener('click', () => toggleSyncPanel(false));
-}
-
-document.addEventListener('keydown', e => {
-  if (!syncPanelOpen) return;
-  if (e.key === 'Escape' || e.key === 'Esc') {
-    toggleSyncPanel(false);
+registerBootTask(() => {
+  if (syncPanelCloseBtn) {
+    syncPanelCloseBtn.addEventListener('click', () => toggleSyncPanel(false));
   }
+
+  if (syncPanelBackdrop) {
+    syncPanelBackdrop.addEventListener('click', () => toggleSyncPanel(false));
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!syncPanelOpen) return;
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      toggleSyncPanel(false);
+    }
+  });
 });
 
 if (syncPanelSyncNowBtn) {
@@ -24197,66 +25154,18 @@ subscribeSyncQueue(() => {
 });
 
 const initialLastSync = getLastSyncActivity();
-updateLastSyncDisplay(initialLastSync);
-renderSyncErrors();
-refreshSyncQueue();
-
-$('btn-save').addEventListener('click', async () => {
-  const btn = $('btn-save');
-  let oldChar = currentCharacter();
-  if(!oldChar){
-    const stored = readLastSaveName();
-    if(stored && stored.trim()) oldChar = stored.trim();
-  }
-  const vig = $('superhero')?.value.trim();
-  const real = $('secret')?.value.trim();
-  let target = oldChar;
-  if (vig) {
-    target = vig;
-  } else if (!oldChar && real) {
-    target = real;
-  }
-  if (!target) return toast('No character selected', 'error');
-  if (!confirm(`Save current progress for ${target}?`)) return;
-  btn.classList.add('loading'); btn.disabled = true;
-  try {
-    const data = createAppSnapshot();
-    const serialized = JSON.stringify(data);
-    if (oldChar && vig && vig !== oldChar) {
-      await renameCharacter(oldChar, vig, data);
-    } else {
-      if (target !== oldChar) {
-        setCurrentCharacter(target);
-        syncMiniGamePlayerName();
-      }
-      await saveCharacter(data, target);
-    }
-    markAutoSaveSynced(data, serialized);
-    if (oldChar && vig && vig !== oldChar) {
-      queueCharacterConfirmation({
-        name: target,
-        variant: 'loaded',
-        key: `rename:${oldChar}:${target}:${data?.meta?.savedAt ?? Date.now()}`,
-        meta: data?.meta,
-      });
-    }
-    cueSuccessfulSave();
-    toast('Save successful', 'success');
-  } catch (e) {
-    console.error('Save failed', e);
-    if (isCharacterSaveQuotaError(e)) {
-      try {
-        await openCharacterList();
-      } catch (modalErr) {
-        console.error('Failed to open Load/Save panel after quota error', modalErr);
-      }
-    } else {
-      toast('Save failed', 'error');
-    }
-  } finally {
-    btn.classList.remove('loading'); btn.disabled = false;
-  }
+registerBootTask(() => {
+  updateLastSyncDisplay(initialLastSync);
+  renderSyncErrors();
+  refreshSyncQueue();
 });
+
+const saveCloudButton = $('btn-save');
+if (saveCloudButton) {
+  saveCloudButton.addEventListener('click', () => {
+    handleCloudSave();
+  });
+}
 
 const heroInput = $('superhero');
 if (heroInput) {
@@ -25136,7 +26045,7 @@ async function refreshClaimModal() {
     claimLegacyList.textContent = '';
     let legacyCloud = [];
     try {
-      legacyCloud = await listCloudSaves();
+      legacyCloud = await listCloudSaves({ notify: true });
     } catch (err) {
       console.warn('Failed to list legacy cloud saves', err);
     }
@@ -25180,6 +26089,36 @@ function createNewCharacterFromModal() {
   toast(`Switched to ${clean}`, 'success');
 }
 
+let cloudSaveUnsubscribe = null;
+let campaignLogUnsubscribe = null;
+
+function clearCloudSubscriptions() {
+  if (typeof cloudSaveUnsubscribe === 'function') {
+    try {
+      cloudSaveUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from cloud saves', err);
+    }
+  }
+  if (typeof campaignLogUnsubscribe === 'function') {
+    try {
+      campaignLogUnsubscribe();
+    } catch (err) {
+      console.warn('Failed to unsubscribe from campaign log', err);
+    }
+  }
+  cloudSaveUnsubscribe = null;
+  campaignLogUnsubscribe = null;
+}
+
+function syncCloudSubscriptions(uid) {
+  clearCloudSubscriptions();
+  if (!uid) return;
+  cloudSaveUnsubscribe = subscribeCloudSaves();
+  campaignLogUnsubscribe = subscribeCampaignLog(refreshCampaignLogFromCloud);
+  refreshCampaignLogFromCloud();
+}
+
 function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
   setClaimTokenAdminVisibility(!!isDm);
@@ -25188,6 +26127,8 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
     writeLastUserUid(uid);
+    syncCloudSubscriptions(uid);
+    updateSyncAuthRequiredNote();
     welcomeModalDismissed = true;
     dismissWelcomeModal();
     updateWelcomeContinue();
@@ -25212,10 +26153,13 @@ function handleAuthStateChange({ uid, isDm } = {}) {
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
+    updateSaveLoadAuthState();
     return;
   }
   setActiveUserId('');
   setActiveAuthUserId('');
+  syncCloudSubscriptions('');
+  updateSyncAuthRequiredNote();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid: '' });
   if (!hasLocalSave && offlineBlankActive) {
@@ -25227,209 +26171,220 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   welcomeSequenceComplete = false;
   updateWelcomeContinue();
   queueWelcomeModal({ immediate: true });
+  updateSaveLoadAuthState();
 }
 
-if (welcomeLogin) {
-  welcomeLogin.addEventListener('click', () => openLoginModal());
-}
-if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => openCreateModal());
-}
-if (welcomeContinue) {
-  welcomeContinue.addEventListener('click', () => {
-    updateWelcomeContinue();
-    const { uid } = getAuthState();
-    const storage = typeof localStorage !== 'undefined' ? localStorage : null;
-    const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
-    if (!uid && !hasLocalSave) {
-      setOfflineBlankState(true);
+registerBootTask(() => {
+  if (welcomeLogin) {
+    welcomeLogin.addEventListener('click', () => openLoginModal());
+  }
+  if (welcomeCreate) {
+    welcomeCreate.addEventListener('click', () => openCreateModal());
+  }
+  if (welcomeContinue) {
+    welcomeContinue.addEventListener('click', async () => {
+      updateWelcomeContinue();
+      let { uid } = getAuthState();
+      const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+      const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+      if (!uid && !hasLocalSave) {
+        try {
+          const guest = ensureGuestSession();
+          uid = guest?.uid || '';
+        } catch (err) {
+          console.error('Failed to initialize guest session', err);
+        }
+      }
+      const hasLocalAfter = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+      if (!uid && !hasLocalAfter) {
+        setOfflineBlankState(true);
+        dismissWelcomeModal();
+        return;
+      }
+      setOfflineBlankState(false);
       dismissWelcomeModal();
-      return;
-    }
-    setOfflineBlankState(false);
-    dismissWelcomeModal();
-    restoreLastLoadedCharacter().catch(err => {
-      console.error('Failed to restore last loaded character', err);
+      restoreLastLoadedCharacter().catch(err => {
+        console.error('Failed to restore last loaded character', err);
+      });
     });
-  });
-}
-if (authLoginSubmit) {
-  authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
-}
-if (authCreateSubmit) {
-  authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
-}
-if (authLoginCancel) {
-  authLoginCancel.addEventListener('click', () => {
-    hide('modal-auth-login');
-    if (!getAuthState().uid) {
-      queueWelcomeModal({ immediate: true });
-    }
-  });
-}
-if (authCreateCancel) {
-  authCreateCancel.addEventListener('click', () => {
-    hide('modal-auth-create');
-    if (!getAuthState().uid) {
-      queueWelcomeModal({ immediate: true });
-    }
-  });
-}
-if (authLoginOpenCreate) {
-  authLoginOpenCreate.addEventListener('click', () => {
-    hide('modal-auth-login');
-    openCreateModal();
-  });
-}
-if (authCreateOpenLogin) {
-  authCreateOpenLogin.addEventListener('click', () => {
-    hide('modal-auth-create');
-    openLoginModal();
-  });
-}
-if (postAuthImport) {
-  postAuthImport.addEventListener('click', () => {
-    closePostAuthChoice();
-    openClaimModal();
-  });
-}
-if (postAuthCreate) {
-  postAuthCreate.addEventListener('click', () => {
-    closePostAuthChoice();
-    createNewCharacterFromModal();
-  });
-}
-if (postAuthSkip) {
-  postAuthSkip.addEventListener('click', () => {
-    closePostAuthChoice();
-  });
-}
-if (claimFileImport) {
-  claimFileImport.addEventListener('click', () => {
-    handleFileImport().catch(err => {
-      console.error('Failed to import file', err);
-      toast('Failed to import file.', 'error');
-    });
-  });
-}
-if (claimTokenSubmit) {
-  claimTokenSubmit.addEventListener('click', () => {
-    handleClaimTokenSubmit();
-  });
-}
-if (claimTokenGenerate) {
-  claimTokenGenerate.addEventListener('click', () => {
-    handleClaimTokenGenerate();
-  });
-}
-if (conflictKeepCloud) {
-  conflictKeepCloud.addEventListener('click', () => {
-    resolveSyncConflict('keep-cloud');
-  });
-}
-if (conflictKeepLocal) {
-  conflictKeepLocal.addEventListener('click', () => {
-    resolveSyncConflict('keep-local');
-  });
-}
-if (conflictMergeLater) {
-  conflictMergeLater.addEventListener('click', () => {
-    resolveSyncConflict('merge-later');
-  });
-}
-if (conflictModal) {
-  const handleConflictDismiss = event => {
-    const isOverlay = event.target === conflictModal;
-    const closeButton = event.target?.closest?.('[data-close]');
-    if (!isOverlay && !closeButton) return;
-    event.preventDefault();
-    event.stopPropagation();
-    resolveSyncConflict('merge-later');
-  };
-  conflictModal.addEventListener('click', handleConflictDismiss, true);
-}
-
-primeFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
-onAuthStateChanged(handleAuthStateChange);
-handleAuthStateChange(getAuthState());
-
-const welcomeOverlay = getWelcomeModal();
-const welcomeOverlayIsElement = Boolean(
-  welcomeOverlay &&
-  typeof welcomeOverlay === 'object' &&
-  typeof welcomeOverlay.addEventListener === 'function' &&
-  typeof welcomeOverlay.classList?.contains === 'function' &&
-  typeof welcomeOverlay.nodeType === 'number'
-);
-if (welcomeOverlayIsElement) {
-  const updatePlayerToolsTabForWelcome = () => {
-    const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
-    setPlayerToolsTabHidden(shouldHideTab);
-  };
-  updatePlayerToolsTabForWelcome();
-  if (typeof MutationObserver === 'function') {
-    const welcomeModalObserver = new MutationObserver(mutations => {
-      if (mutations.some(mutation => mutation.type === 'attributes')) {
-        updatePlayerToolsTabForWelcome();
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
+  }
+  if (authCreateSubmit) {
+    authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+  }
+  if (authLoginCancel) {
+    authLoginCancel.addEventListener('click', () => {
+      hide('modal-auth-login');
+      if (!getAuthState().uid) {
+        queueWelcomeModal({ immediate: true });
       }
     });
-    try {
-      welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
-    } catch (err) {
-      // jsdom may provide a mock that is not a fully qualified Node instance
-      console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
+  }
+  if (authCreateCancel) {
+    authCreateCancel.addEventListener('click', () => {
+      hide('modal-auth-create');
+      if (!getAuthState().uid) {
+        queueWelcomeModal({ immediate: true });
+      }
+    });
+  }
+  if (authLoginOpenCreate) {
+    authLoginOpenCreate.addEventListener('click', () => {
+      hide('modal-auth-login');
+      openCreateModal();
+    });
+  }
+  if (authCreateOpenLogin) {
+    authCreateOpenLogin.addEventListener('click', () => {
+      hide('modal-auth-create');
+      openLoginModal();
+    });
+  }
+  if (postAuthImport) {
+    postAuthImport.addEventListener('click', () => {
+      closePostAuthChoice();
+      openClaimModal();
+    });
+  }
+  if (postAuthCreate) {
+    postAuthCreate.addEventListener('click', () => {
+      closePostAuthChoice();
+      createNewCharacterFromModal();
+    });
+  }
+  if (postAuthSkip) {
+    postAuthSkip.addEventListener('click', () => {
+      closePostAuthChoice();
+    });
+  }
+  if (claimFileImport) {
+    claimFileImport.addEventListener('click', () => {
+      handleFileImport().catch(err => {
+        console.error('Failed to import file', err);
+        toast('Failed to import file.', 'error');
+      });
+    });
+  }
+  if (claimTokenSubmit) {
+    claimTokenSubmit.addEventListener('click', () => {
+      handleClaimTokenSubmit();
+    });
+  }
+  if (claimTokenGenerate) {
+    claimTokenGenerate.addEventListener('click', () => {
+      handleClaimTokenGenerate();
+    });
+  }
+  if (conflictKeepCloud) {
+    conflictKeepCloud.addEventListener('click', () => {
+      resolveSyncConflict('keep-cloud');
+    });
+  }
+  if (conflictKeepLocal) {
+    conflictKeepLocal.addEventListener('click', () => {
+      resolveSyncConflict('keep-local');
+    });
+  }
+  if (conflictMergeLater) {
+    conflictMergeLater.addEventListener('click', () => {
+      resolveSyncConflict('merge-later');
+    });
+  }
+  if (conflictModal) {
+    const handleConflictDismiss = event => {
+      const isOverlay = event.target === conflictModal;
+      const closeButton = event.target?.closest?.('[data-close]');
+      if (!isOverlay && !closeButton) return;
+      event.preventDefault();
+      event.stopPropagation();
+      resolveSyncConflict('merge-later');
+    };
+    conflictModal.addEventListener('click', handleConflictDismiss, true);
+  }
+
+  primeFirebaseAuth().catch(err => console.error('Failed to initialize auth', err));
+  onAuthStateChanged(handleAuthStateChange);
+  handleAuthStateChange(getAuthState());
+
+  const welcomeOverlay = getWelcomeModal();
+  const welcomeOverlayIsElement = Boolean(
+    welcomeOverlay &&
+    typeof welcomeOverlay === 'object' &&
+    typeof welcomeOverlay.addEventListener === 'function' &&
+    typeof welcomeOverlay.classList?.contains === 'function' &&
+    typeof welcomeOverlay.nodeType === 'number'
+  );
+  if (welcomeOverlayIsElement) {
+    const updatePlayerToolsTabForWelcome = () => {
+      const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
+      setPlayerToolsTabHidden(shouldHideTab);
+    };
+    updatePlayerToolsTabForWelcome();
+    if (typeof MutationObserver === 'function') {
+      const welcomeModalObserver = new MutationObserver(mutations => {
+        if (mutations.some(mutation => mutation.type === 'attributes')) {
+          updatePlayerToolsTabForWelcome();
+        }
+      });
+      try {
+        welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
+      } catch (err) {
+        // jsdom may provide a mock that is not a fully qualified Node instance
+        console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
+        welcomeOverlay.addEventListener('transitionend', event => {
+          if (event.target === welcomeOverlay) {
+            updatePlayerToolsTabForWelcome();
+          }
+        });
+      }
+    } else {
       welcomeOverlay.addEventListener('transitionend', event => {
         if (event.target === welcomeOverlay) {
           updatePlayerToolsTabForWelcome();
         }
       });
     }
-  } else {
-    welcomeOverlay.addEventListener('transitionend', event => {
-      if (event.target === welcomeOverlay) {
-        updatePlayerToolsTabForWelcome();
+  }
+
+  const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
+  const characterConfirmationContinue = $('character-confirmation-continue');
+  const characterConfirmationClose = $('character-confirmation-close');
+  if (characterConfirmationModal) {
+    characterConfirmationModal.addEventListener('click', event => {
+      if (event.target === characterConfirmationModal) {
+        dismissCharacterConfirmation();
       }
+    }, { capture: true });
+  }
+  if (characterConfirmationContinue) {
+    characterConfirmationContinue.addEventListener('click', () => {
+      dismissCharacterConfirmation();
     });
   }
-}
-
-const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
-const characterConfirmationContinue = $('character-confirmation-continue');
-const characterConfirmationClose = $('character-confirmation-close');
-if (characterConfirmationModal) {
-  characterConfirmationModal.addEventListener('click', event => {
-    if (event.target === characterConfirmationModal) {
+  if (characterConfirmationClose) {
+    characterConfirmationClose.addEventListener('click', () => {
+      dismissCharacterConfirmation();
+    });
+  }
+  document.addEventListener('keydown', event => {
+    if (event?.key === 'Escape' && characterConfirmationActive) {
       dismissCharacterConfirmation();
     }
-  }, { capture: true });
-}
-if (characterConfirmationContinue) {
-  characterConfirmationContinue.addEventListener('click', () => {
-    dismissCharacterConfirmation();
   });
-}
-if (characterConfirmationClose) {
-  characterConfirmationClose.addEventListener('click', () => {
-    dismissCharacterConfirmation();
-  });
-}
-document.addEventListener('keydown', event => {
-  if (event?.key === 'Escape' && characterConfirmationActive) {
-    dismissCharacterConfirmation();
-  }
-});
 
-/* ========= boot ========= */
-setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
-setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
-setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
-setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRepTracker(handlePerkEffects, pushHistory);
-updateDerived();
-applyEditIcons();
-applyDeleteIcons();
-applyLockIcons();
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  /* ========= boot ========= */
+  setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
+  setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
+  setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
+  setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
+  setupFactionRepTracker(handlePerkEffects, pushHistory);
+  updateDerived();
+  applyEditIcons();
+  applyDeleteIcons();
+  applyLockIcons();
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   let swUrl = 'sw.js';
   const SW_BUILD_STORAGE_KEY = 'cc:sw-build';
   try {
@@ -25538,9 +26493,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     })
     .catch(() => {});
 }
-subscribeCloudSaves();
+});
 
 // == Resonance Points (RP) Module ============================================
+registerBootTask(() => {
 CC.RP = (function () {
   const api = {};
   // --- Internal state
@@ -25945,3 +26901,6 @@ CC.RP = (function () {
   }
   return api;
 })();
+});
+
+runBootTasksOnce();
