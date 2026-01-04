@@ -3189,8 +3189,11 @@ function initDMLogin(){
     return `${filtered.slice(0, -1).join(', ')}, and ${filtered[filtered.length - 1]}`;
   }
 
-  function reportRewardError(message) {
+  function reportRewardError(message, { form } = {}) {
     toast(message, 'error');
+    if (form) {
+      setQuickRewardStatus(form, { state: 'error', message });
+    }
   }
 
   function updateQuickRewardFormsState() {
@@ -3910,6 +3913,130 @@ function initDMLogin(){
 
   refreshQuickRewardPresets();
 
+  function setFormControlsPending(form, pending) {
+    if (!form) return;
+    const controls = form.querySelectorAll('button, input, select, textarea');
+    controls.forEach(control => {
+      if (!control) return;
+      if (pending) {
+        if (!Object.prototype.hasOwnProperty.call(control.dataset, 'pendingDisabled')) {
+          control.dataset.pendingDisabled = control.disabled ? 'true' : 'false';
+        }
+        control.disabled = true;
+        control.setAttribute('aria-disabled', 'true');
+      } else if (Object.prototype.hasOwnProperty.call(control.dataset, 'pendingDisabled')) {
+        const wasDisabled = control.dataset.pendingDisabled === 'true';
+        control.disabled = wasDisabled;
+        control.removeAttribute('aria-disabled');
+        delete control.dataset.pendingDisabled;
+      }
+    });
+  }
+
+  function ensureQuickRewardStatus(form) {
+    if (!form) return null;
+    let status = form.querySelector('.dm-quickRewards__status');
+    if (!status) {
+      status = document.createElement('div');
+      status.className = 'dm-quickRewards__status';
+      status.hidden = true;
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit && submit.parentNode) {
+        submit.parentNode.insertBefore(status, submit.nextSibling);
+      } else {
+        form.appendChild(status);
+      }
+    }
+    return status;
+  }
+
+  function setQuickRewardStatus(form, { state = '', message = '' } = {}) {
+    const status = ensureQuickRewardStatus(form);
+    if (!status) return;
+    status.textContent = message || '';
+    status.dataset.state = state || '';
+    status.hidden = !message;
+  }
+
+  function getQuickRewardFieldWrapper(control) {
+    if (!control || typeof control.closest !== 'function') return null;
+    return control.closest('.dm-quickRewards__field, .dm-quickRewards__select');
+  }
+
+  function ensureQuickRewardValidation(control) {
+    const wrapper = getQuickRewardFieldWrapper(control);
+    if (!wrapper) return null;
+    let message = wrapper.querySelector('.dm-quickRewards__validation');
+    if (!message) {
+      message = document.createElement('span');
+      message.className = 'dm-quickRewards__validation';
+      message.hidden = true;
+      message.setAttribute('role', 'status');
+      message.setAttribute('aria-live', 'polite');
+      wrapper.appendChild(message);
+    }
+    return message;
+  }
+
+  function setQuickRewardFieldError(control, message) {
+    const wrapper = getQuickRewardFieldWrapper(control);
+    const validation = ensureQuickRewardValidation(control);
+    if (wrapper) {
+      wrapper.classList.add('is-invalid');
+    }
+    if (validation) {
+      validation.textContent = message || '';
+      validation.hidden = !message;
+    }
+    if (control && typeof control.setAttribute === 'function') {
+      control.setAttribute('aria-invalid', 'true');
+    }
+  }
+
+  function clearQuickRewardFieldError(control) {
+    const wrapper = getQuickRewardFieldWrapper(control);
+    if (wrapper) {
+      wrapper.classList.remove('is-invalid');
+      const validation = wrapper.querySelector('.dm-quickRewards__validation');
+      if (validation) {
+        validation.textContent = '';
+        validation.hidden = true;
+      }
+    }
+    if (control && typeof control.removeAttribute === 'function') {
+      control.removeAttribute('aria-invalid');
+    }
+  }
+
+  function clearQuickRewardValidation(form) {
+    if (!form) return;
+    const wrappers = form.querySelectorAll('.dm-quickRewards__field.is-invalid, .dm-quickRewards__select.is-invalid');
+    wrappers.forEach(wrapper => {
+      wrapper.classList.remove('is-invalid');
+      const validation = wrapper.querySelector('.dm-quickRewards__validation');
+      if (validation) {
+        validation.textContent = '';
+        validation.hidden = true;
+      }
+      const control = wrapper.querySelector('input, select, textarea');
+      if (control) {
+        control.removeAttribute('aria-invalid');
+      }
+    });
+  }
+
+  function handleQuickRewardFieldInput(event) {
+    const control = event?.target;
+    if (!control) return;
+    clearQuickRewardFieldError(control);
+    const form = control.closest('form');
+    if (form) {
+      setQuickRewardStatus(form, { state: '', message: '' });
+    }
+  }
+
   function setRewardFormPending(form, pending) {
     if (!form) return;
     form.dataset.pending = pending ? 'true' : 'false';
@@ -3920,16 +4047,17 @@ function initDMLogin(){
           submit.dataset.originalLabel = submit.textContent || submit.value || 'Submit';
         }
         submit.textContent = 'Sending…';
-        submit.disabled = true;
       } else {
         const original = submit.dataset.originalLabel;
         if (original) {
           submit.textContent = original;
         }
-        submit.disabled = false;
         delete submit.dataset.originalLabel;
-        updateQuickRewardFormsState();
       }
+    }
+    setFormControlsPending(form, pending);
+    if (!pending) {
+      updateQuickRewardFormsState();
     }
     const cardId = quickRewardPresetFormLookup.get(form);
     if (cardId) {
@@ -4842,19 +4970,25 @@ function initDMLogin(){
   async function handleQuickXpSubmit(event) {
     if (event) event.preventDefault();
     if (!quickXpForm) return;
+    clearQuickRewardValidation(quickXpForm);
+    clearQuickRewardFieldError(quickRewardTargetSelect);
+    setQuickRewardStatus(quickXpForm, { state: '', message: '' });
     const players = getRewardTarget();
     if (!players.length) {
-      reportRewardError('Select a player to target');
+      setQuickRewardFieldError(quickRewardTargetSelect, 'Select at least one player.');
+      reportRewardError('Select a player to target', { form: quickXpForm });
       return;
     }
     const amountInfo = readNumericInput(quickXpAmount);
     if (amountInfo.empty || amountInfo.value === null) {
-      reportRewardError('Enter a valid XP amount');
+      setQuickRewardFieldError(quickXpAmount, 'Enter a valid XP amount.');
+      reportRewardError('Enter a valid XP amount', { form: quickXpForm });
       return;
     }
     const rounded = Math.round(Math.abs(amountInfo.value));
     if (rounded <= 0) {
-      reportRewardError('Enter an XP amount greater than zero');
+      setQuickRewardFieldError(quickXpAmount, 'Enter an XP amount greater than zero.');
+      reportRewardError('Enter an XP amount greater than zero', { form: quickXpForm });
       return;
     }
     const multiplier = quickXpMode?.value === 'remove' ? -1 : 1;
@@ -4882,7 +5016,7 @@ function initDMLogin(){
           ? 'Failed to apply XP reward'
           : `Unable to apply XP reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
-          reportRewardError(message);
+          reportRewardError(message, { form: quickXpForm });
         } else {
           toast(message, 'error');
         }
@@ -4890,6 +5024,7 @@ function initDMLogin(){
       if (failures.length === 0 && successes.length) {
         quickXpForm.reset();
         updateQuickRewardFormsState();
+        setQuickRewardStatus(quickXpForm, { state: 'success', message: 'XP reward applied.' });
         if (quickXpAmount) {
           try {
             quickXpAmount.focus({ preventScroll: true });
@@ -4897,10 +5032,12 @@ function initDMLogin(){
             quickXpAmount.focus?.();
           }
         }
+      } else if (failures.length) {
+        setQuickRewardStatus(quickXpForm, { state: 'error', message: 'XP reward failed for one or more players.' });
       }
     } catch (err) {
       console.error('Failed to apply XP reward', err);
-      reportRewardError('Failed to apply XP reward');
+      reportRewardError('Failed to apply XP reward', { form: quickXpForm });
     } finally {
       setRewardFormPending(quickXpForm, false);
     }
@@ -4909,16 +5046,21 @@ function initDMLogin(){
   async function handleQuickHpSpSubmit(event) {
     if (event) event.preventDefault();
     if (!quickHpSpForm) return;
+    clearQuickRewardValidation(quickHpSpForm);
+    clearQuickRewardFieldError(quickRewardTargetSelect);
+    setQuickRewardStatus(quickHpSpForm, { state: '', message: '' });
     const players = getRewardTarget();
     if (!players.length) {
-      reportRewardError('Select a player to target');
+      setQuickRewardFieldError(quickRewardTargetSelect, 'Select at least one player.');
+      reportRewardError('Select a player to target', { form: quickHpSpForm });
       return;
     }
     const hpData = {};
     const hpInfo = readNumericInput(quickHpValue);
     if (!hpInfo.empty) {
       if (hpInfo.value === null) {
-        reportRewardError('Enter a valid HP value');
+        setQuickRewardFieldError(quickHpValue, 'Enter a valid HP value.');
+        reportRewardError('Enter a valid HP value', { form: quickHpSpForm });
         return;
       }
       const hpModeValue = quickHpMode?.value === 'set' ? 'set' : 'delta';
@@ -4934,7 +5076,8 @@ function initDMLogin(){
     if (hpTempModeValue === 'set') {
       if (!hpTempInfo.empty) {
         if (hpTempInfo.value === null) {
-          reportRewardError('Enter a valid HP temp value');
+          setQuickRewardFieldError(quickHpTemp, 'Enter a valid HP temp value.');
+          reportRewardError('Enter a valid HP temp value', { form: quickHpSpForm });
           return;
         }
         hpData.tempValue = Math.max(0, Math.round(hpTempInfo.value));
@@ -4942,7 +5085,8 @@ function initDMLogin(){
     } else if (hpTempModeValue === 'delta') {
       if (!hpTempInfo.empty) {
         if (hpTempInfo.value === null) {
-          reportRewardError('Enter a valid HP temp value');
+          setQuickRewardFieldError(quickHpTemp, 'Enter a valid HP temp value.');
+          reportRewardError('Enter a valid HP temp value', { form: quickHpSpForm });
           return;
         }
         const roundedTemp = Math.round(hpTempInfo.value);
@@ -4956,7 +5100,8 @@ function initDMLogin(){
     const spInfo = readNumericInput(quickSpValue);
     if (!spInfo.empty) {
       if (spInfo.value === null) {
-        reportRewardError('Enter a valid SP value');
+        setQuickRewardFieldError(quickSpValue, 'Enter a valid SP value.');
+        reportRewardError('Enter a valid SP value', { form: quickHpSpForm });
         return;
       }
       const spModeValue = quickSpMode?.value === 'set' ? 'set' : 'delta';
@@ -4972,7 +5117,8 @@ function initDMLogin(){
     if (spTempModeValue === 'set') {
       if (!spTempInfo.empty) {
         if (spTempInfo.value === null) {
-          reportRewardError('Enter a valid SP temp value');
+          setQuickRewardFieldError(quickSpTemp, 'Enter a valid SP temp value.');
+          reportRewardError('Enter a valid SP temp value', { form: quickHpSpForm });
           return;
         }
         spData.tempValue = Math.max(0, Math.round(spTempInfo.value));
@@ -4980,7 +5126,8 @@ function initDMLogin(){
     } else if (spTempModeValue === 'delta') {
       if (!spTempInfo.empty) {
         if (spTempInfo.value === null) {
-          reportRewardError('Enter a valid SP temp value');
+          setQuickRewardFieldError(quickSpTemp, 'Enter a valid SP temp value.');
+          reportRewardError('Enter a valid SP temp value', { form: quickHpSpForm });
           return;
         }
         const roundedTemp = Math.round(spTempInfo.value);
@@ -4998,7 +5145,9 @@ function initDMLogin(){
       operations.push({ type: 'sp', data: spData });
     }
     if (!operations.length) {
-      reportRewardError('Enter at least one HP or SP change');
+      setQuickRewardFieldError(quickHpValue, 'Enter at least one HP or SP change.');
+      setQuickRewardFieldError(quickSpValue, 'Enter at least one HP or SP change.');
+      reportRewardError('Enter at least one HP or SP change', { form: quickHpSpForm });
       return;
     }
     setRewardFormPending(quickHpSpForm, true);
@@ -5022,7 +5171,7 @@ function initDMLogin(){
           ? 'Failed to apply HP/SP reward'
           : `Unable to apply HP/SP reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
-          reportRewardError(message);
+          reportRewardError(message, { form: quickHpSpForm });
         } else {
           toast(message, 'error');
         }
@@ -5030,6 +5179,7 @@ function initDMLogin(){
       if (failures.length === 0 && successes.length) {
         quickHpSpForm.reset();
         updateQuickRewardFormsState();
+        setQuickRewardStatus(quickHpSpForm, { state: 'success', message: 'HP/SP update applied.' });
         if (quickHpValue) {
           try {
             quickHpValue.focus({ preventScroll: true });
@@ -5037,10 +5187,12 @@ function initDMLogin(){
             quickHpValue.focus?.();
           }
         }
+      } else if (failures.length) {
+        setQuickRewardStatus(quickHpSpForm, { state: 'error', message: 'HP/SP update failed for one or more players.' });
       }
     } catch (err) {
       console.error('Failed to apply HP/SP reward', err);
-      reportRewardError('Failed to apply HP/SP reward');
+      reportRewardError('Failed to apply HP/SP reward', { form: quickHpSpForm });
     } finally {
       setRewardFormPending(quickHpSpForm, false);
     }
@@ -5049,16 +5201,21 @@ function initDMLogin(){
   async function handleQuickResonanceSubmit(event) {
     if (event) event.preventDefault();
     if (!quickResonanceForm) return;
+    clearQuickRewardValidation(quickResonanceForm);
+    clearQuickRewardFieldError(quickRewardTargetSelect);
+    setQuickRewardStatus(quickResonanceForm, { state: '', message: '' });
     const players = getRewardTarget();
     if (!players.length) {
-      reportRewardError('Select a player to target');
+      setQuickRewardFieldError(quickRewardTargetSelect, 'Select at least one player.');
+      reportRewardError('Select a player to target', { form: quickResonanceForm });
       return;
     }
     const data = {};
     const pointsInfo = readNumericInput(quickResonancePoints);
     if (!pointsInfo.empty) {
       if (pointsInfo.value === null) {
-        reportRewardError('Enter a valid resonance points value');
+        setQuickRewardFieldError(quickResonancePoints, 'Enter a valid resonance points value.');
+        reportRewardError('Enter a valid resonance points value', { form: quickResonanceForm });
         return;
       }
       const pointsModeValue = quickResonancePointsMode?.value === 'set' ? 'set' : 'delta';
@@ -5072,7 +5229,8 @@ function initDMLogin(){
     const bankedInfo = readNumericInput(quickResonanceBanked);
     if (!bankedInfo.empty) {
       if (bankedInfo.value === null) {
-        reportRewardError('Enter a valid resonance banked value');
+        setQuickRewardFieldError(quickResonanceBanked, 'Enter a valid resonance banked value.');
+        reportRewardError('Enter a valid resonance banked value', { form: quickResonanceForm });
         return;
       }
       const bankedModeValue = quickResonanceBankedMode?.value === 'set' ? 'set' : 'delta';
@@ -5084,7 +5242,9 @@ function initDMLogin(){
       }
     }
     if (!('points' in data) && !('pointsDelta' in data) && !('banked' in data) && !('bankedDelta' in data)) {
-      reportRewardError('Enter a resonance change');
+      setQuickRewardFieldError(quickResonancePoints, 'Enter a resonance change.');
+      setQuickRewardFieldError(quickResonanceBanked, 'Enter a resonance change.');
+      reportRewardError('Enter a resonance change', { form: quickResonanceForm });
       return;
     }
     setRewardFormPending(quickResonanceForm, true);
@@ -5108,7 +5268,7 @@ function initDMLogin(){
           ? 'Failed to apply resonance reward'
           : `Unable to apply resonance reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
-          reportRewardError(message);
+          reportRewardError(message, { form: quickResonanceForm });
         } else {
           toast(message, 'error');
         }
@@ -5116,6 +5276,7 @@ function initDMLogin(){
       if (failures.length === 0 && successes.length) {
         quickResonanceForm.reset();
         updateQuickRewardFormsState();
+        setQuickRewardStatus(quickResonanceForm, { state: 'success', message: 'Resonance update applied.' });
         if (quickResonancePoints) {
           try {
             quickResonancePoints.focus({ preventScroll: true });
@@ -5123,10 +5284,12 @@ function initDMLogin(){
             quickResonancePoints.focus?.();
           }
         }
+      } else if (failures.length) {
+        setQuickRewardStatus(quickResonanceForm, { state: 'error', message: 'Resonance update failed for one or more players.' });
       }
     } catch (err) {
       console.error('Failed to apply resonance reward', err);
-      reportRewardError('Failed to apply resonance reward');
+      reportRewardError('Failed to apply resonance reward', { form: quickResonanceForm });
     } finally {
       setRewardFormPending(quickResonanceForm, false);
     }
@@ -5135,25 +5298,32 @@ function initDMLogin(){
   async function handleQuickFactionSubmit(event) {
     if (event) event.preventDefault();
     if (!quickFactionForm) return;
+    clearQuickRewardValidation(quickFactionForm);
+    clearQuickRewardFieldError(quickRewardTargetSelect);
+    setQuickRewardStatus(quickFactionForm, { state: '', message: '' });
     const players = getRewardTarget();
     if (!players.length) {
-      reportRewardError('Select a player to target');
+      setQuickRewardFieldError(quickRewardTargetSelect, 'Select at least one player.');
+      reportRewardError('Select a player to target', { form: quickFactionForm });
       return;
     }
     const factionId = typeof quickFactionSelect?.value === 'string' ? quickFactionSelect.value.trim() : '';
     if (!factionId) {
-      reportRewardError('Select a faction');
+      setQuickRewardFieldError(quickFactionSelect, 'Select a faction.');
+      reportRewardError('Select a faction', { form: quickFactionForm });
       return;
     }
     const valueInfo = readNumericInput(quickFactionValue);
     if (valueInfo.empty || valueInfo.value === null) {
-      reportRewardError('Enter a valid reputation amount');
+      setQuickRewardFieldError(quickFactionValue, 'Enter a valid reputation amount.');
+      reportRewardError('Enter a valid reputation amount', { form: quickFactionForm });
       return;
     }
     const mode = quickFactionMode?.value === 'set' ? 'set' : 'delta';
     const roundedValue = Math.round(valueInfo.value);
     if (mode !== 'set' && roundedValue === 0) {
-      reportRewardError('Enter a non-zero reputation adjustment');
+      setQuickRewardFieldError(quickFactionValue, 'Enter a non-zero reputation adjustment.');
+      reportRewardError('Enter a non-zero reputation adjustment', { form: quickFactionForm });
       return;
     }
     const payload = { factionId };
@@ -5184,7 +5354,7 @@ function initDMLogin(){
           ? 'Failed to apply faction reputation reward'
           : `Unable to apply faction reputation reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
-          reportRewardError(message);
+          reportRewardError(message, { form: quickFactionForm });
         } else {
           toast(message, 'error');
         }
@@ -5195,6 +5365,7 @@ function initDMLogin(){
           quickFactionSelect.value = previousFaction;
         }
         updateQuickRewardFormsState();
+        setQuickRewardStatus(quickFactionForm, { state: 'success', message: 'Reputation update applied.' });
         if (quickFactionValue) {
           try {
             quickFactionValue.focus({ preventScroll: true });
@@ -5202,10 +5373,12 @@ function initDMLogin(){
             quickFactionValue.focus?.();
           }
         }
+      } else if (failures.length) {
+        setQuickRewardStatus(quickFactionForm, { state: 'error', message: 'Reputation update failed for one or more players.' });
       }
     } catch (err) {
       console.error('Failed to apply faction reputation reward', err);
-      reportRewardError('Failed to apply faction reputation reward');
+      reportRewardError('Failed to apply faction reputation reward', { form: quickFactionForm });
     } finally {
       setRewardFormPending(quickFactionForm, false);
     }
@@ -7276,6 +7449,13 @@ function initDMLogin(){
     if (definition.type === 'checkbox' && definition.defaultChecked) control.checked = true;
     wrapper.appendChild(control);
 
+    const validation = document.createElement('span');
+    validation.className = 'dm-catalog__validation';
+    validation.hidden = true;
+    validation.setAttribute('role', 'status');
+    validation.setAttribute('aria-live', 'polite');
+    wrapper.appendChild(validation);
+
     if (definition.hint) {
       const hint = document.createElement('span');
       hint.className = 'dm-catalog__hint';
@@ -7360,6 +7540,153 @@ function initDMLogin(){
     form.dataset.catalogBuilt = 'true';
     form.addEventListener('submit', handleCatalogSubmit);
     form.addEventListener('reset', handleCatalogReset);
+    form.addEventListener('input', handleCatalogFieldInput);
+    form.addEventListener('change', handleCatalogFieldInput);
+  }
+
+  function getCatalogFieldWrapper(control) {
+    if (!control || typeof control.closest !== 'function') return null;
+    return control.closest('.dm-catalog__field');
+  }
+
+  function ensureCatalogValidation(control) {
+    const wrapper = getCatalogFieldWrapper(control);
+    if (!wrapper) return null;
+    let message = wrapper.querySelector('.dm-catalog__validation');
+    if (!message) {
+      message = document.createElement('span');
+      message.className = 'dm-catalog__validation';
+      message.hidden = true;
+      message.setAttribute('role', 'status');
+      message.setAttribute('aria-live', 'polite');
+      wrapper.appendChild(message);
+    }
+    return message;
+  }
+
+  function setCatalogFieldError(control, message) {
+    const wrapper = getCatalogFieldWrapper(control);
+    const validation = ensureCatalogValidation(control);
+    if (wrapper) {
+      wrapper.classList.add('is-invalid');
+    }
+    if (validation) {
+      validation.textContent = message || '';
+      validation.hidden = !message;
+    }
+    if (control && typeof control.setAttribute === 'function') {
+      control.setAttribute('aria-invalid', 'true');
+    }
+  }
+
+  function clearCatalogFieldError(control) {
+    const wrapper = getCatalogFieldWrapper(control);
+    if (wrapper) {
+      wrapper.classList.remove('is-invalid');
+      const validation = wrapper.querySelector('.dm-catalog__validation');
+      if (validation) {
+        validation.textContent = '';
+        validation.hidden = true;
+      }
+    }
+    if (control && typeof control.removeAttribute === 'function') {
+      control.removeAttribute('aria-invalid');
+    }
+  }
+
+  function clearCatalogValidation(form) {
+    if (!form) return;
+    const wrappers = form.querySelectorAll('.dm-catalog__field.is-invalid');
+    wrappers.forEach(wrapper => {
+      wrapper.classList.remove('is-invalid');
+      const validation = wrapper.querySelector('.dm-catalog__validation');
+      if (validation) {
+        validation.textContent = '';
+        validation.hidden = true;
+      }
+      const control = wrapper.querySelector('input, select, textarea');
+      if (control) {
+        control.removeAttribute('aria-invalid');
+      }
+    });
+  }
+
+  function ensureCatalogStatus(form) {
+    if (!form) return null;
+    let status = form.querySelector('.dm-catalog__status');
+    if (!status) {
+      status = document.createElement('div');
+      status.className = 'dm-catalog__status';
+      status.hidden = true;
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      const actions = form.querySelector('.dm-catalog__actions');
+      if (actions && actions.parentNode) {
+        actions.parentNode.insertBefore(status, actions.nextSibling);
+      } else {
+        form.appendChild(status);
+      }
+    }
+    return status;
+  }
+
+  function setCatalogStatus(form, { state = '', message = '' } = {}) {
+    const status = ensureCatalogStatus(form);
+    if (!status) return;
+    status.textContent = message || '';
+    status.dataset.state = state || '';
+    status.hidden = !message;
+  }
+
+  function setCatalogFormPending(form, pending) {
+    if (!form) return;
+    form.dataset.pending = pending ? 'true' : 'false';
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) {
+      if (pending) {
+        if (!submit.dataset.originalLabel) {
+          submit.dataset.originalLabel = submit.textContent || submit.value || 'Submit';
+        }
+        submit.textContent = 'Submitting…';
+      } else {
+        const original = submit.dataset.originalLabel;
+        if (original) {
+          submit.textContent = original;
+        }
+        delete submit.dataset.originalLabel;
+      }
+    }
+    setFormControlsPending(form, pending);
+  }
+
+  function validateCatalogForm(typeId, form) {
+    if (!form) return [];
+    const { short, long } = getCatalogFieldSets(typeId);
+    const fields = [...short, ...long];
+    const invalidControls = [];
+    fields.forEach(field => {
+      if (!field.required) return;
+      const control = form.querySelector(`[data-catalog-field="${field.key}"]`);
+      const rawValue = control?.type === 'checkbox'
+        ? (control.checked ? 'true' : '')
+        : control?.value;
+      const value = sanitizeCatalogValue(rawValue);
+      if (!value) {
+        setCatalogFieldError(control, `${field.label} is required.`);
+        invalidControls.push(control);
+      }
+    });
+    return invalidControls;
+  }
+
+  function handleCatalogFieldInput(event) {
+    const control = event?.target;
+    if (!control) return;
+    clearCatalogFieldError(control);
+    const form = control.closest('form');
+    if (form) {
+      setCatalogStatus(form, { state: '', message: '' });
+    }
   }
 
   async function populateCatalogRecipients() {
@@ -7758,27 +8085,60 @@ function initDMLogin(){
     if (!form) return;
     const typeId = form.dataset.catalogForm;
     if (!typeId) return;
-    if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+    clearCatalogValidation(form);
+    setCatalogStatus(form, { state: '', message: '' });
+    const invalidControls = validateCatalogForm(typeId, form);
+    if (invalidControls.length) {
+      setCatalogStatus(form, { state: 'error', message: 'Fix the highlighted fields to continue.' });
+      const focusTarget = invalidControls.find(control => control && typeof control.focus === 'function');
+      if (focusTarget) {
+        try {
+          focusTarget.focus({ preventScroll: true });
+        } catch {
+          focusTarget.focus();
+        }
+      }
       return;
     }
     const payload = buildCatalogPayload(typeId, form);
-    if (!payload) return;
-    emitCatalogPayload(payload);
-    if (payload.recipient && (payload.type === 'items' || payload.type === 'weapons' || payload.type === 'armor')) {
-      try {
-        await deliverCatalogEquipment(payload);
-      } catch (err) {
-        console.error('Failed to deliver catalog equipment', err);
-        toast('Failed to deliver catalog reward', 'error');
-      }
+    if (!payload) {
+      const nameControl = form.querySelector('[data-catalog-field="name"]');
+      setCatalogFieldError(nameControl, 'Name is required.');
+      setCatalogStatus(form, { state: 'error', message: 'Add an entry name to continue.' });
+      return;
     }
-    form.reset();
-    Promise.resolve().then(() => focusCatalogForm());
+    setCatalogFormPending(form, true);
+    let deliveryFailed = false;
+    try {
+      emitCatalogPayload(payload);
+      if (payload.recipient && (payload.type === 'items' || payload.type === 'weapons' || payload.type === 'armor')) {
+        try {
+          await deliverCatalogEquipment(payload);
+        } catch (err) {
+          deliveryFailed = true;
+          console.error('Failed to deliver catalog equipment', err);
+          toast('Failed to deliver catalog reward', 'error');
+        }
+      }
+      form.reset();
+      setCatalogStatus(form, {
+        state: deliveryFailed ? 'error' : 'success',
+        message: deliveryFailed ? 'Entry created, but delivery failed.' : 'Entry created and staged.',
+      });
+    } catch (err) {
+      console.error('Failed to submit catalog entry', err);
+      setCatalogStatus(form, { state: 'error', message: 'Failed to create catalog entry.' });
+    } finally {
+      setCatalogFormPending(form, false);
+      Promise.resolve().then(() => focusCatalogForm());
+    }
   }
 
   function handleCatalogReset(event) {
     const form = event.currentTarget;
     if (!form) return;
+    clearCatalogValidation(form);
+    setCatalogStatus(form, { state: '', message: '' });
     Promise.resolve().then(() => {
       if (form.dataset.catalogForm === activeCatalogType) {
         focusCatalogForm();
@@ -10393,6 +10753,12 @@ function initDMLogin(){
   creditSubmit?.addEventListener('click', handleCreditRewardSubmit);
 
   quickRewardTargetSelect?.addEventListener('change', () => {
+    clearQuickRewardFieldError(quickRewardTargetSelect);
+    [quickXpForm, quickHpSpForm, quickResonanceForm, quickFactionForm].forEach(form => {
+      if (form) {
+        setQuickRewardStatus(form, { state: '', message: '' });
+      }
+    });
     updateQuickRewardFormsState();
   });
 
@@ -10413,6 +10779,14 @@ function initDMLogin(){
   quickHpSpForm?.addEventListener('submit', handleQuickHpSpSubmit);
   quickResonanceForm?.addEventListener('submit', handleQuickResonanceSubmit);
   quickFactionForm?.addEventListener('submit', handleQuickFactionSubmit);
+  quickXpForm?.addEventListener('input', handleQuickRewardFieldInput);
+  quickHpSpForm?.addEventListener('input', handleQuickRewardFieldInput);
+  quickResonanceForm?.addEventListener('input', handleQuickRewardFieldInput);
+  quickFactionForm?.addEventListener('input', handleQuickRewardFieldInput);
+  quickXpForm?.addEventListener('change', handleQuickRewardFieldInput);
+  quickHpSpForm?.addEventListener('change', handleQuickRewardFieldInput);
+  quickResonanceForm?.addEventListener('change', handleQuickRewardFieldInput);
+  quickFactionForm?.addEventListener('change', handleQuickRewardFieldInput);
 
   creditHistoryFilterCharacter?.addEventListener('change', event => {
     const value = typeof event?.target?.value === 'string' ? event.target.value : '';
