@@ -11492,12 +11492,12 @@ function setHP(v){
   const diff = current - prev;
   if(diff !== 0){
     if(diff < 0){
-      playActionCue('hp-damage');
+      playActionCue(randomHpCue('damage'));
       if (typeof playDamageAnimation === 'function') {
         void playDamageAnimation(diff);
       }
     }else{
-      playActionCue('hp-heal');
+      playActionCue(randomHpCue('heal'));
       if (typeof playHealAnimation === 'function') {
         void playHealAnimation(diff);
       }
@@ -11524,6 +11524,13 @@ function setHP(v){
   }
   updateDeathSaveAvailability();
   return down;
+}
+
+function randomHpCue(type) {
+  const variants = type === 'heal'
+    ? ['hp-heal-1', 'hp-heal-2']
+    : ['hp-damage-1', 'hp-damage-2'];
+  return variants[Math.floor(Math.random() * variants.length)];
 }
 function notifyInsufficientSp(message = "You don't have enough SP for that.") {
   try {
@@ -13027,6 +13034,34 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 3, amplitude: 0.18 },
     ],
   },
+  'hp-damage-1': {
+    frequency: 520,
+    type: 'sawtooth',
+    duration: 0.16,
+    volume: 0.3,
+    attack: 0.002,
+    release: 0.1,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.9, amplitude: 0.7 },
+      { ratio: 3.4, amplitude: 0.45 },
+      { ratio: 5.2, amplitude: 0.2 },
+    ],
+  },
+  'hp-damage-2': {
+    frequency: 300,
+    type: 'square',
+    duration: 0.2,
+    volume: 0.32,
+    attack: 0.003,
+    release: 0.12,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.75, amplitude: 0.6 },
+      { ratio: 2.6, amplitude: 0.35 },
+      { ratio: 4.1, amplitude: 0.2 },
+    ],
+  },
   'hp-heal': {
     frequency: 580,
     type: 'sine',
@@ -13038,6 +13073,32 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 1, amplitude: 1 },
       { ratio: 1.5, amplitude: 0.35 },
       { ratio: 2.5, amplitude: 0.18 },
+    ],
+  },
+  'hp-heal-1': {
+    frequency: 720,
+    type: 'triangle',
+    duration: 0.28,
+    volume: 0.24,
+    attack: 0.004,
+    release: 0.18,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2.2, amplitude: 0.35 },
+      { ratio: 3.8, amplitude: 0.18 },
+    ],
+  },
+  'hp-heal-2': {
+    frequency: 640,
+    type: 'sine',
+    duration: 0.32,
+    volume: 0.23,
+    attack: 0.006,
+    release: 0.2,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2.6, amplitude: 0.4 },
+      { ratio: 4.4, amplitude: 0.2 },
     ],
   },
   'hp-down': {
