@@ -12514,6 +12514,11 @@ if (rollDiceButton) {
       playIndex,
       renderOptions: { actionCue: actionKey, fallbackCue: 'dm-roll' },
     });
+    if (criticalState === 'success') {
+      playActionCue('dice-crit-success');
+    } else if (criticalState === 'failure') {
+      playActionCue('dice-crit-failure');
+    }
     void out.offsetWidth; out.classList.add('rolling');
     if (out.dataset) {
       out.dataset.rollModifier = String(modifier);
@@ -12857,6 +12862,34 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.1, amplitude: 0.4 },
       { ratio: 3.2, amplitude: 0.3 },
       { ratio: 4.4, amplitude: 0.18 },
+    ],
+  },
+  'dice-crit-success': {
+    frequency: 980,
+    type: 'sine',
+    duration: 0.55,
+    volume: 0.3,
+    attack: 0.004,
+    release: 0.34,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.5, amplitude: 0.5 },
+      { ratio: 2.1, amplitude: 0.35 },
+      { ratio: 3.2, amplitude: 0.22 },
+    ],
+  },
+  'dice-crit-failure': {
+    frequency: 180,
+    type: 'sawtooth',
+    duration: 0.7,
+    volume: 0.3,
+    attack: 0.012,
+    release: 0.48,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.6 },
+      { ratio: 1.4, amplitude: 0.35 },
+      { ratio: 2.2, amplitude: 0.2 },
     ],
   },
   'dm-roll': {
