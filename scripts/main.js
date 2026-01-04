@@ -12984,6 +12984,66 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.2, amplitude: 0.3 },
     ],
   },
+  equip: {
+    volume: 0.24,
+    segments: [
+      {
+        frequency: 980,
+        type: 'square',
+        duration: 0.05,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 2.4, amplitude: 0.35 },
+          { ratio: 3.6, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.015,
+        frequency: 620,
+        type: 'triangle',
+        duration: 0.12,
+        attack: 0.004,
+        release: 0.08,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.5, amplitude: 0.35 },
+          { ratio: 2.2, amplitude: 0.2 },
+        ],
+      },
+    ],
+  },
+  unequip: {
+    volume: 0.2,
+    segments: [
+      {
+        frequency: 240,
+        type: 'sawtooth',
+        duration: 0.14,
+        attack: 0.01,
+        release: 0.1,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.7, amplitude: 0.3 },
+          { ratio: 2.6, amplitude: 0.18 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 180,
+        type: 'triangle',
+        duration: 0.2,
+        attack: 0.02,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.4, amplitude: 0.35 },
+          { ratio: 2.1, amplitude: 0.2 },
+        ],
+      },
+    ],
+  },
   'credits-gain': {
     frequency: 880,
     type: 'square',
@@ -20926,6 +20986,7 @@ function createCard(kind, pref = {}) {
           if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
+              playActionCue(chk.checked ? 'equip' : 'unequip');
               if (kind === 'armor') {
                 logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
               }
