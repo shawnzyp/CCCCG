@@ -66,16 +66,40 @@ function normalizedCharacterName(name) {
 }
 
 function getCharacterIdStorageKey(name) {
-  const normalized = normalizedCharacterName(name) || name;
+  const normalized = typeof name === 'string' ? name.trim() : '';
+  if (!normalized) return '';
   return `${CHARACTER_ID_STORAGE_PREFIX}${normalized}`;
+}
+
+function collectCharacterNameVariants(name) {
+  const variants = new Set();
+  const raw = typeof name === 'string' ? name.trim() : '';
+  if (raw) {
+    variants.add(raw);
+  }
+  const canonical = normalizedCharacterName(raw);
+  if (canonical) {
+    variants.add(canonical);
+  }
+  const friendly = friendlyCharacterName(raw);
+  if (friendly) {
+    variants.add(friendly);
+  }
+  return Array.from(variants);
 }
 
 function readCharacterIdForName(name) {
   const storage = getLocalStorageSafe();
   if (!storage) return '';
   try {
-    const stored = storage.getItem(getCharacterIdStorageKey(name));
-    return typeof stored === 'string' && stored.trim() ? stored.trim() : '';
+    const variants = collectCharacterNameVariants(name);
+    for (const variant of variants) {
+      const stored = storage.getItem(getCharacterIdStorageKey(variant));
+      if (typeof stored === 'string' && stored.trim()) {
+        return stored.trim();
+      }
+    }
+    return '';
   } catch {
     return '';
   }
@@ -85,7 +109,11 @@ function writeCharacterIdForName(name, id) {
   const storage = getLocalStorageSafe();
   if (!storage || !id || !name) return;
   try {
-    storage.setItem(getCharacterIdStorageKey(name), id);
+    const variants = collectCharacterNameVariants(name);
+    if (variants.length === 0) return;
+    variants.forEach(variant => {
+      storage.setItem(getCharacterIdStorageKey(variant), id);
+    });
   } catch {}
 }
 
@@ -93,7 +121,10 @@ function removeCharacterIdForName(name) {
   const storage = getLocalStorageSafe();
   if (!storage || !name) return;
   try {
-    storage.removeItem(getCharacterIdStorageKey(name));
+    const variants = collectCharacterNameVariants(name);
+    variants.forEach(variant => {
+      storage.removeItem(getCharacterIdStorageKey(variant));
+    });
   } catch {}
 }
 
@@ -1338,7 +1369,7 @@ export async function renameCharacter(oldName, newName, data) {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
     const characterId = ensureCharacterId(payload, storageOldName);
-    migrateCharacterIdKey(storageOldName, storageNewName, characterId);
+    migrateCharacterIdKey(oldName, newName, characterId);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     if (!storageOldName || storageOldName === storageNewName) {
