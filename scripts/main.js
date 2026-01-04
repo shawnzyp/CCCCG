@@ -85,7 +85,8 @@ import {
   loadCloud,
   loadCloudBackup,
 } from './storage.js';
-import { buildCloudSaveEnvelope, loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { buildCloudSaveEnvelope } from './cloud-save-helpers.js';
 import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
@@ -14481,7 +14482,7 @@ async function handleCloudLoad() {
       toast('No cloud save found.', 'info');
       return;
     }
-    const payload = normalizeSnapshotPayload(result.data);
+    const payload = normalizeSnapshotPayload(result.data.payload);
     applyCloudSnapshotPayload(payload, { source: result.source });
     if (result.source === 'rtdb') {
       setSaveLoadStatus('Loaded from legacy RTDB save. Use Recover Save to migrate.', { type: 'info' });
@@ -14516,7 +14517,7 @@ async function handleRecoverFromRTDB() {
       toast('No RTDB save found.', 'info');
       return;
     }
-    const payload = normalizeSnapshotPayload(envelope);
+    const payload = normalizeSnapshotPayload(envelope.payload);
     applyCloudSnapshotPayload(payload, { source: 'rtdb' });
     setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
     toast('Recovery complete.', 'success');
