@@ -12216,6 +12216,9 @@ function renderDiceResultValue(target, value, { renderer = null, playIndex = nul
   const normalized = value == null ? '' : value;
   const fallbackText = typeof normalized === 'string' ? normalized : String(normalized);
   const resolvedRenderer = renderer || ensureDiceResultRenderer(target);
+  if (renderOptions?.actionCue && animationsEnabled) {
+    playActionCue(renderOptions.actionCue, renderOptions.fallbackCue);
+  }
   if (resolvedRenderer && typeof resolvedRenderer.render === 'function') {
     const resolvedPlayIndex = Number.isFinite(playIndex) ? playIndex : getNextDiceResultPlayIndex();
     resolvedRenderer.render(normalized, resolvedPlayIndex, renderOptions ?? undefined);
@@ -12496,15 +12499,20 @@ if (rollDiceButton) {
     const keptSum = rollDetails.reduce((total, detail) => total + detail.chosen, 0);
     const total = keptSum + modifier;
     const breakdownDisplay = rollDetails.map(detail => {
-      if (normalizedMode !== 'normal' && Number.isFinite(detail.secondary)) {
-        return `${detail.primary}/${detail.secondary}→${detail.chosen}`;
-      }
-      return String(detail.chosen);
+    if (normalizedMode !== 'normal' && Number.isFinite(detail.secondary)) {
+      return `${detail.primary}/${detail.secondary}→${detail.chosen}`;
+    }
+    return String(detail.chosen);
     });
     out.classList.remove('rolling');
     diceCriticalStateClasses.forEach(cls => out.classList.remove(cls));
     const playIndex = getNextDiceResultPlayIndex();
-    renderDiceResultValue(out, total, { renderer: diceResultRenderer, playIndex });
+    const actionKey = rollDiceButton.dataset?.actionCue || 'dice-roll';
+    renderDiceResultValue(out, total, {
+      renderer: diceResultRenderer,
+      playIndex,
+      renderOptions: { actionCue: actionKey, fallbackCue: 'dm-roll' },
+    });
     void out.offsetWidth; out.classList.add('rolling');
     if (out.dataset) {
       out.dataset.rollModifier = String(modifier);
@@ -12557,8 +12565,6 @@ if (rollDiceButton) {
       }
     }
     playDamageAnimation(total);
-    const actionKey = rollDiceButton.dataset?.actionCue || 'dice-roll';
-    playActionCue(actionKey, 'dm-roll');
     const modeLabel = normalizedMode === 'normal' ? '' : ` (${normalizedMode})`;
     const modifierText = hasModifier ? `${modifier >= 0 ? '+' : ''}${modifier}` : '';
     const header = `${count}×d${sides}${modeLabel}`;
@@ -12837,17 +12843,18 @@ const AUDIO_CUE_SETTINGS = {
     ],
   },
   'dice-roll': {
-    frequency: 600,
-    type: 'sawtooth',
-    duration: 0.28,
-    volume: 0.3,
-    attack: 0.005,
-    release: 0.12,
+    frequency: 720,
+    type: 'square',
+    duration: 0.22,
+    volume: 0.26,
+    attack: 0.003,
+    release: 0.09,
     partials: [
-      { ratio: 1, amplitude: 0.9 },
-      { ratio: 1.67, amplitude: 0.6 },
-      { ratio: 2.5, amplitude: 0.35 },
-      { ratio: 3.4, amplitude: 0.25 },
+      { ratio: 1, amplitude: 0.6 },
+      { ratio: 1.3, amplitude: 0.5 },
+      { ratio: 2.1, amplitude: 0.4 },
+      { ratio: 3.2, amplitude: 0.3 },
+      { ratio: 4.4, amplitude: 0.18 },
     ],
   },
   'dm-roll': {
