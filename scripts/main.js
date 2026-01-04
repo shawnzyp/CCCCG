@@ -12887,6 +12887,32 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 5.1, amplitude: 0.18 },
     ],
   },
+  'coin-heads': {
+    frequency: 980,
+    type: 'triangle',
+    duration: 0.18,
+    volume: 0.22,
+    attack: 0.002,
+    release: 0.08,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.8, amplitude: 0.45 },
+      { ratio: 2.6, amplitude: 0.22 },
+    ],
+  },
+  'coin-tails': {
+    frequency: 720,
+    type: 'sawtooth',
+    duration: 0.24,
+    volume: 0.22,
+    attack: 0.004,
+    release: 0.12,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.4, amplitude: 0.5 },
+      { ratio: 2.2, amplitude: 0.3 },
+    ],
+  },
   'credits-gain': {
     frequency: 820,
     type: 'sine',
