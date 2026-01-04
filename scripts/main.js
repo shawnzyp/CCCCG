@@ -2346,6 +2346,7 @@ let floatingLauncherClampFrame = null;
 let playerToolsLauncherFrame = null;
 
 const clamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
+const ccClamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
 
 const getSafeAreaInsetLeft = () => {
   if (typeof window === 'undefined') return 0;
@@ -2379,6 +2380,15 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
   const launcherRect = playerToolsTabElement.getBoundingClientRect();
   const launcherWidth = launcherRect.width || 0;
+  const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
+  const safeTop = getSafeAreaInsetTop();
+  const launcherRect = playerToolsTabElement.getBoundingClientRect();
+  const launcherHeight = launcherRect.height || 0;
+  const launcherWidth = launcherRect.width || 0;
+  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const topMargin = 12;
+  const maxTop = Math.max(topMargin, viewportHeight - launcherHeight - topMargin - safeTop);
+  const clampedTop = ccClamp(top, topMargin + safeTop, maxTop);
   const safeLeft = getSafeAreaInsetLeft();
   const baseLeft = safeLeft + 12;
   let left = baseLeft;
@@ -2397,6 +2407,9 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   left = clamp(left, baseLeft, maxLeft);
 
   document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(top)}px`);
+  left = ccClamp(left, baseLeft, maxLeft);
+
+  document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(clampedTop)}px`);
   document.documentElement.style.setProperty('--pt-launcher-left', `${Math.round(left)}px`);
   playerToolsTabElement.dataset.launcherReason = reason;
 }
@@ -5425,6 +5438,11 @@ if(m24nTrack && m24nText){
       pauseM24nTicker();
     }else if(headlines.length && !animationTimer && !bufferTimer){
       bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+    }else{
+      resumeM24nTicker();
+      if(headlines.length && !animationTimer && !bufferTimer){
+        bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+      }
     }
   });
 
