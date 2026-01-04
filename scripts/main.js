@@ -11454,6 +11454,18 @@ function sendAbilityUseEvent({ name, kind, power } = {}) {
   });
 }
 
+function resolveAbilityUseCue(power) {
+  if (!power || typeof power !== 'object') return null;
+  const spCost = Number(power.spCost);
+  if (Number.isFinite(spCost)) {
+    return spCost <= suggestSpCost('Core') ? 'ability-minor' : 'ability-major';
+  }
+  const intensity = typeof power.intensity === 'string' ? power.intensity : '';
+  if (intensity === 'Minor') return 'ability-minor';
+  if (POWER_INTENSITIES.includes(intensity)) return 'ability-major';
+  return null;
+}
+
 function isActiveCharacterName(name) {
   if (!name) return false;
   const vigilanteName = $('superhero')?.value?.trim() || '';
@@ -13159,6 +13171,105 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 0.5, amplitude: 0.6 },
       { ratio: 1.2, amplitude: 0.35 },
       { ratio: 2.4, amplitude: 0.2 },
+    ],
+  },
+  'ability-minor': {
+    volume: 0.24,
+    segments: [
+      {
+        frequency: 940,
+        type: 'triangle',
+        duration: 0.07,
+        attack: 0.002,
+        release: 0.035,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.9, amplitude: 0.4 },
+          { ratio: 2.8, amplitude: 0.25 },
+        ],
+      },
+      {
+        delay: 0.018,
+        frequency: 240,
+        type: 'sawtooth',
+        duration: 0.14,
+        attack: 0.006,
+        release: 0.09,
+        partials: [
+          { ratio: 1, amplitude: 0.75 },
+          { ratio: 0.55, amplitude: 0.45 },
+          { ratio: 1.6, amplitude: 0.25 },
+        ],
+      },
+    ],
+  },
+  'ability-major': {
+    volume: 0.28,
+    segments: [
+      {
+        frequency: 220,
+        type: 'sine',
+        duration: 0.18,
+        attack: 0.015,
+        release: 0.12,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.5, amplitude: 0.35 },
+          { ratio: 2.2, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.03,
+        frequency: 360,
+        type: 'triangle',
+        duration: 0.22,
+        attack: 0.01,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.6, amplitude: 0.4 },
+          { ratio: 2.4, amplitude: 0.25 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 520,
+        type: 'triangle',
+        duration: 0.26,
+        attack: 0.008,
+        release: 0.16,
+        partials: [
+          { ratio: 1, amplitude: 0.75 },
+          { ratio: 1.7, amplitude: 0.45 },
+          { ratio: 2.6, amplitude: 0.28 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 980,
+        type: 'square',
+        duration: 0.06,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.5 },
+          { ratio: 2.4, amplitude: 0.35 },
+          { ratio: 3.6, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.018,
+        frequency: 1180,
+        type: 'square',
+        duration: 0.05,
+        attack: 0.002,
+        release: 0.028,
+        partials: [
+          { ratio: 1, amplitude: 0.45 },
+          { ratio: 2.8, amplitude: 0.3 },
+          { ratio: 4.2, amplitude: 0.18 },
+        ],
+      },
     ],
   },
   heal: {
@@ -17130,6 +17241,10 @@ function finalizePowerUse(card, power) {
     showPowerMessage(card, `Insufficient SP to use this ${labelLower}.`, 'error');
     return;
   }
+  const abilityCue = resolveAbilityUseCue(power);
+  if (abilityCue) {
+    playActionCue(abilityCue);
+  }
   const label = getPowerCardLabel(card);
   logAction(`${label} used: ${power.name} — ${power.rulesText}`);
   const abilityKind = card?.dataset?.kind === 'sig' ? 'signature move' : 'power';
@@ -21044,6 +21159,10 @@ function createCard(kind, pref = {}) {
       const powerData = (kind === 'power' || kind === 'sig') && powerCardStates.has(card)
         ? serializePowerCard(card)
         : null;
+      const abilityCue = resolveAbilityUseCue(powerData);
+      if (abilityCue) {
+        playActionCue(abilityCue);
+      }
       sendAbilityUseEvent({ name, kind: abilityKind, power: powerData });
       const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
