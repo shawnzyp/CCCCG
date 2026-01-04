@@ -1476,14 +1476,16 @@
       </button>
       <h3>All Characters</h3>
       <div id="char-list" class="catalog"></div>
+      <p id="save-load-auth-note" class="modal--load-save__status" role="status" aria-live="polite"></p>
+      <p id="save-load-status" class="modal--load-save__status" role="status" aria-live="polite"></p>
       <div class="actions actions--center modal--load-save__actions">
         <button id="btn-save" class="btn-sm" type="button">Save</button>
+        <button id="load-character" class="btn-sm" type="button">Load</button>
         <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
-        <button id="create-character" class="btn-sm" type="button">Create New</button>
-        <button id="export-character" class="btn-sm" type="button">Export JSON</button>
-        <label class="sr-only" for="import-character-file">Import JSON</label>
+        <button id="export-character" class="btn-sm" type="button">Export</button>
+        <label class="sr-only" for="import-character-file">Import</label>
         <input id="import-character-file" type="file" accept="application/json" hidden>
-        <button id="import-character" class="btn-sm" type="button">Import JSON</button>
+        <button id="import-character" class="btn-sm" type="button">Import</button>
       </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
