@@ -48,6 +48,7 @@ const DM_LOGIN_LAST_FAILURE_KEY = 'dmLoginLastFailureAt';
 const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
+const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
 const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
 const DM_PERSISTENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const CLOUD_DM_SESSIONS_PATH = 'dm-sessions';
@@ -112,6 +113,14 @@ function dmClearInterval(id) {
 }
 
 const DM_PIN_REQUIRED_LENGTH = 4;
+const DM_TOOL_IDS = new Set([
+  'tsomf',
+  'notifications',
+  'rewards',
+  'discord',
+  'characters',
+  'mini-games',
+]);
 
 function sanitizeDmPin(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -139,6 +148,32 @@ function isValidDmUsername(candidate) {
   const normalized = sanitizeDmUsername(candidate);
   if (!normalized) return false;
   return normalized.length >= 2 && normalized.length <= 32;
+}
+
+function normalizeDmToolId(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return DM_TOOL_IDS.has(normalized) ? normalized : null;
+}
+
+function readLastDmTool() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return normalizeDmToolId(localStorage.getItem(DM_LAST_TOOL_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function persistLastDmTool(toolId) {
+  if (typeof localStorage === 'undefined') return;
+  const normalized = normalizeDmToolId(toolId);
+  if (!normalized) return;
+  try {
+    localStorage.setItem(DM_LAST_TOOL_KEY, normalized);
+  } catch {
+    /* ignore */
+  }
 }
 
 async function verifyDmCredentials(credentials) {
@@ -1712,6 +1747,7 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+  const tsomfModal = document.getElementById('modal-somf-dm');
   if (charView && typeof charView.classList?.add === 'function') {
     charView.classList.add('dm-character-sheet');
   }
@@ -1799,6 +1835,72 @@ function initDMLogin(){
   };
   const rewardsBtn = document.getElementById('dm-tools-rewards');
   const discordBtn = document.getElementById('dm-tools-discord');
+  const dmToolButtons = new Map([
+    ['tsomf', tsomfBtn],
+    ['notifications', notifyBtn],
+    ['rewards', rewardsBtn],
+    ['discord', discordBtn],
+    ['characters', charBtn],
+    ['mini-games', miniGamesBtn],
+  ]);
+  let activeDmToolId = null;
+  const dmToolOpeners = new Map();
+
+  function setDmToolButtonState(activeId) {
+    dmToolButtons.forEach((button, toolId) => {
+      if (!button) return;
+      const isActive = toolId === activeId;
+      button.classList.toggle('is-active', isActive);
+      if (isActive) {
+        button.setAttribute('aria-current', 'page');
+      } else {
+        button.removeAttribute('aria-current');
+      }
+    });
+  }
+
+  function setActiveDmTool(toolId) {
+    const normalized = normalizeDmToolId(toolId);
+    activeDmToolId = normalized;
+    setDmToolButtonState(activeDmToolId);
+  }
+
+  function clearActiveDmTool(toolId) {
+    const normalized = normalizeDmToolId(toolId);
+    if (!normalized || activeDmToolId !== normalized) return;
+    activeDmToolId = null;
+    setDmToolButtonState(null);
+  }
+
+  function recordDmToolOpen(toolId) {
+    const normalized = normalizeDmToolId(toolId);
+    if (!normalized) return;
+    setActiveDmTool(normalized);
+    persistLastDmTool(normalized);
+  }
+
+  async function openDmTool(toolId, { persist = true, options } = {}) {
+    const normalized = normalizeDmToolId(toolId);
+    if (!normalized) return false;
+    const opener = dmToolOpeners.get(normalized);
+    if (!opener) return false;
+    await opener(options);
+    if (persist) {
+      recordDmToolOpen(normalized);
+    } else {
+      setActiveDmTool(normalized);
+    }
+    return true;
+  }
+
+  function restoreLastDmTool() {
+    if (!isLoggedIn()) return;
+    const lastTool = readLastDmTool();
+    if (!lastTool) return;
+    openDmTool(lastTool, { persist: false }).catch(err => {
+      console.warn('Failed to restore last DM tool', err);
+    });
+  }
   const rewardsModal = document.getElementById('dm-rewards-modal');
   const rewardsClose = document.getElementById('dm-rewards-close');
   const rewardsTabs = document.getElementById('dm-rewards-tabs');
@@ -5271,6 +5373,7 @@ function initDMLogin(){
     function closeRewards() {
       if (!rewardsModal) return;
       hide('dm-rewards-modal');
+      clearActiveDmTool('rewards');
     }
 
     function syncDiscordSettingsUi() {
@@ -5306,6 +5409,7 @@ function initDMLogin(){
     function closeDiscordSettings() {
       if (!discordModal) return;
       hide('dm-discord-modal');
+      clearActiveDmTool('discord');
     }
 
     async function sendDiscordTestMessage() {
@@ -7204,6 +7308,7 @@ function initDMLogin(){
   function closeMiniGames() {
     if (!miniGamesModal) return;
     hide('dm-mini-games-modal');
+    clearActiveDmTool('mini-games');
   }
 
   function getCatalogFieldSets(typeId) {
@@ -7787,7 +7892,7 @@ function initDMLogin(){
   }
 
   async function openCatalog() {
-    await openRewards({ tab: 'catalog' });
+    await openDmTool('rewards', { options: { tab: 'catalog' } });
   }
 
   function closeCatalog() {
@@ -8535,6 +8640,7 @@ function initDMLogin(){
     } catch {
       /* ignore */
     }
+    setActiveDmTool(null);
   }
 
   function activateLoggedInState({ username, source } = {}) {
@@ -8550,6 +8656,7 @@ function initDMLogin(){
     drainPendingNotifications();
     ensureMiniGameSubscription();
     initTools();
+    Promise.resolve().then(() => restoreLastDmTool());
   }
 
   let persistentSessionRestorePromise = null;
@@ -8632,6 +8739,7 @@ function initDMLogin(){
     if (!loggedIn) {
       teardownPlayerBroadcastChannels();
       clearNotificationDisplay();
+      setActiveDmTool(null);
     } else {
       renderStoredNotifications();
     }
@@ -8865,6 +8973,43 @@ function initDMLogin(){
     }
   }
 
+  function getMenuItems() {
+    if (!menu) return [];
+    return Array.from(menu.querySelectorAll('button:not([disabled])'));
+  }
+
+  function focusMenuItemAt(index, items) {
+    if (!items.length) return;
+    const targetIndex = (index + items.length) % items.length;
+    const target = items[targetIndex];
+    if (!target || typeof target.focus !== 'function') return;
+    try {
+      target.focus({ preventScroll: true });
+    } catch {
+      target.focus();
+    }
+  }
+
+  function handleMenuKeydown(event) {
+    if (!menu || !menu.classList.contains(MENU_OPEN_CLASS)) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu();
+      return;
+    }
+    const isNext = event.key === 'ArrowDown' || event.key === 'ArrowRight';
+    const isPrev = event.key === 'ArrowUp' || event.key === 'ArrowLeft';
+    if (!isNext && !isPrev) return;
+    const items = getMenuItems();
+    if (!items.length) return;
+    const activeIndex = items.indexOf(document.activeElement);
+    const nextIndex = activeIndex === -1
+      ? (isPrev ? items.length - 1 : 0)
+      : activeIndex + (isNext ? 1 : -1);
+    event.preventDefault();
+    focusMenuItemAt(nextIndex, items);
+  }
+
   function openNotifications(){
     if(!notifyModal) return;
     resetUnreadCountValue();
@@ -8878,6 +9023,7 @@ function initDMLogin(){
     resetUnreadCountValue();
     updateNotificationActionState();
     hide('dm-notifications-modal');
+    clearActiveDmTool('notifications');
   }
 
   function onLoginSuccess({ username } = {}){
@@ -9058,6 +9204,7 @@ function initDMLogin(){
   function closeCharacters(){
     if(!charModal) return;
     hide('dm-characters-modal');
+    clearActiveDmTool('characters');
   }
 
   function openCharacterView(){
@@ -10330,6 +10477,8 @@ function initDMLogin(){
     });
   }
 
+  menu?.addEventListener('keydown', handleMenuKeydown);
+
   const closeMenuIfOutside = e => {
     if (!menu || !menu.classList.contains(MENU_OPEN_CLASS)) return;
     if (!menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
@@ -10554,17 +10703,32 @@ function initDMLogin(){
       }
     });
 
+  dmToolOpeners.set('tsomf', () => {
+    if (window.openSomfDM) {
+      window.openSomfDM();
+    }
+  });
+  dmToolOpeners.set('notifications', () => openNotifications());
+  dmToolOpeners.set('characters', () => openCharacters());
+  dmToolOpeners.set('mini-games', () => openMiniGames());
+  dmToolOpeners.set('rewards', options => openRewards(options));
+  dmToolOpeners.set('discord', () => openDiscordSettings());
+
   if (tsomfBtn) {
     tsomfBtn.addEventListener('click', () => {
       closeMenu();
-      if (window.openSomfDM) window.openSomfDM();
+      openDmTool('tsomf').catch(err => {
+        console.error('Failed to open TSoMF', err);
+      });
     });
   }
 
   if (notifyBtn) {
     notifyBtn.addEventListener('click', () => {
       closeMenu();
-      openNotifications();
+      openDmTool('notifications').catch(err => {
+        console.error('Failed to open notifications', err);
+      });
     });
   }
 
@@ -10623,7 +10787,9 @@ function initDMLogin(){
     if (charBtn) {
       charBtn.addEventListener('click', () => {
         closeMenu();
-        openCharacters();
+        openDmTool('characters').catch(err => {
+          console.error('Failed to open characters', err);
+        });
       });
     }
 
@@ -10631,7 +10797,7 @@ function initDMLogin(){
     miniGamesBtn.addEventListener('click', async () => {
       closeMenu();
       try {
-        await openMiniGames();
+        await openDmTool('mini-games');
       } catch (err) {
         console.error('Failed to open mini-games', err);
         toast('Failed to open mini-games', 'error');
@@ -10643,7 +10809,7 @@ function initDMLogin(){
       rewardsBtn.addEventListener('click', async () => {
         closeMenu();
         try {
-          await openRewards({ tab: 'resource' });
+          await openDmTool('rewards', { options: { tab: 'resource' } });
         } catch (err) {
           console.error('Failed to open rewards hub', err);
           toast('Failed to open rewards hub', 'error');
@@ -10654,7 +10820,9 @@ function initDMLogin(){
     if (discordBtn) {
       discordBtn.addEventListener('click', () => {
         closeMenu();
-        openDiscordSettings();
+        openDmTool('discord').catch(err => {
+          console.error('Failed to open discord settings', err);
+        });
       });
     }
 
@@ -10856,6 +11024,20 @@ function initDMLogin(){
     });
     modalObserver.observe(notifyModal, { attributes: true, attributeFilter: ['class'] });
   }
+  if (tsomfModal && typeof MutationObserver !== 'undefined') {
+    const somfObserver = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        if (mutation.type !== 'attributes') continue;
+        if (tsomfModal.classList.contains('hidden')) {
+          clearActiveDmTool('tsomf');
+        } else {
+          setActiveDmTool('tsomf');
+        }
+        break;
+      }
+    });
+    somfObserver.observe(tsomfModal, { attributes: true, attributeFilter: ['class'] });
+  }
   charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
   charClose?.addEventListener('click', closeCharacters);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
@@ -10878,7 +11060,7 @@ function initDMLogin(){
   if (isLoggedIn()) initTools();
 
   window.dmRequireLogin = requireLogin;
-  window.openRewards = openRewards;
+  window.openRewards = options => openDmTool('rewards', { options });
   window.closeRewards = closeRewards;
 
   dmTestHooks = {

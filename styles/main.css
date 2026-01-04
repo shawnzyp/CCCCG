@@ -5719,6 +5719,15 @@ body:not(.no-hover) .dm-tools-menu button:hover,
   background:var(--accent);
   color:var(--text-on-accent);
 }
+.dm-tools-menu button:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--accent) 70%, white);
+  outline-offset:2px;
+}
+.dm-tools-menu button.is-active,
+.dm-tools-menu button[aria-current="page"]{
+  background:var(--accent);
+  color:var(--text-on-accent);
+}
 .dm-tools-menu button[data-unread]{
   position:relative;
   padding-right:42px;
