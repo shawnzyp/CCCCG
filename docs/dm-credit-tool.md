@@ -1,5 +1,7 @@
 # DM Credit Deposit Tool
 
+This reference describes the GM-facing credit deposit modal in `index.html`
+(search for `dm-credit-modal`) and its supporting logic in `scripts/dm.js`.
 This reference describes the GM-facing credit deposit modal that lives in `index.html`
 (lines 2434-2588) and its supporting logic in `scripts/dm.js`.
 
@@ -7,6 +9,18 @@ This reference describes the GM-facing credit deposit modal that lives in `index
 
 - **Deterministic account numbers.** Character names are hashed via
   `computeCreditAccountNumber` so every player always receives the same account
+  number when the modal is opened.
+- **Dynamic player list.** The account dropdown calls `listCharacters()` when the
+  modal opens and replaces the placeholder option with current cloud saves.
+- **Sender-specific identifiers.** The reference number and footer ID include the
+  sender prefix via `generateCreditReference` / `generateCreditTxid`, ensuring IDs
+  match the selected origin.
+- **Credit transfer workflow.** `handleCreditRewardSubmit` validates the UI inputs,
+  builds the `credits` operation payload, and calls `rewardExecutor` (defaults to
+  `executeRewardTransaction`). `executeRewardTransaction` loads the selected cloud
+  save, applies the deposit/debit delta in its `credits` handler, records the
+  campaign log entry via `createRewardLogEntry`, and persists the update via
+  `saveCloud`.
   number when the modal is opened. This logic lives in `computeCreditAccountNumber`
   within `scripts/dm.js`.
 - **Dynamic player list.** The account dropdown calls `listCharacters()` when the
