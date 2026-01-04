@@ -12819,29 +12819,31 @@ function playDamageAnimation(amount){
 
 const AUDIO_CUE_SETTINGS = {
   down: {
-    frequency: 155,
-    type: 'triangle',
-    duration: 0.65,
-    volume: 0.34,
-    attack: 0.01,
-    release: 0.4,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.45 },
-      { ratio: 1.5, amplitude: 0.35 },
-    ],
-  },
-  death: {
-    frequency: 90,
-    type: 'square',
-    duration: 1.2,
-    volume: 0.32,
+    frequency: 78,
+    type: 'sine',
+    duration: 0.85,
+    volume: 0.26,
     attack: 0.02,
     release: 0.55,
     partials: [
       { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.6 },
-      { ratio: 2, amplitude: 0.4 },
+      { ratio: 0.5, amplitude: 0.55 },
+      { ratio: 1.2, amplitude: 0.25 },
+      { ratio: 1.8, amplitude: 0.15 },
+    ],
+  },
+  death: {
+    frequency: 58,
+    type: 'triangle',
+    duration: 1.8,
+    volume: 0.28,
+    attack: 0.03,
+    release: 1.1,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.5 },
+      { ratio: 1.4, amplitude: 0.25 },
+      { ratio: 2.2, amplitude: 0.18 },
     ],
   },
   'dice-roll': {
