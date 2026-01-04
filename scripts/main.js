@@ -7511,6 +7511,7 @@ const handlePlayerCreditEventDetail = (detail) => {
     return;
   }
   showPlayerCreditBadge();
+  playActionCue('loot-coins');
 };
 
 if (elPlayerToolsTab && typeof elPlayerToolsTab.appendChild === 'function') {
@@ -7651,6 +7652,36 @@ const toRewardIsoString = (value) => {
     date = new Date();
   }
   return date.toISOString();
+};
+
+const isChestLikeReward = (entry) => {
+  if (!entry || typeof entry !== 'object') return false;
+  const tokens = [];
+  const pushToken = (value) => {
+    if (typeof value === 'string' && value.trim()) {
+      tokens.push(value.trim());
+    }
+  };
+  pushToken(entry.kind);
+  pushToken(entry.message);
+  pushToken(entry.name);
+  pushToken(entry.text);
+  const data = entry.data;
+  if (data && typeof data === 'object') {
+    [
+      data.kind,
+      data.type,
+      data.name,
+      data.label,
+      data.title,
+      data.reward,
+      data.source,
+      data.category,
+    ].forEach(pushToken);
+  }
+  if (!tokens.length) return false;
+  const haystack = tokens.join(' ').toLowerCase();
+  return haystack.includes('loot') || haystack.includes('treasure') || haystack.includes('chest');
 };
 
 const sanitizePlayerRewardHistoryItem = (item = {}) => {
@@ -7844,6 +7875,9 @@ const handlePlayerRewardUpdate = (payload = {}, historyEntry = null, { source = 
       } catch {
         /* ignore toast failures */
       }
+    }
+    if (isChestLikeReward(added)) {
+      playActionCue('loot-treasure');
     }
   }
 
