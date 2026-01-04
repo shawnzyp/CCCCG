@@ -8429,14 +8429,16 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 :root {
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --pt-launcher-top: 50%;
+  --pt-launcher-left: max(0px, env(safe-area-inset-left, 0px));
 }
 
 /* Player Tools tray trigger (vertical tab on the left edge) */
 .player-tools-tab {
   position: fixed;
-  inset-block: 50%;
-  inset-inline-start: max(0px, env(safe-area-inset-left, 0px));
-  transform: translateY(-50%);
+  top: var(--pt-launcher-top, 50%);
+  left: var(--pt-launcher-left, max(0px, env(safe-area-inset-left, 0px)));
+  transform: translate3d(0, 0, 0);
   z-index: 1500;
   display: inline-flex;
   align-items: center;
@@ -8993,15 +8995,15 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 #floating-launcher,
 .floating-launcher,
 .pt-floating-launcher {
-  left: max(12px, env(safe-area-inset-left));
+  left: var(--pt-launcher-left, max(12px, env(safe-area-inset-left)));
   right: auto;
 }
 
 #player-tools-tab.pt-tab{
 position: fixed;
-top: 50%;
-left: max(0px, env(safe-area-inset-left, 0px));
-transform: translateY(-50%);
+top: var(--pt-launcher-top, 50%);
+left: var(--pt-launcher-left, max(0px, env(safe-area-inset-left, 0px)));
+transform: translate3d(0, 0, 0);
 z-index: 1500;
 
 display: inline-flex;
@@ -9021,9 +9023,9 @@ cursor: pointer;
 
 @media (min-width: 900px) {
   #player-tools-tab.pt-tab {
-    left: 0;
+    left: var(--pt-launcher-left, 0px);
     margin-left: 0;
-    transform: translate3d(var(--pt-tab-x, 0px), -50%, 0);
+    transform: translate3d(var(--pt-tab-x, 0px), 0, 0);
   }
 }
 
