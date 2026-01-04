@@ -299,6 +299,12 @@ function isScopedSaveKey(key) {
   return key.startsWith('save:');
 }
 
+function isLegacySaveKey(key) {
+  if (!key || !key.startsWith('save:')) return false;
+  // Legacy save keys are un-namespaced "save:<name>" entries (no second ":" namespace segment).
+  return !/^save:[^:]+:.+/.test(key);
+}
+
 function pruneOldestLocalSave({ excludeKeys = new Set() } = {}) {
   if (typeof localStorage === 'undefined') return null;
   const candidates = [];
@@ -469,13 +475,9 @@ export function listLocalSaves({ includeLegacy = false } = {}) {
     for (let i = 0; i < storage.length; i++) {
       const k = storage.key(i);
       if (!k) continue;
-      if (k.startsWith('save:')) {
-        keys.push(k.slice(5));
-        continue;
-      }
-      if (includeLegacy && k.startsWith('save:')) {
-        keys.push(k.slice(5));
-      }
+      if (!k.startsWith('save:')) continue;
+      if (isLegacySaveKey(k) && !includeLegacy) continue;
+      keys.push(k.slice(5));
     }
     return keys.sort((a, b) => a.localeCompare(b));
   } catch (e) {
@@ -503,6 +505,9 @@ export function listLegacyLocalSaves() {
     const storage = getLocalStorageSafe();
     if (!storage) return [];
     const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!isLegacySaveKey(k)) continue;
     for (let i = 0; i < storage.length; i++) {
       const k = storage.key(i);
       if (!k || !k.startsWith('save:')) continue;
