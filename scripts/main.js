@@ -12599,13 +12599,14 @@ if (coinFlipButton) {
     coinFlipButton.dataset.actionCueTails = 'coin-tails';
   }
   coinFlipButton.addEventListener('click', ()=>{
+    playActionCue('coin-flip');
     const v = Math.random()<.5 ? 'Heads' : 'Tails';
     $('flip-out').textContent = v;
     playCoinAnimation(v);
     const actionKey = v === 'Heads'
       ? coinFlipButton.dataset?.actionCueHeads || 'coin-heads'
       : coinFlipButton.dataset?.actionCueTails || 'coin-tails';
-    playActionCue(actionKey, 'coin-flip');
+    playActionCue(actionKey);
     logAction(`Coin flip: ${v}`);
     const character = getDiscordCharacterPayload();
     if (character) {
@@ -12865,16 +12866,17 @@ const AUDIO_CUE_SETTINGS = {
     ],
   },
   'coin-flip': {
-    frequency: 980,
-    type: 'triangle',
-    duration: 0.3,
-    volume: 0.23,
-    attack: 0.003,
-    release: 0.16,
+    frequency: 1220,
+    type: 'square',
+    duration: 0.22,
+    volume: 0.2,
+    attack: 0.002,
+    release: 0.09,
     partials: [
       { ratio: 1, amplitude: 1 },
-      { ratio: 2.4, amplitude: 0.45 },
-      { ratio: 3.6, amplitude: 0.22 },
+      { ratio: 2.7, amplitude: 0.5 },
+      { ratio: 3.9, amplitude: 0.28 },
+      { ratio: 5.1, amplitude: 0.18 },
     ],
   },
   'credits-gain': {
