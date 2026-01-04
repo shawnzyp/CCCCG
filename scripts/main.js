@@ -11645,6 +11645,7 @@ registerBootTask(() => {
 $('long-rest').addEventListener('click', ()=>{
   closeSpSettings();
   if(!confirm('Take a long rest?')) return;
+  playActionCue('rest-long');
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
   elHPTemp.value='';
@@ -13159,6 +13160,66 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 0.5, amplitude: 0.6 },
       { ratio: 1.2, amplitude: 0.35 },
       { ratio: 2.4, amplitude: 0.2 },
+    ],
+  },
+  'rest-short': {
+    volume: 0.24,
+    segments: [
+      {
+        frequency: 520,
+        type: 'square',
+        duration: 0.08,
+        attack: 0.002,
+        release: 0.05,
+        partials: [
+          { ratio: 1, amplitude: 0.65 },
+          { ratio: 1.8, amplitude: 0.4 },
+          { ratio: 2.6, amplitude: 0.24 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 240,
+        type: 'sawtooth',
+        duration: 0.28,
+        attack: 0.01,
+        release: 0.18,
+        partials: [
+          { ratio: 1, amplitude: 0.55 },
+          { ratio: 1.4, amplitude: 0.3 },
+          { ratio: 2.2, amplitude: 0.18 },
+        ],
+      },
+    ],
+  },
+  'rest-long': {
+    volume: 0.22,
+    segments: [
+      {
+        frequency: 880,
+        type: 'sine',
+        duration: 0.5,
+        attack: 0.01,
+        release: 0.4,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 2, amplitude: 0.35 },
+          { ratio: 3, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.05,
+        frequency: 180,
+        type: 'triangle',
+        duration: 1.15,
+        attack: 0.08,
+        release: 0.9,
+        partials: [
+          { ratio: 1, amplitude: 0.55 },
+          { ratio: 1.6, amplitude: 0.3 },
+          { ratio: 2.4, amplitude: 0.18 },
+        ],
+      },
     ],
   },
   heal: {
