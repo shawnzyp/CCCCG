@@ -2345,6 +2345,7 @@ const FLOATING_LAUNCHER_MARGIN = 12;
 let floatingLauncherClampFrame = null;
 let playerToolsLauncherFrame = null;
 
+const clamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
 const ccClamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
 
 const getSafeAreaInsetLeft = () => {
@@ -2374,6 +2375,11 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const tickerOpen = tickerDrawer?.getAttribute('data-state') !== 'closed';
   const tickerHeight = tickerOpen && tickerPanel ? tickerPanel.getBoundingClientRect().height : 0;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+  const baseOffset = clamp(viewportHeight * 0.30, 180, 520);
+  const safeTop = getSafeAreaInsetTop();
+  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const launcherRect = playerToolsTabElement.getBoundingClientRect();
+  const launcherWidth = launcherRect.width || 0;
   const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
   const safeTop = getSafeAreaInsetTop();
   const launcherRect = playerToolsTabElement.getBoundingClientRect();
@@ -2398,6 +2404,9 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   }
 
   const maxLeft = Math.max(baseLeft, (window.innerWidth || 0) - launcherWidth - 12);
+  left = clamp(left, baseLeft, maxLeft);
+
+  document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(top)}px`);
   left = ccClamp(left, baseLeft, maxLeft);
 
   document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(clampedTop)}px`);
@@ -5427,6 +5436,8 @@ if(m24nTrack && m24nText){
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden'){
       pauseM24nTicker();
+    }else if(headlines.length && !animationTimer && !bufferTimer){
+      bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
     }else{
       resumeM24nTicker();
       if(headlines.length && !animationTimer && !bufferTimer){
