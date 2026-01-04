@@ -13074,6 +13074,37 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 5.1, amplitude: 0.18 },
     ],
   },
+  'item-consume': {
+    volume: 0.22,
+    type: 'triangle',
+    segments: [
+      {
+        frequency: 980,
+        duration: 0.045,
+        attack: 0.002,
+        release: 0.03,
+        type: 'square',
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 2.2, amplitude: 0.55 },
+          { ratio: 3.4, amplitude: 0.3 },
+        ],
+      },
+      {
+        delay: 0.015,
+        frequency: 420,
+        duration: 0.18,
+        attack: 0.01,
+        release: 0.12,
+        type: 'sine',
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.6, amplitude: 0.35 },
+          { ratio: 2.4, amplitude: 0.2 },
+        ],
+      },
+    ],
+  },
   'coin-heads': {
     frequency: 980,
     type: 'triangle',
@@ -21399,6 +21430,24 @@ function createCard(kind, pref = {}) {
     rawDateInput.dataset.f = 'awardedAtRaw';
     rawDateInput.value = medalMeta?.rawDate || pref.awardedAt || '';
     card.appendChild(rawDateInput);
+  }
+  if (kind === 'item') {
+    const qtyField = qs("[data-f='qty']", card);
+    if (qtyField) {
+      let lastQty = Number(qtyField.value);
+      if (!Number.isFinite(lastQty)) lastQty = null;
+      const handleConsume = () => {
+        const nextQty = Number(qtyField.value);
+        if (Number.isFinite(nextQty) && Number.isFinite(lastQty) && nextQty < lastQty) {
+          playActionCue('item-consume');
+        }
+        if (Number.isFinite(nextQty)) {
+          lastQty = nextQty;
+        }
+      };
+      qtyField.addEventListener('input', handleConsume);
+      qtyField.addEventListener('change', handleConsume);
+    }
   }
   const delWrap = document.createElement('div');
   delWrap.className = 'inline';
