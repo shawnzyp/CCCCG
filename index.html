@@ -2317,16 +2317,16 @@
   </button>
   <div class="dm-tools-portal">
     <div id="dm-tools-menu" class="dm-tools-menu" hidden>
-      <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
-      <button id="dm-tools-notifications" class="btn-sm" data-unread="0">
+      <button id="dm-tools-tsomf" class="btn-sm is-active" data-dm-tool="tsomf" aria-current="page">TSoMF</button>
+      <button id="dm-tools-notifications" class="btn-sm" data-unread="0" data-dm-tool="notifications">
         Notifications
         <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
       </button>
-      <button id="dm-tools-rewards" class="btn-sm">Rewards &amp; Catalog</button>
-      <button id="dm-tools-discord" class="btn-sm">Discord Telemetry</button>
-      <button id="dm-tools-characters" class="btn-sm">Characters</button>
-      <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
-      <button id="dm-tools-logout" class="btn-sm">Logout</button>
+      <button id="dm-tools-rewards" class="btn-sm" data-dm-tool="rewards">Rewards &amp; Catalog</button>
+      <button id="dm-tools-discord" class="btn-sm" data-dm-tool="discord">Discord Telemetry</button>
+      <button id="dm-tools-characters" class="btn-sm" data-dm-tool="characters">Characters</button>
+      <button id="dm-tools-mini-games" class="btn-sm" data-dm-tool="mini-games">Mini-Games</button>
+      <button id="dm-tools-logout" class="btn-sm" data-dm-tool="logout">Logout</button>
     </div>
     <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
       <img class="dm-tools-toggle__icon" src="images/settings.png" alt="" aria-hidden="true" />
