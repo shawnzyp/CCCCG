@@ -85,6 +85,8 @@ import {
   loadCloud,
   loadCloudBackup,
 } from './storage.js';
+import { buildCloudSaveEnvelope, loadCloudSave, recoverFromRTDB, saveCloudSave } from './cloud-save-service.js';
+import { normalizeSnapshotPayload, serializeSnapshotForExport } from './save-transfer.js';
 import {
   activateTab,
   getActiveTab,
@@ -2238,6 +2240,8 @@ let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
 let launchFailsafeTimer = null;
 let launchFailsafeTriggered = false;
+let bootCompletionHandled = false;
+let postBootHooksRan = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2339,6 +2343,78 @@ function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}
 let playerToolsTabElement = null;
 const FLOATING_LAUNCHER_MARGIN = 12;
 let floatingLauncherClampFrame = null;
+let playerToolsLauncherFrame = null;
+
+const ccClamp = (value, minValue, maxValue) => Math.min(Math.max(value, minValue), maxValue);
+
+const getSafeAreaInsetLeft = () => {
+  if (typeof window === 'undefined') return 0;
+  const root = document.documentElement;
+  if (!root) return 0;
+  const raw = window.getComputedStyle(root).getPropertyValue('--safe-area-left') || '0px';
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getSafeAreaInsetTop = () => {
+  if (typeof window === 'undefined') return 0;
+  const root = document.documentElement;
+  if (!root) return 0;
+  const raw = window.getComputedStyle(root).getPropertyValue('--safe-area-top') || '0px';
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
+  if (typeof document === 'undefined' || !playerToolsTabElement) return;
+  const header = document.querySelector('header');
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
+  const tickerDrawer = document.querySelector('[data-ticker-drawer]');
+  const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
+  const tickerOpen = tickerDrawer?.getAttribute('data-state') !== 'closed';
+  const tickerHeight = tickerOpen && tickerPanel ? tickerPanel.getBoundingClientRect().height : 0;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+  const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
+  const safeTop = getSafeAreaInsetTop();
+  const launcherRect = playerToolsTabElement.getBoundingClientRect();
+  const launcherHeight = launcherRect.height || 0;
+  const launcherWidth = launcherRect.width || 0;
+  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const topMargin = 12;
+  const maxTop = Math.max(topMargin, viewportHeight - launcherHeight - topMargin - safeTop);
+  const clampedTop = ccClamp(top, topMargin + safeTop, maxTop);
+  const safeLeft = getSafeAreaInsetLeft();
+  const baseLeft = safeLeft + 12;
+  let left = baseLeft;
+
+  if (document.body?.classList.contains('player-tools-open')) {
+    const shell = document.querySelector('.player-tools-shell, .player-tools-phone__shell, #player-tools-drawer .pt-device__shell');
+    if (shell) {
+      const shellRect = shell.getBoundingClientRect();
+      if (Number.isFinite(shellRect.left)) {
+        left = shellRect.left - (launcherWidth * 0.35);
+      }
+    }
+  }
+
+  const maxLeft = Math.max(baseLeft, (window.innerWidth || 0) - launcherWidth - 12);
+  left = ccClamp(left, baseLeft, maxLeft);
+
+  document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(clampedTop)}px`);
+  document.documentElement.style.setProperty('--pt-launcher-left', `${Math.round(left)}px`);
+  playerToolsTabElement.dataset.launcherReason = reason;
+}
+
+const schedulePlayerToolsLauncherReposition = (reason = 'unknown') => {
+  if (playerToolsLauncherFrame) return;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame
+    : (cb => setTimeout(cb, 16));
+  playerToolsLauncherFrame = schedule(() => {
+    playerToolsLauncherFrame = null;
+    ccRepositionPlayerToolsLauncher(reason);
+  });
+};
 
 function getPlayerToolsTabElement() {
   if (playerToolsTabElement && playerToolsTabElement.isConnected) {
@@ -2569,6 +2645,21 @@ function setLaunchOverlayInteractive(isInteractive) {
   } catch {}
 }
 
+function runPostBootUIHooksOnce() {
+  if (postBootHooksRan) return;
+  postBootHooksRan = true;
+  bootCompletionHandled = true;
+  // Force-boot paths skip the standard launch callback, so always run the
+  // shared post-boot hooks here to keep onboarding/welcome flows consistent.
+  queueWelcomeModal({ immediate: true });
+  schedulePlayerToolsLauncherReposition('post-boot');
+}
+
+function forceBootUIOnce(reason = 'launch-failsafe') {
+  if (bootCompletionHandled) return;
+  forceBootUI(reason);
+}
+
 function forceBootUI(reason = 'launch-failsafe') {
   if (launchFailsafeTriggered) return;
   launchFailsafeTriggered = true;
@@ -2576,8 +2667,6 @@ function forceBootUI(reason = 'launch-failsafe') {
   if (reason) {
     console.warn(`Forcing UI boot (${reason}).`);
   }
-  welcomeModalDismissed = true;
-  welcomeSequenceComplete = true;
   hide(WELCOME_MODAL_ID);
   hideWelcomeModalPanel();
   unlockTouchControls({ immediate: true });
@@ -2606,6 +2695,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   }
   markLaunchSequenceComplete();
   ensureDefaultMainTab('combat');
+  runPostBootUIHooksOnce();
 }
 
 function hideWelcomeModalPanel() {
@@ -2781,16 +2871,16 @@ async function setupLaunchAnimation(){
   try {
     if (typeof document === 'undefined') {
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
       return;
     }
     const body = document.body;
     if(!body || !body.classList.contains('launching')){
       setAppShellInteractive(true);
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       markLaunchSequenceComplete();
+      runPostBootUIHooksOnce();
       return;
     }
 
@@ -2817,7 +2907,7 @@ async function setupLaunchAnimation(){
         setLaunchOverlayInteractive(false);
         setAppShellInteractive(true);
         markLaunchSequenceComplete();
-        queueWelcomeModal({ immediate: true });
+        runPostBootUIHooksOnce();
       };
       if (skipButton) {
         skipButton.addEventListener('click', event => {
@@ -2827,7 +2917,6 @@ async function setupLaunchAnimation(){
       }
       window.addEventListener('launch-animation-skip', completeLaunch, { once: true });
       unlockTouchControls();
-      queueWelcomeModal({ immediate: true });
       if (typeof window.requestAnimationFrame === 'function') {
         window.requestAnimationFrame(() => completeLaunch());
       } else {
@@ -2841,7 +2930,7 @@ async function setupLaunchAnimation(){
     queueWelcomeModal({ immediate: true });
     clearLaunchFailsafeTimer();
     launchFailsafeTimer = window.setTimeout(() => {
-      forceBootUI('launch-timeout');
+      forceBootUIOnce('launch-timeout');
     }, LAUNCH_FAILSAFE_MS);
 
   const clearTimer = timer => {
@@ -2888,7 +2977,7 @@ async function setupLaunchAnimation(){
         body.classList.remove('launching');
         unlockTouchControls({ immediate: true });
         markLaunchSequenceComplete();
-      queueWelcomeModal({ immediate: true });
+      runPostBootUIHooksOnce();
       if(launchEl){
         launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
         window.setTimeout(cleanupLaunchShell, 1000);
@@ -3311,7 +3400,7 @@ async function setupLaunchAnimation(){
     }
   } catch (err) {
     console.error('Launch animation failed; continuing boot.', err);
-    forceBootUI('launch-error');
+    forceBootUIOnce('launch-error');
   }
 }
 registerBootTask(() => {
@@ -3380,15 +3469,17 @@ registerBootTask(() => {
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
-function handleAudioContextPriming(e){
+let audioContextGestureReady = false;
+function primeAudioContextFromGestureOnce(){
   if(audioContextPrimed) return;
-  if(e.type==='pointerdown'){
-    const interactive=e.target?.closest?.(INTERACTIVE_SEL);
-    if(!interactive) return;
-  }
   audioContextPrimed = true;
-  document.removeEventListener('pointerdown', handleAudioContextPriming, true);
-  document.removeEventListener('keydown', handleAudioContextPriming, true);
+  audioContextGestureReady = true;
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointerdown', primeAudioContextFromGestureOnce);
+    window.removeEventListener('keydown', primeAudioContextFromGestureOnce);
+  }
+  // AudioContext creation/resume must come from a user gesture to satisfy
+  // autoplay policies; defer priming until the first real interaction.
   try {
     primeAudioContext();
   } catch {
@@ -3396,8 +3487,9 @@ function handleAudioContextPriming(e){
   }
 }
 registerBootTask(() => {
-  document.addEventListener('pointerdown', handleAudioContextPriming, true);
-  document.addEventListener('keydown', handleAudioContextPriming, true);
+  if (typeof window === 'undefined') return;
+  window.addEventListener('pointerdown', primeAudioContextFromGestureOnce, { once: true, passive: true });
+  window.addEventListener('keydown', primeAudioContextFromGestureOnce, { once: true });
 });
 
 /* ========= view mode ========= */
@@ -4882,6 +4974,8 @@ const persistTickerPreference = nextOpen => {
 const tickerDrawer = qs('[data-ticker-drawer]');
 const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
 const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
+let pauseTickerAnimations = () => {};
+let resumeTickerAnimations = () => {};
 registerBootTask(() => {
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
@@ -4995,6 +5089,39 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     setToggleIcon(nextOpen);
   };
 
+  const setTickerOpen = (nextOpen, reason = '') => {
+    if (typeof nextOpen !== 'boolean') return;
+    if (isAnimating) {
+      finalizeAnimation();
+    }
+    if (nextOpen) {
+      if (tickerPanel.hidden) {
+        tickerPanel.hidden = false;
+      }
+      resumeTickerAnimations();
+    } else {
+      pauseTickerAnimations();
+    }
+    if (nextOpen === isOpen) {
+      persistTickerPreference(nextOpen);
+      setDrawerState(nextOpen ? 'open' : 'closed');
+      updateToggleState(nextOpen);
+      if (nextOpen) {
+        tickerPanel.style.height = '';
+      } else {
+        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
+      }
+      setPanelOffset();
+      isTickerDrawerOpen = nextOpen;
+      tickerPanel.hidden = !nextOpen;
+      schedulePlayerToolsLauncherReposition(`ticker-${nextOpen ? 'open' : 'closed'}:${reason}`);
+      return;
+    }
+    animateDrawer(nextOpen);
+    persistTickerPreference(nextOpen);
+    schedulePlayerToolsLauncherReposition(`ticker-${nextOpen ? 'open' : 'closed'}:${reason}`);
+  };
+
   const finalizeAnimation = () => {
     tickerPanel.classList.remove('is-animating');
     setDrawerState(isOpen ? 'open' : 'closed');
@@ -5007,6 +5134,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     setPanelOffset();
     isTickerDrawerOpen = isOpen;
     isAnimating = false;
+    tickerPanel.hidden = !isOpen;
   };
 
   const animateDrawer = nextOpen => {
@@ -5046,32 +5174,11 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       return;
     }
     const nextOpen = !isOpen;
-    animateDrawer(nextOpen);
-    persistTickerPreference(nextOpen);
+    setTickerOpen(nextOpen, 'toggle');
   });
 
   setTickerDrawerOpen = nextOpen => {
-    if (typeof nextOpen !== 'boolean') {
-      return;
-    }
-    if (isAnimating) {
-      finalizeAnimation();
-    }
-    if (nextOpen === isOpen) {
-      persistTickerPreference(nextOpen);
-      setDrawerState(nextOpen ? 'open' : 'closed');
-      updateToggleState(nextOpen);
-      if (nextOpen) {
-        tickerPanel.style.height = '';
-      } else {
-        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
-      }
-      setPanelOffset();
-      isTickerDrawerOpen = nextOpen;
-      return;
-    }
-    animateDrawer(nextOpen);
-    persistTickerPreference(nextOpen);
+    setTickerOpen(nextOpen, 'programmatic');
   };
 
   setDrawerState(isOpen ? 'open' : 'closed');
@@ -5079,7 +5186,15 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   if(!isOpen){
     tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
   }
+  tickerPanel.hidden = !isOpen;
   setPanelOffset();
+  schedulePlayerToolsLauncherReposition('ticker-init');
+
+  window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (!isOpen) return;
+    setTickerOpen(false, 'escape');
+  });
 }
 });
 
@@ -5108,6 +5223,20 @@ if(tickerTrack && tickerText){
       updateTicker();
     }
   });
+  pauseTickerAnimations = (() => {
+    const prev = pauseTickerAnimations;
+    return () => {
+      prev();
+      tickerTrack.style.animationPlayState = 'paused';
+    };
+  })();
+  resumeTickerAnimations = (() => {
+    const prev = resumeTickerAnimations;
+    return () => {
+      prev();
+      tickerTrack.style.animationPlayState = 'running';
+    };
+  })();
 }
 
 const m24nTrack = qs('[data-m24n-ticker-track]');
@@ -5128,6 +5257,7 @@ if(m24nTrack && m24nText){
   let rotationStart = 0;
   let animationTimer = null;
   let bufferTimer = null;
+  let tickerPaused = false;
 
   function clearTimers(){
     if(animationTimer){
@@ -5143,6 +5273,22 @@ if(m24nTrack && m24nText){
   function resetTrack(){
     m24nTrack.classList.remove('is-animating');
     m24nTrack.style.transform = 'translate3d(100%,0,0)';
+  }
+
+  function pauseM24nTicker(){
+    tickerPaused = true;
+    clearTimers();
+    resetTrack();
+    m24nTrack.style.animationPlayState = 'paused';
+  }
+
+  function resumeM24nTicker(){
+    if (!tickerPaused) return;
+    tickerPaused = false;
+    m24nTrack.style.animationPlayState = 'running';
+    if (headlines.length) {
+      scheduleNextHeadline();
+    }
   }
 
   function updateHeadlineDuration(){
@@ -5240,6 +5386,7 @@ if(m24nTrack && m24nText){
 
   function scheduleNextHeadline(){
     clearTimers();
+    if (tickerPaused) return;
     if(!headlines.length){
       return;
     }
@@ -5260,6 +5407,7 @@ if(m24nTrack && m24nText){
     m24nText.textContent = headline;
     resetTrack();
     requestAnimationFrame(() => {
+      if (tickerPaused) return;
       const duration = updateHeadlineDuration();
       void m24nTrack.offsetWidth;
       m24nTrack.classList.add('is-animating');
@@ -5278,10 +5426,12 @@ if(m24nTrack && m24nText){
 
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden'){
-      clearTimers();
-      resetTrack();
-    }else if(headlines.length && !animationTimer && !bufferTimer){
-      bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+      pauseM24nTicker();
+    }else{
+      resumeM24nTicker();
+      if(headlines.length && !animationTimer && !bufferTimer){
+        bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+      }
     }
   });
 
@@ -5301,6 +5451,21 @@ if(m24nTrack && m24nText){
       console.warn('Failed to refresh MN24/7 ticker', err);
     }
   });
+
+  pauseTickerAnimations = (() => {
+    const prev = pauseTickerAnimations;
+    return () => {
+      prev();
+      pauseM24nTicker();
+    };
+  })();
+  resumeTickerAnimations = (() => {
+    const prev = resumeTickerAnimations;
+    return () => {
+      prev();
+      resumeM24nTicker();
+    };
+  })();
 }
 
 /* ========= ability grid + autos ========= */
@@ -7157,8 +7322,11 @@ if (elPlayerToolsTab) {
   const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
   setPlayerToolsTabHidden(shouldHideTab);
   scheduleFloatingLauncherClamp();
+  schedulePlayerToolsLauncherReposition('init');
   window.addEventListener('resize', scheduleFloatingLauncherClamp, { passive: true });
   window.addEventListener('orientationchange', scheduleFloatingLauncherClamp, { passive: true });
+  window.addEventListener('resize', () => schedulePlayerToolsLauncherReposition('resize'), { passive: true });
+  window.addEventListener('orientationchange', () => schedulePlayerToolsLauncherReposition('orientation'), { passive: true });
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -7865,6 +8033,7 @@ if (elCombatRewardReminderButton) {
 if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
     isPlayerToolsDrawerOpen = Boolean(open);
+    schedulePlayerToolsLauncherReposition(open ? 'player-tools-open' : 'player-tools-close');
     if (elLevelRewardReminderTrigger) {
       if (open && levelRewardPendingCount > 0) {
         if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
@@ -12904,10 +13073,11 @@ function ensureAudioContext(){
   if(typeof window === 'undefined') return null;
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if(!Ctx) return null;
+  if(!audioContext && !audioContextGestureReady) return null;
   if(!audioContext){
     audioContext = new Ctx();
   }
-  if(audioContext?.state === 'suspended'){
+  if(audioContext?.state === 'suspended' && audioContextGestureReady){
     audioContext.resume?.().catch(()=>{});
   }
   return audioContext;
@@ -13900,6 +14070,8 @@ const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
   show('modal-load-list');
+  updateSaveLoadAuthState();
+  setSaveLoadStatus('');
 }
 registerBootTask(() => {
   if (btnLoad) {
@@ -14091,17 +14263,52 @@ if(recoverCharListEl){
 }
 
 const recoverBtn = $('recover-save');
-if(recoverBtn){
-  recoverBtn.addEventListener('click', async ()=>{
-    hide('modal-load-list');
-    await renderRecoverCharList();
-    show('modal-recover-char');
-  });
-}
-
+const loadCloudBtn = $('load-character');
 const exportCharacterBtn = $('export-character');
 const importCharacterBtn = $('import-character');
 const importCharacterFile = $('import-character-file');
+const saveLoadStatus = $('save-load-status');
+const saveLoadAuthNote = $('save-load-auth-note');
+
+let saveLoadBusy = false;
+const saveLoadButtons = [$('btn-save'), loadCloudBtn, recoverBtn, exportCharacterBtn, importCharacterBtn].filter(Boolean);
+
+function setSaveLoadStatus(message, { type = 'info' } = {}) {
+  if (!saveLoadStatus) return;
+  saveLoadStatus.textContent = message || '';
+  if (message) {
+    saveLoadStatus.dataset.status = type;
+  } else {
+    delete saveLoadStatus.dataset.status;
+  }
+}
+
+function setSaveLoadBusyState(isBusy) {
+  saveLoadBusy = isBusy;
+  saveLoadButtons.forEach(button => {
+    if (!button) return;
+    button.disabled = isBusy || button.dataset.cloudDisabled === 'true';
+    button.classList.toggle('loading', isBusy);
+  });
+}
+
+function updateSaveLoadAuthState() {
+  const { uid } = getAuthState();
+  const requiresAuth = Boolean(uid);
+  const message = requiresAuth ? '' : 'Sign in to use cloud Save/Load/Recover.';
+  if (saveLoadAuthNote) {
+    saveLoadAuthNote.textContent = message;
+  }
+  [ $('btn-save'), loadCloudBtn, recoverBtn ].forEach(button => {
+    if (!button) return;
+    button.dataset.cloudDisabled = requiresAuth ? 'false' : 'true';
+    button.disabled = saveLoadBusy || !requiresAuth;
+  });
+}
+
+registerBootTask(() => {
+  updateSaveLoadAuthState();
+});
 
 function resolveImportName(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';
@@ -14127,18 +14334,195 @@ function resolveImportName(name) {
   return { decision: 'copy', name: copyName };
 }
 
+function resolveSaveTargetName() {
+  let target = currentCharacter();
+  if (!target) {
+    const stored = readLastSaveName();
+    if (stored && stored.trim()) target = stored.trim();
+  }
+  const vig = $('superhero')?.value.trim();
+  const real = $('secret')?.value.trim();
+  if (vig) {
+    target = vig;
+  } else if (!target && real) {
+    target = real;
+  }
+  return target;
+}
+
+function applyCloudSnapshotPayload(rawPayload, { source } = {}) {
+  const name = rawPayload?.meta?.name || rawPayload?.character?.name || currentCharacter() || '';
+  const resolvedName = name || 'Cloud Save';
+  const { payload } = preflightSnapshotForLoad(resolvedName, rawPayload, { showRecoveryToast: false });
+  const applied = applyAppSnapshot(payload);
+  applyViewLockState();
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
+  if (useViewMode() === 'view' && savedViewMode !== 'edit') {
+    setMode('view', { skipPersist: true });
+  } else {
+    setMode('edit');
+  }
+  if (resolvedName) {
+    setCurrentCharacter(resolvedName);
+    syncMiniGamePlayerName();
+    writeLastSaveName(resolvedName);
+  }
+  queueCharacterConfirmation({
+    name: resolvedName || 'Character',
+    variant: 'loaded',
+    key: `cloud:${source || 'unknown'}:${resolvedName}:${payload?.meta?.savedAt ?? Date.now()}`,
+    meta: payload?.meta,
+  });
+}
+
+async function handleCloudSave() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to save to the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  const target = resolveSaveTargetName();
+  if (!target) {
+    setSaveLoadStatus('No character selected to save.', { type: 'error' });
+    toast('No character selected.', 'error');
+    return;
+  }
+  if (!confirm(`Save current progress for ${target}?`)) return;
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Saving to cloud…');
+  try {
+    const snapshot = createAppSnapshot();
+    const payload = normalizeSnapshotPayload(snapshot);
+    const savedAt = Date.now();
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      name: target,
+      displayName: target,
+      ownerUid: uid,
+      uid,
+      savedAt,
+      updatedAt: savedAt,
+    };
+    payload.savedAt = payload.meta.savedAt;
+    payload.updatedAt = payload.meta.updatedAt;
+    payload.character = {
+      ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+      name: target,
+    };
+    const checksum = calculateSnapshotChecksum({ character: payload.character, ui: payload.ui });
+    payload.meta.checksum = checksum;
+    payload.checksum = checksum;
+    const envelope = buildCloudSaveEnvelope(payload, { updatedAt: savedAt });
+    await saveCharacter(payload, target);
+    await saveCloudSave(uid, envelope, { mirrorToRtdb: true });
+    markAutoSaveSynced(payload, JSON.stringify(payload));
+    cueSuccessfulSave();
+    setSaveLoadStatus('Cloud save complete.', { type: 'success' });
+    toast('Saved to cloud.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Cloud save failed', err);
+    setSaveLoadStatus('Cloud save failed. Please try again.', { type: 'error' });
+    toast('Cloud save failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleCloudLoad() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to load from the cloud.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Loading cloud save…');
+  try {
+    const result = await loadCloudSave(uid);
+    if (!result || !result.data?.payload) {
+      setSaveLoadStatus('No cloud save found.', { type: 'error' });
+      toast('No cloud save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(result.data);
+    applyCloudSnapshotPayload(payload, { source: result.source });
+    if (result.source === 'rtdb') {
+      setSaveLoadStatus('Loaded from legacy RTDB save. Use Recover Save to migrate.', { type: 'info' });
+    } else {
+      setSaveLoadStatus('Loaded from Firestore.', { type: 'success' });
+    }
+    toast('Cloud load complete.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Cloud load failed', err);
+    setSaveLoadStatus('Cloud load failed. Please try again.', { type: 'error' });
+    toast('Cloud load failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+async function handleRecoverFromRTDB() {
+  const { uid } = getAuthState();
+  if (!uid) {
+    setSaveLoadStatus('Sign in to recover from RTDB.', { type: 'error' });
+    updateSaveLoadAuthState();
+    return;
+  }
+  setSaveLoadBusyState(true);
+  setSaveLoadStatus('Recovering RTDB save…');
+  try {
+    const envelope = await recoverFromRTDB(uid);
+    if (!envelope?.payload) {
+      setSaveLoadStatus('No RTDB save found to recover.', { type: 'error' });
+      toast('No RTDB save found.', 'info');
+      return;
+    }
+    const payload = normalizeSnapshotPayload(envelope);
+    applyCloudSnapshotPayload(payload, { source: 'rtdb' });
+    setSaveLoadStatus('Recovered from RTDB and migrated to Firestore.', { type: 'success' });
+    toast('Recovery complete.', 'success');
+    hide('modal-load-list');
+  } catch (err) {
+    console.error('Recover save failed', err);
+    setSaveLoadStatus('Recover failed. Please try again.', { type: 'error' });
+    toast('Recover failed.', 'error');
+  } finally {
+    setSaveLoadBusyState(false);
+    updateSaveLoadAuthState();
+  }
+}
+
+if (recoverBtn) {
+  recoverBtn.addEventListener('click', () => {
+    handleRecoverFromRTDB();
+  });
+}
+
+if (loadCloudBtn) {
+  loadCloudBtn.addEventListener('click', () => {
+    handleCloudLoad();
+  });
+}
+
 if (exportCharacterBtn) {
   exportCharacterBtn.addEventListener('click', async () => {
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Preparing export…');
     try {
-      const name = currentCharacter() || readLastSaveName();
+      const snapshot = createAppSnapshot();
+      const serialized = serializeSnapshotForExport(snapshot);
+      const payload = normalizeSnapshotPayload(snapshot);
+      const name = resolveSaveTargetName() || payload?.meta?.name || payload?.character?.name || currentCharacter() || readLastSaveName();
       if (!name) {
+        setSaveLoadStatus('Select a character to export.', { type: 'error' });
         toast('Select a character to export.', 'info');
         return;
       }
-      const payload = await loadLocal(name);
-      const migrated = migrateSavePayload(payload);
-      const { payload: canonical } = buildCanonicalPayload(migrated);
-      const serialized = JSON.stringify(canonical, null, 2);
       const blob = new Blob([serialized], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -14148,10 +14532,15 @@ if (exportCharacterBtn) {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setSaveLoadStatus('Exported JSON file.', { type: 'success' });
       toast('Exported character JSON.', 'success');
     } catch (err) {
       console.error('Failed to export character', err);
+      setSaveLoadStatus('Failed to export character.', { type: 'error' });
       toast('Failed to export character.', 'error');
+    } finally {
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -14163,18 +14552,29 @@ if (importCharacterBtn && importCharacterFile) {
   importCharacterFile.addEventListener('change', async () => {
     const file = importCharacterFile.files?.[0];
     if (!file) return;
+    setSaveLoadBusyState(true);
+    setSaveLoadStatus('Importing JSON…');
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const migrated = migrateSavePayload(parsed);
-      const { payload } = buildCanonicalPayload(migrated);
+      const rawPayload = parsed && typeof parsed === 'object' && parsed.payload && typeof parsed.payload === 'object'
+        ? parsed.payload
+        : parsed;
+      const payload = normalizeSnapshotPayload(rawPayload);
+      if (!payload) {
+        setSaveLoadStatus('Import file is missing data.', { type: 'error' });
+        toast('Import file missing data.', 'error');
+        return;
+      }
       const name = payload?.meta?.name || payload?.character?.name || '';
       if (!name) {
+        setSaveLoadStatus('Imported file missing character name.', { type: 'error' });
         toast('Imported file missing character name.', 'error');
         return;
       }
       const resolution = resolveImportName(name);
       if (resolution.decision === 'cancel') {
+        setSaveLoadStatus('Import cancelled.', { type: 'info' });
         toast('Import cancelled.', 'info');
         return;
       }
@@ -14197,12 +14597,16 @@ if (importCharacterBtn && importCharacterFile) {
       applyAppSnapshot(payloadWithName);
       setMode('edit');
       const suffix = resolution.decision === 'copy' ? ` as ${resolvedName}` : '';
+      setSaveLoadStatus('Imported JSON. Click Save to sync to cloud.', { type: 'success' });
       toast(`Imported ${name}${suffix}.`, 'success');
     } catch (err) {
       console.error('Failed to import character JSON', err);
+      setSaveLoadStatus('Failed to import character JSON.', { type: 'error' });
       toast('Failed to import character JSON.', 'error');
     } finally {
       importCharacterFile.value = '';
+      setSaveLoadBusyState(false);
+      updateSaveLoadAuthState();
     }
   });
 }
@@ -24745,62 +25149,12 @@ registerBootTask(() => {
   refreshSyncQueue();
 });
 
-$('btn-save').addEventListener('click', async () => {
-  const btn = $('btn-save');
-  let oldChar = currentCharacter();
-  if(!oldChar){
-    const stored = readLastSaveName();
-    if(stored && stored.trim()) oldChar = stored.trim();
-  }
-  const vig = $('superhero')?.value.trim();
-  const real = $('secret')?.value.trim();
-  let target = oldChar;
-  if (vig) {
-    target = vig;
-  } else if (!oldChar && real) {
-    target = real;
-  }
-  if (!target) return toast('No character selected', 'error');
-  if (!confirm(`Save current progress for ${target}?`)) return;
-  btn.classList.add('loading'); btn.disabled = true;
-  try {
-    const data = createAppSnapshot();
-    const serialized = JSON.stringify(data);
-    if (oldChar && vig && vig !== oldChar) {
-      await renameCharacter(oldChar, vig, data);
-    } else {
-      if (target !== oldChar) {
-        setCurrentCharacter(target);
-        syncMiniGamePlayerName();
-      }
-      await saveCharacter(data, target);
-    }
-    markAutoSaveSynced(data, serialized);
-    if (oldChar && vig && vig !== oldChar) {
-      queueCharacterConfirmation({
-        name: target,
-        variant: 'loaded',
-        key: `rename:${oldChar}:${target}:${data?.meta?.savedAt ?? Date.now()}`,
-        meta: data?.meta,
-      });
-    }
-    cueSuccessfulSave();
-    toast('Save successful', 'success');
-  } catch (e) {
-    console.error('Save failed', e);
-    if (isCharacterSaveQuotaError(e)) {
-      try {
-        await openCharacterList();
-      } catch (modalErr) {
-        console.error('Failed to open Load/Save panel after quota error', modalErr);
-      }
-    } else {
-      toast('Save failed', 'error');
-    }
-  } finally {
-    btn.classList.remove('loading'); btn.disabled = false;
-  }
-});
+const saveCloudButton = $('btn-save');
+if (saveCloudButton) {
+  saveCloudButton.addEventListener('click', () => {
+    handleCloudSave();
+  });
+}
 
 const heroInput = $('superhero');
 if (heroInput) {
@@ -25788,6 +26142,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
         }
       })
       .catch(err => console.error('Failed to rehydrate local cache', err));
+    updateSaveLoadAuthState();
     return;
   }
   setActiveUserId('');
@@ -25805,6 +26160,7 @@ function handleAuthStateChange({ uid, isDm } = {}) {
   welcomeSequenceComplete = false;
   updateWelcomeContinue();
   queueWelcomeModal({ immediate: true });
+  updateSaveLoadAuthState();
 }
 
 registerBootTask(() => {
