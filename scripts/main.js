@@ -12271,6 +12271,8 @@ function rollWithBonus(name, bonus, out, opts = {}){
   const modifier = resolution && Number.isFinite(resolution.modifier)
     ? resolution.modifier
     : fallbackBonus;
+  const dcRaw = Number(rollOptions.dc);
+  const dc = Number.isFinite(dcRaw) ? dcRaw : null;
 
   const normalizeDiceSet = set => {
     if (!set) return null;
@@ -12348,6 +12350,10 @@ function rollWithBonus(name, bonus, out, opts = {}){
     ...breakdownParts,
     ...(resolution?.breakdown || []),
   ].filter(Boolean);
+  const rollSucceeded = dc !== null ? total >= dc : null;
+  if (rollSucceeded !== null) {
+    playActionCue(rollSucceeded ? 'roll-success' : 'roll-failure');
+  }
 
   if (out) {
     const renderer = resultRenderer || ensureDiceResultRenderer(out);
@@ -12439,6 +12445,8 @@ function rollWithBonus(name, bonus, out, opts = {}){
         name,
         output: out,
         options: { ...rollOptions, mode: rollMode },
+        dc,
+        success: rollSucceeded,
         sides,
         rolls: rollDetails,
         rollMode,
@@ -12928,6 +12936,66 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 0.5, amplitude: 0.6 },
       { ratio: 1.4, amplitude: 0.35 },
       { ratio: 2.2, amplitude: 0.2 },
+    ],
+  },
+  'roll-success': {
+    volume: 0.28,
+    type: 'sine',
+    segments: [
+      {
+        frequency: 1240,
+        duration: 0.18,
+        attack: 0.004,
+        release: 0.14,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 2, amplitude: 0.5 },
+          { ratio: 3, amplitude: 0.3 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 820,
+        duration: 0.11,
+        attack: 0.002,
+        release: 0.08,
+        type: 'square',
+        partials: [
+          { ratio: 1, amplitude: 0.4 },
+          { ratio: 1.6, amplitude: 0.28 },
+          { ratio: 2.4, amplitude: 0.18 },
+        ],
+      },
+    ],
+  },
+  'roll-failure': {
+    volume: 0.3,
+    type: 'triangle',
+    segments: [
+      {
+        frequency: 180,
+        duration: 0.26,
+        attack: 0.01,
+        release: 0.2,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 0.6, amplitude: 0.55 },
+          { ratio: 1.4, amplitude: 0.3 },
+        ],
+      },
+      {
+        delay: 0.05,
+        frequency: 320,
+        duration: 0.16,
+        attack: 0.008,
+        release: 0.12,
+        type: 'sawtooth',
+        partials: [
+          { ratio: 1, amplitude: 0.4 },
+          { ratio: 2.2, amplitude: 0.22 },
+          { ratio: 3.4, amplitude: 0.16 },
+        ],
+      },
     ],
   },
   'dm-roll': {
@@ -17211,6 +17279,7 @@ function handleRollPowerSave(card, { outputs: providedOutputs } = {}) {
     type: 'save',
     ability,
     baseBonuses,
+    dc,
     onRoll: ({ total }) => {
       const passed = total >= dc;
       const resultText = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
