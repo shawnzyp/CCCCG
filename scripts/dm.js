@@ -801,6 +801,8 @@ function shouldPlayNotificationTone() {
 function getNotificationAudioHelper() {
   if (typeof window === 'undefined') return null;
   const candidates = [
+    window.ccPlayCue,
+    window.playCue,
     window.ccPlayNotificationSound,
     window.playNotificationSound,
     window.dmPlayNotificationSound,

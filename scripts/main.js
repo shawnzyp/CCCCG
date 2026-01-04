@@ -175,6 +175,7 @@ import {
   getRangeOptionsForShape,
 } from './power-metadata.js';
 import { toast, dismissToast } from './notifications.js';
+import { attachAudioGestureListeners, playCue } from './audio.js';
 import {
   ensureOfflineAssets,
   getStoredOfflineManifestTimestamp,
@@ -3477,29 +3478,8 @@ registerBootTask(() => {
   }, true);
 });
 
-let audioContextPrimed = false;
-let audioContextPrimedOnce = false;
-let audioContextGestureReady = false;
-function primeAudioContextFromGestureOnce(){
-  if(audioContextPrimed) return;
-  audioContextPrimed = true;
-  audioContextGestureReady = true;
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('pointerdown', primeAudioContextFromGestureOnce);
-    window.removeEventListener('keydown', primeAudioContextFromGestureOnce);
-  }
-  // AudioContext creation/resume must come from a user gesture to satisfy
-  // autoplay policies; defer priming until the first real interaction.
-  try {
-    primeAudioContext();
-  } catch {
-    /* noop */
-  }
-}
 registerBootTask(() => {
-  if (typeof window === 'undefined') return;
-  window.addEventListener('pointerdown', primeAudioContextFromGestureOnce, { once: true, passive: true });
-  window.addEventListener('keydown', primeAudioContextFromGestureOnce, { once: true });
+  attachAudioGestureListeners();
 });
 
 /* ========= view mode ========= */
@@ -7511,7 +7491,7 @@ const handlePlayerCreditEventDetail = (detail) => {
     return;
   }
   showPlayerCreditBadge();
-  playActionCue('loot-coins');
+  playCue('loot-coins', { source: 'action' });
 };
 
 if (elPlayerToolsTab && typeof elPlayerToolsTab.appendChild === 'function') {
@@ -7877,7 +7857,7 @@ const handlePlayerRewardUpdate = (payload = {}, historyEntry = null, { source = 
       }
     }
     if (isChestLikeReward(added)) {
-      playActionCue('loot-treasure');
+      playCue('loot-treasure', { source: 'action' });
     }
   }
 
@@ -9943,7 +9923,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
     if (unlocked.length) {
       renderLevelRewardReminders();
       show('modal-level-rewards');
-      playActionCue('level-up');
+      playCue('level-up', { source: 'action' });
       const summary = unlocked.map(task => task.label).join('; ');
       window.dmNotify?.(`Level rewards unlocked: ${summary}`, { actionScope: 'major' });
       logAction(`Level rewards unlocked: ${summary}`);
@@ -11293,7 +11273,7 @@ function setCredits(v, options = {}){
   const diff = total - prev;
   if(diff !== 0){
     const actionKey = diff > 0 ? 'credits-gain' : 'credits-spend';
-    playActionCue(actionKey);
+    playCue(actionKey, { source: 'action' });
     window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`, { actionScope: 'major' });
     const providedReason = typeof options === 'object' && options !== null ? options.reason : undefined;
     const entryReason = typeof providedReason === 'string' && providedReason.trim()
@@ -11309,7 +11289,7 @@ function setCredits(v, options = {}){
     pushHistory();
     const name = currentCharacter();
     if (name) {
-      playStatusCue('credits-save');
+      playCue('credits-save', { source: 'status' });
       saveCharacter(createAppSnapshot(), name).catch(e => {
         console.error('Credits cloud save failed', e);
       });
@@ -11539,12 +11519,14 @@ function setHP(v){
   const diff = current - prev;
   if(diff !== 0){
     if(diff < 0){
-      playActionCue(randomHpCue('damage'));
+      const damageCue = randomHpCue('damage');
+      playCue(damageCue, { source: 'action' });
       if (typeof playDamageAnimation === 'function') {
         void playDamageAnimation(diff);
       }
     }else{
-      playActionCue(randomHpCue('heal'));
+      const healCue = randomHpCue('heal');
+      playCue(healCue, { source: 'action' });
       if (typeof playHealAnimation === 'function') {
         void playHealAnimation(diff);
       }
@@ -11564,7 +11546,7 @@ function setHP(v){
   }
   const down = wasAboveZero && current === 0;
   if(down){
-    playActionCue('hp-down');
+    playCue('hp-down', { source: 'action' });
     if (typeof playDownAnimation === 'function') {
       void playDownAnimation();
     }
@@ -11606,9 +11588,9 @@ async function setSP(v){
   const diff = current - prev;
   if(diff !== 0) {
     if(diff < 0){
-      playActionCue('sp-spend');
+      playCue('sp-spend', { source: 'action' });
     }else{
-      playActionCue('sp-gain');
+      playCue('sp-gain', { source: 'action' });
     }
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`, { actionScope: 'minor' });
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
@@ -11626,7 +11608,7 @@ async function setSP(v){
     );
   }
   if(prev > 0 && current === 0) {
-    playActionCue('sp-empty');
+    playCue('sp-empty', { source: 'action' });
     toast('Player is out of SP', 'warning');
     logAction('Player is out of SP.');
   }
@@ -11692,7 +11674,7 @@ registerBootTask(() => {
 $('long-rest').addEventListener('click', ()=>{
   closeSpSettings();
   if(!confirm('Take a long rest?')) return;
-  playActionCue('rest-long');
+  playCue('rest-long', { source: 'action' });
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
   elHPTemp.value='';
@@ -12273,7 +12255,7 @@ function renderDiceResultValue(target, value, { renderer = null, playIndex = nul
   const fallbackText = typeof normalized === 'string' ? normalized : String(normalized);
   const resolvedRenderer = renderer || ensureDiceResultRenderer(target);
   if (renderOptions?.actionCue && animationsEnabled) {
-    playActionCue(renderOptions.actionCue, renderOptions.fallbackCue);
+    playCue(renderOptions.actionCue, { fallbackCue: renderOptions.fallbackCue, source: 'action' });
   }
   if (resolvedRenderer && typeof resolvedRenderer.render === 'function') {
     const resolvedPlayIndex = Number.isFinite(playIndex) ? playIndex : getNextDiceResultPlayIndex();
@@ -12400,7 +12382,7 @@ function rollWithBonus(name, bonus, out, opts = {}){
   ].filter(Boolean);
   const rollSucceeded = dc !== null ? total >= dc : null;
   if (rollSucceeded !== null) {
-    playActionCue(rollSucceeded ? 'roll-success' : 'roll-failure');
+    playCue(rollSucceeded ? 'roll-success' : 'roll-failure', { source: 'action' });
   }
 
   if (out) {
@@ -12578,9 +12560,9 @@ if (rollDiceButton) {
       renderOptions: { actionCue: actionKey, fallbackCue: 'dm-roll' },
     });
     if (criticalState === 'success') {
-      playActionCue('dice-crit-success');
+      playCue('dice-crit-success', { source: 'action' });
     } else if (criticalState === 'failure') {
-      playActionCue('dice-crit-failure');
+      playCue('dice-crit-failure', { source: 'action' });
     }
     void out.offsetWidth; out.classList.add('rolling');
     if (out.dataset) {
@@ -12674,14 +12656,14 @@ if (coinFlipButton) {
     coinFlipButton.dataset.actionCueTails = 'coin-tails';
   }
   coinFlipButton.addEventListener('click', ()=>{
-    playActionCue('coin-flip');
+    playCue('coin-flip', { source: 'action' });
     const v = Math.random()<.5 ? 'Heads' : 'Tails';
     $('flip-out').textContent = v;
     playCoinAnimation(v);
     const actionKey = v === 'Heads'
       ? coinFlipButton.dataset?.actionCueHeads || 'coin-heads'
       : coinFlipButton.dataset?.actionCueTails || 'coin-tails';
-    playActionCue(actionKey);
+    playCue(actionKey, { source: 'action' });
     logAction(`Coin flip: ${v}`);
     const character = getDiscordCharacterPayload();
     if (character) {
@@ -12706,7 +12688,7 @@ if (dmRollButton && dmRollButton !== rollDiceButton) {
   }
   dmRollButton.addEventListener('click', ()=>{
     const actionKey = dmRollButton.dataset?.actionCue || 'dm-roll';
-    playActionCue(actionKey, 'dm-roll');
+    playCue(actionKey, { fallbackCue: 'dm-roll', source: 'action' });
   });
 }
 
@@ -12814,7 +12796,7 @@ function playDamageAnimation(amount){
   const maxHp = elHPBar ? num(elHPBar.max) : 20;
   const scale = Math.max(12, Math.round(maxHp * 0.25));
   triggerDamageOverlay(Math.abs(amount), { max: scale, lingerMs: 900 });
-  playStatusCue('damage');
+  playCue('damage', { source: 'status' });
 
   const anim=$('damage-animation');
   const float = anim?.querySelector('.fx-float') || anim;
@@ -12885,950 +12867,6 @@ function playDamageAnimation(amount){
     });
 }
 
-const AUDIO_CUE_SETTINGS = {
-  down: {
-    frequency: 78,
-    type: 'sine',
-    duration: 0.85,
-    volume: 0.26,
-    attack: 0.02,
-    release: 0.55,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.55 },
-      { ratio: 1.2, amplitude: 0.25 },
-      { ratio: 1.8, amplitude: 0.15 },
-    ],
-  },
-  death: {
-    frequency: 58,
-    type: 'triangle',
-    duration: 1.8,
-    volume: 0.28,
-    attack: 0.03,
-    release: 1.1,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.5 },
-      { ratio: 1.4, amplitude: 0.25 },
-      { ratio: 2.2, amplitude: 0.18 },
-    ],
-  },
-  'dice-roll': {
-    volume: 0.26,
-    type: 'square',
-    segments: [
-      {
-        frequency: 740,
-        duration: 0.055,
-        attack: 0.002,
-        release: 0.03,
-        partials: [
-          { ratio: 1, amplitude: 0.6 },
-          { ratio: 1.35, amplitude: 0.45 },
-          { ratio: 2.2, amplitude: 0.32 },
-          { ratio: 3.4, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.02,
-        frequency: 680,
-        duration: 0.06,
-        attack: 0.002,
-        release: 0.035,
-        partials: [
-          { ratio: 1, amplitude: 0.55 },
-          { ratio: 1.4, amplitude: 0.4 },
-          { ratio: 2.3, amplitude: 0.3 },
-          { ratio: 3.6, amplitude: 0.18 },
-        ],
-      },
-      {
-        delay: 0.03,
-        frequency: 790,
-        duration: 0.05,
-        attack: 0.002,
-        release: 0.03,
-        partials: [
-          { ratio: 1, amplitude: 0.5 },
-          { ratio: 1.3, amplitude: 0.35 },
-          { ratio: 2.1, amplitude: 0.28 },
-          { ratio: 3.2, amplitude: 0.16 },
-        ],
-      },
-    ],
-  },
-  'dice-crit-success': {
-    frequency: 980,
-    type: 'sine',
-    duration: 0.55,
-    volume: 0.3,
-    attack: 0.004,
-    release: 0.34,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.5, amplitude: 0.5 },
-      { ratio: 2.1, amplitude: 0.35 },
-      { ratio: 3.2, amplitude: 0.22 },
-    ],
-  },
-  'dice-crit-failure': {
-    frequency: 180,
-    type: 'sawtooth',
-    duration: 0.7,
-    volume: 0.3,
-    attack: 0.012,
-    release: 0.48,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.6 },
-      { ratio: 1.4, amplitude: 0.35 },
-      { ratio: 2.2, amplitude: 0.2 },
-    ],
-  },
-  'roll-success': {
-    volume: 0.28,
-    type: 'sine',
-    segments: [
-      {
-        frequency: 1240,
-        duration: 0.18,
-        attack: 0.004,
-        release: 0.14,
-        partials: [
-          { ratio: 1, amplitude: 1 },
-          { ratio: 2, amplitude: 0.5 },
-          { ratio: 3, amplitude: 0.3 },
-        ],
-      },
-      {
-        delay: 0.02,
-        frequency: 820,
-        duration: 0.11,
-        attack: 0.002,
-        release: 0.08,
-        type: 'square',
-        partials: [
-          { ratio: 1, amplitude: 0.4 },
-          { ratio: 1.6, amplitude: 0.28 },
-          { ratio: 2.4, amplitude: 0.18 },
-        ],
-      },
-    ],
-  },
-  'roll-failure': {
-    volume: 0.3,
-    type: 'triangle',
-    segments: [
-      {
-        frequency: 180,
-        duration: 0.26,
-        attack: 0.01,
-        release: 0.2,
-        partials: [
-          { ratio: 1, amplitude: 1 },
-          { ratio: 0.6, amplitude: 0.55 },
-          { ratio: 1.4, amplitude: 0.3 },
-        ],
-      },
-      {
-        delay: 0.05,
-        frequency: 320,
-        duration: 0.16,
-        attack: 0.008,
-        release: 0.12,
-        type: 'sawtooth',
-        partials: [
-          { ratio: 1, amplitude: 0.4 },
-          { ratio: 2.2, amplitude: 0.22 },
-          { ratio: 3.4, amplitude: 0.16 },
-        ],
-      },
-    ],
-  },
-  'dm-roll': {
-    frequency: 420,
-    type: 'square',
-    duration: 0.38,
-    volume: 0.32,
-    attack: 0.006,
-    release: 0.18,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.4 },
-      { ratio: 1.33, amplitude: 0.5 },
-      { ratio: 1.99, amplitude: 0.35 },
-    ],
-  },
-  'coin-flip': {
-    frequency: 1220,
-    type: 'square',
-    duration: 0.22,
-    volume: 0.2,
-    attack: 0.002,
-    release: 0.09,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 2.7, amplitude: 0.5 },
-      { ratio: 3.9, amplitude: 0.28 },
-      { ratio: 5.1, amplitude: 0.18 },
-    ],
-  },
-  'item-consume': {
-    volume: 0.22,
-    type: 'triangle',
-    segments: [
-      {
-        frequency: 980,
-        duration: 0.045,
-        attack: 0.002,
-        release: 0.03,
-        type: 'square',
-        partials: [
-          { ratio: 1, amplitude: 1 },
-          { ratio: 2.2, amplitude: 0.55 },
-          { ratio: 3.4, amplitude: 0.3 },
-        ],
-      },
-      {
-        delay: 0.015,
-        frequency: 420,
-        duration: 0.18,
-        attack: 0.01,
-        release: 0.12,
-        type: 'sine',
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.6, amplitude: 0.35 },
-          { ratio: 2.4, amplitude: 0.2 },
-        ],
-      },
-    ],
-  },
-  'coin-heads': {
-    frequency: 980,
-    type: 'triangle',
-    duration: 0.18,
-    volume: 0.22,
-    attack: 0.002,
-    release: 0.08,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.8, amplitude: 0.45 },
-      { ratio: 2.6, amplitude: 0.22 },
-    ],
-  },
-  'coin-tails': {
-    frequency: 720,
-    type: 'sawtooth',
-    duration: 0.24,
-    volume: 0.22,
-    attack: 0.004,
-    release: 0.12,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.4, amplitude: 0.5 },
-      { ratio: 2.2, amplitude: 0.3 },
-    ],
-  },
-  'prompt-open': {
-    volume: 0.06,
-    segments: [
-      {
-        frequency: 680,
-        type: 'sawtooth',
-        duration: 0.08,
-        volume: 0.05,
-        attack: 0.002,
-        release: 0.05,
-        partials: [
-          { ratio: 1, amplitude: 0.6 },
-          { ratio: 1.5, amplitude: 0.4 },
-          { ratio: 2.4, amplitude: 0.3 },
-          { ratio: 3.2, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.03,
-        frequency: 1180,
-        type: 'sine',
-        duration: 0.28,
-        volume: 0.04,
-        attack: 0.012,
-        release: 0.2,
-        partials: [
-          { ratio: 1, amplitude: 1 },
-          { ratio: 2, amplitude: 0.22 },
-  equip: {
-    volume: 0.24,
-    segments: [
-      {
-        frequency: 980,
-        type: 'square',
-        duration: 0.05,
-        attack: 0.002,
-        release: 0.03,
-        partials: [
-          { ratio: 1, amplitude: 0.6 },
-          { ratio: 2.4, amplitude: 0.35 },
-          { ratio: 3.6, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.015,
-        frequency: 620,
-        type: 'triangle',
-        duration: 0.12,
-        attack: 0.004,
-        release: 0.08,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.5, amplitude: 0.35 },
-          { ratio: 2.2, amplitude: 0.2 },
-        ],
-      },
-    ],
-  },
-  unequip: {
-    volume: 0.2,
-    segments: [
-      {
-        frequency: 240,
-        type: 'sawtooth',
-        duration: 0.14,
-        attack: 0.01,
-        release: 0.1,
-        partials: [
-          { ratio: 1, amplitude: 0.6 },
-          { ratio: 1.7, amplitude: 0.3 },
-          { ratio: 2.6, amplitude: 0.18 },
-        ],
-      },
-      {
-        delay: 0.04,
-        frequency: 180,
-        type: 'triangle',
-        duration: 0.2,
-        attack: 0.02,
-        release: 0.14,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.4, amplitude: 0.35 },
-          { ratio: 2.1, amplitude: 0.2 },
-        ],
-      },
-    ],
-  },
-  'credits-gain': {
-    frequency: 880,
-    type: 'square',
-    duration: 0.48,
-    volume: 0.24,
-    attack: 0.002,
-    release: 0.28,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.33, amplitude: 0.65 },
-      { ratio: 1.75, amplitude: 0.5 },
-      { ratio: 2.4, amplitude: 0.35 },
-      { ratio: 3.1, amplitude: 0.2 },
-    ],
-  },
-  'credits-save': {
-    frequency: 420,
-    type: 'triangle',
-    duration: 0.26,
-    volume: 0.28,
-    attack: 0.004,
-    release: 0.12,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 2.1, amplitude: 0.3 },
-      { ratio: 3.4, amplitude: 0.18 },
-    ],
-  },
-  'credits-spend': {
-    frequency: 260,
-    type: 'sawtooth',
-    duration: 0.5,
-    volume: 0.23,
-    attack: 0.01,
-    release: 0.32,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.75, amplitude: 0.55 },
-      { ratio: 1.4, amplitude: 0.35 },
-      { ratio: 2.2, amplitude: 0.2 },
-    ],
-  },
-  'hp-damage': {
-    frequency: 340,
-    type: 'square',
-    duration: 0.22,
-    volume: 0.32,
-    attack: 0.004,
-    release: 0.14,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.8, amplitude: 0.45 },
-      { ratio: 3, amplitude: 0.18 },
-    ],
-  },
-  'hp-damage-1': {
-    frequency: 520,
-    type: 'sawtooth',
-    duration: 0.16,
-    volume: 0.3,
-    attack: 0.002,
-    release: 0.1,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.9, amplitude: 0.7 },
-      { ratio: 3.4, amplitude: 0.45 },
-      { ratio: 5.2, amplitude: 0.2 },
-    ],
-  },
-  'hp-damage-2': {
-    frequency: 300,
-    type: 'square',
-    duration: 0.2,
-    volume: 0.32,
-    attack: 0.003,
-    release: 0.12,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.75, amplitude: 0.6 },
-      { ratio: 2.6, amplitude: 0.35 },
-      { ratio: 4.1, amplitude: 0.2 },
-    ],
-  },
-  'hp-heal': {
-    frequency: 580,
-    type: 'sine',
-    duration: 0.36,
-    volume: 0.25,
-    attack: 0.01,
-    release: 0.22,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.5, amplitude: 0.35 },
-      { ratio: 2.5, amplitude: 0.18 },
-    ],
-  },
-  'hp-heal-1': {
-    frequency: 720,
-    type: 'triangle',
-    duration: 0.28,
-    volume: 0.24,
-    attack: 0.004,
-    release: 0.18,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 2.2, amplitude: 0.35 },
-      { ratio: 3.8, amplitude: 0.18 },
-    ],
-  },
-  'hp-heal-2': {
-    frequency: 640,
-    type: 'sine',
-    duration: 0.32,
-    volume: 0.23,
-    attack: 0.006,
-    release: 0.2,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 2.6, amplitude: 0.4 },
-      { ratio: 4.4, amplitude: 0.2 },
-    ],
-  },
-  'hp-down': {
-    frequency: 210,
-    type: 'triangle',
-    duration: 0.6,
-    volume: 0.32,
-    attack: 0.012,
-    release: 0.4,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 0.5, amplitude: 0.6 },
-      { ratio: 1.75, amplitude: 0.3 },
-    ],
-  },
-  'sp-gain': {
-    frequency: 980,
-    type: 'sine',
-    duration: 0.24,
-    volume: 0.24,
-    attack: 0.002,
-    release: 0.14,
-    partials: [
-      { ratio: 1, amplitude: 0.9 },
-      { ratio: 2.6, amplitude: 0.55 },
-      { ratio: 4.1, amplitude: 0.35 },
-      { ratio: 6.3, amplitude: 0.22 },
-    ],
-  },
-  'sp-spend': {
-    frequency: 320,
-    type: 'square',
-    duration: 0.26,
-    volume: 0.2,
-    attack: 0.004,
-    release: 0.14,
-    partials: [
-      { ratio: 1, amplitude: 0.85 },
-      { ratio: 0.5, amplitude: 0.55 },
-      { ratio: 1.4, amplitude: 0.25 },
-      { ratio: 2.6, amplitude: 0.18 },
-    ],
-  },
-  'sp-empty': {
-    frequency: 150,
-    type: 'sawtooth',
-    duration: 0.52,
-    volume: 0.3,
-    attack: 0.01,
-    release: 0.32,
-    partials: [
-      { ratio: 1, amplitude: 0.9 },
-      { ratio: 0.5, amplitude: 0.6 },
-      { ratio: 1.2, amplitude: 0.35 },
-      { ratio: 2.4, amplitude: 0.2 },
-    ],
-  },
-  'rest-short': {
-    volume: 0.24,
-    segments: [
-      {
-        frequency: 520,
-        type: 'square',
-        duration: 0.08,
-        attack: 0.002,
-        release: 0.05,
-        partials: [
-          { ratio: 1, amplitude: 0.65 },
-          { ratio: 1.8, amplitude: 0.4 },
-          { ratio: 2.6, amplitude: 0.24 },
-        ],
-      },
-      {
-        delay: 0.04,
-        frequency: 240,
-        type: 'sawtooth',
-        duration: 0.28,
-        attack: 0.01,
-        release: 0.18,
-        partials: [
-          { ratio: 1, amplitude: 0.55 },
-          { ratio: 1.4, amplitude: 0.3 },
-          { ratio: 2.2, amplitude: 0.18 },
-        ],
-      },
-    ],
-  },
-  'rest-long': {
-    volume: 0.22,
-    segments: [
-      {
-        frequency: 880,
-        type: 'sine',
-        duration: 0.5,
-        attack: 0.01,
-        release: 0.4,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 2, amplitude: 0.35 },
-          { ratio: 3, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.05,
-        frequency: 180,
-        type: 'triangle',
-        duration: 1.15,
-        attack: 0.08,
-        release: 0.9,
-        partials: [
-          { ratio: 1, amplitude: 0.55 },
-          { ratio: 1.6, amplitude: 0.3 },
-          { ratio: 2.4, amplitude: 0.18 },
-  'ability-minor': {
-    volume: 0.24,
-    segments: [
-      {
-        frequency: 940,
-        type: 'triangle',
-        duration: 0.07,
-        attack: 0.002,
-        release: 0.035,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.9, amplitude: 0.4 },
-          { ratio: 2.8, amplitude: 0.25 },
-        ],
-      },
-      {
-        delay: 0.018,
-        frequency: 240,
-        type: 'sawtooth',
-        duration: 0.14,
-        attack: 0.006,
-        release: 0.09,
-        partials: [
-          { ratio: 1, amplitude: 0.75 },
-          { ratio: 0.55, amplitude: 0.45 },
-          { ratio: 1.6, amplitude: 0.25 },
-        ],
-      },
-    ],
-  },
-  'ability-major': {
-    volume: 0.28,
-    segments: [
-      {
-        frequency: 220,
-        type: 'sine',
-        duration: 0.18,
-        attack: 0.015,
-        release: 0.12,
-        partials: [
-          { ratio: 1, amplitude: 0.6 },
-          { ratio: 1.5, amplitude: 0.35 },
-          { ratio: 2.2, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.03,
-        frequency: 360,
-        type: 'triangle',
-        duration: 0.22,
-        attack: 0.01,
-        release: 0.14,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.6, amplitude: 0.4 },
-          { ratio: 2.4, amplitude: 0.25 },
-        ],
-      },
-      {
-        delay: 0.02,
-        frequency: 520,
-        type: 'triangle',
-        duration: 0.26,
-        attack: 0.008,
-        release: 0.16,
-        partials: [
-          { ratio: 1, amplitude: 0.75 },
-          { ratio: 1.7, amplitude: 0.45 },
-          { ratio: 2.6, amplitude: 0.28 },
-        ],
-      },
-      {
-        delay: 0.04,
-        frequency: 980,
-        type: 'square',
-        duration: 0.06,
-        attack: 0.002,
-        release: 0.03,
-        partials: [
-          { ratio: 1, amplitude: 0.5 },
-          { ratio: 2.4, amplitude: 0.35 },
-          { ratio: 3.6, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.018,
-        frequency: 1180,
-        type: 'square',
-        duration: 0.05,
-        attack: 0.002,
-        release: 0.028,
-        partials: [
-          { ratio: 1, amplitude: 0.45 },
-          { ratio: 2.8, amplitude: 0.3 },
-          { ratio: 4.2, amplitude: 0.18 },
-        ],
-      },
-    ],
-  },
-  heal: {
-    frequency: 520,
-    type: 'sine',
-    duration: 0.62,
-    volume: 0.2,
-    attack: 0.012,
-    release: 0.42,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 2.4, amplitude: 0.22 },
-      { ratio: 3.6, amplitude: 0.12 },
-    ],
-  },
-  damage: {
-    frequency: 420,
-    type: 'square',
-    duration: 0.3,
-    volume: 0.32,
-    attack: 0.004,
-    release: 0.12,
-    partials: [
-      { ratio: 1, amplitude: 1 },
-      { ratio: 1.06, amplitude: 0.88 },
-      { ratio: 2.2, amplitude: 0.22 },
-    ],
-  },
-  save: {
-    frequency: 420,
-    type: 'sawtooth',
-    duration: 0.22,
-    volume: 0.22,
-    attack: 0.004,
-    release: 0.12,
-    partials: [
-      { ratio: 1, amplitude: 0.9 },
-      { ratio: 1.9, amplitude: 0.55 },
-      { ratio: 3.7, amplitude: 0.28 },
-    ],
-  },
-  'shard-draw': {
-    frequency: 880,
-    type: 'sawtooth',
-    duration: 0.85,
-    volume: 0.22,
-    attack: 0.008,
-    release: 0.6,
-    partials: [
-      { ratio: 1, amplitude: 0.9 },
-      { ratio: 2.5, amplitude: 0.5 },
-      { ratio: 4, amplitude: 0.35 },
-      { ratio: 5.5, amplitude: 0.22 },
-    ],
-  },
-  'level-up': {
-    volume: 0.28,
-    segments: [
-      {
-        frequency: 260,
-        type: 'sawtooth',
-        duration: 0.22,
-        attack: 0.01,
-        release: 0.08,
-        partials: [
-          { ratio: 0.8, amplitude: 0.5 },
-          { ratio: 1.3, amplitude: 0.35 },
-          { ratio: 2.1, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.06,
-        frequency: 1240,
-        type: 'sine',
-        duration: 0.3,
-        attack: 0.002,
-        release: 0.18,
-        partials: [
-          { ratio: 1, amplitude: 1 },
-          { ratio: 2, amplitude: 0.4 },
-          { ratio: 3, amplitude: 0.2 },
-        ],
-      },
-      {
-        delay: 0.02,
-        frequency: 520,
-        type: 'triangle',
-        duration: 0.18,
-        attack: 0.004,
-        release: 0.12,
-        partials: [
-          { ratio: 1, amplitude: 0.7 },
-          { ratio: 1.6, amplitude: 0.35 },
-        ],
-      },
-    ],
-  },
-};
-
-let audioContext;
-const audioCueCache = new Map();
-
-function primeAudioContext(){
-  if(audioContextPrimedOnce){
-    const existing = ensureAudioContext();
-    if(existing) existing.__ccPrimed = true;
-    return existing;
-  }
-  audioContextPrimedOnce = true;
-  const ctx = ensureAudioContext();
-  if(!ctx) return null;
-  ctx.__ccPrimed = true;
-  try{
-    const oscillator = typeof ctx.createOscillator === 'function' ? ctx.createOscillator() : null;
-    if(!oscillator) return ctx;
-    const gain = typeof ctx.createGain === 'function' ? ctx.createGain() : null;
-    if(gain){
-      if(gain.gain){
-        try {
-          if(typeof gain.gain.setValueAtTime === 'function'){
-            gain.gain.setValueAtTime(0, ctx.currentTime ?? 0);
-          }else{
-            gain.gain.value = 0;
-          }
-        } catch {
-          gain.gain.value = 0;
-        }
-      }
-      oscillator.connect?.(gain);
-      gain.connect?.(ctx.destination);
-    }else{
-      oscillator.connect?.(ctx.destination);
-    }
-    const now = typeof ctx.currentTime === 'number' ? ctx.currentTime : 0;
-    oscillator.start?.(now);
-    oscillator.stop?.(now + 0.001);
-    oscillator.disconnect?.();
-    gain?.disconnect?.();
-  }catch{
-    /* noop */
-  }
-  return ctx;
-}
-
-function ensureAudioContext(){
-  if(typeof window === 'undefined') return null;
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if(!Ctx) return null;
-  if(!audioContext && !audioContextGestureReady) return null;
-  if(!audioContext){
-    audioContext = new Ctx();
-  }
-  if(audioContext?.state === 'suspended' && audioContextGestureReady){
-    audioContext.resume?.().catch(()=>{});
-  }
-  return audioContext;
-}
-
-function renderWaveSample(type, freq, t){
-  const phase = 2 * Math.PI * freq * t;
-  switch(type){
-    case 'square':
-      return Math.sign(Math.sin(phase)) || 0;
-    case 'triangle':
-      return 2 * Math.asin(Math.sin(phase)) / Math.PI;
-    case 'sawtooth':
-      return 2 * (freq * t - Math.floor(0.5 + freq * t));
-    default:
-      return Math.sin(phase);
-  }
-}
-
-function buildAudioBuffer(name){
-  const ctx = ensureAudioContext();
-  if(!ctx) return null;
-  const config = AUDIO_CUE_SETTINGS[name];
-  if(!config) return null;
-  const {
-    duration = 0.4,
-    frequency = 440,
-    type = 'sine',
-    volume = 0.2,
-    attack = 0.01,
-    release = 0.1,
-    partials,
-    segments,
-  } = config;
-  const sampleRate = ctx.sampleRate;
-  const hasSegments = Array.isArray(segments) && segments.length > 0;
-  const totalDuration = hasSegments
-    ? segments.reduce((sum, segment)=>sum + (segment.delay ?? 0) + (segment.duration ?? duration), 0)
-    : duration;
-  const totalSamples = Math.max(1, Math.floor(sampleRate * totalDuration));
-  const buffer = ctx.createBuffer(1, totalSamples, sampleRate);
-  const data = buffer.getChannelData(0);
-  const renderSegment = (segment, startSample)=>{
-    const segmentDuration = segment.duration ?? duration;
-    const segmentFrequency = segment.frequency ?? frequency;
-    const segmentType = segment.type ?? type;
-    const segmentVolume = segment.volume ?? volume;
-    const segmentAttack = segment.attack ?? attack;
-    const segmentRelease = segment.release ?? release;
-    const segmentPartials = segment.partials ?? partials;
-    const voices = (segmentPartials && segmentPartials.length) ? segmentPartials : [{ ratio: 1, amplitude: 1 }];
-    const normalization = voices.reduce((sum, part)=>sum + Math.abs(part.amplitude ?? 1), 0) || 1;
-    const segmentSamples = Math.max(1, Math.floor(sampleRate * segmentDuration));
-
-    for(let i=0;i<segmentSamples;i++){
-      const t = i / sampleRate;
-      let envelope = 1;
-      if(segmentAttack > 0 && t < segmentAttack){
-        envelope = t / segmentAttack;
-      }else if(segmentRelease > 0 && t > segmentDuration - segmentRelease){
-        envelope = Math.max((segmentDuration - t) / segmentRelease, 0);
-      }
-      let sample = 0;
-      for(const part of voices){
-        const ratio = part.ratio ?? 1;
-        const amplitude = part.amplitude ?? 1;
-        sample += amplitude * renderWaveSample(segmentType, segmentFrequency * ratio, t);
-      }
-      const idx = startSample + i;
-      if(idx >= data.length) break;
-      data[idx] += (sample / normalization) * envelope * segmentVolume;
-    }
-    return segmentSamples;
-  };
-
-  if(hasSegments){
-    let offsetSamples = 0;
-    for(const segment of segments){
-      const delay = segment.delay ?? 0;
-      if(delay > 0){
-        offsetSamples += Math.floor(sampleRate * delay);
-      }
-      offsetSamples += renderSegment(segment, offsetSamples);
-    }
-  }else{
-    renderSegment({ duration, frequency, type, volume, attack, release, partials }, 0);
-  }
-
-  audioCueCache.set(name, buffer);
-  return buffer;
-}
-
-function resolveActionCueKey(actionKey) {
-  if (typeof actionKey !== 'string') return null;
-  const normalized = actionKey.trim();
-  if (!normalized) return null;
-  if (Object.prototype.hasOwnProperty.call(AUDIO_CUE_SETTINGS, normalized)) {
-    return normalized;
-  }
-  const cueRegistry = typeof globalThis !== 'undefined' ? globalThis.audioCueData : undefined;
-  if (typeof cueRegistry?.has === 'function' && cueRegistry.has(normalized)) {
-    return normalized;
-  }
-  return null;
-}
-
-function playActionCue(actionKey, fallbackCueName) {
-  const primary = resolveActionCueKey(actionKey);
-  const fallback = resolveActionCueKey(fallbackCueName);
-  const cue = primary || fallback || fallbackCueName || actionKey;
-  if (!cue) return;
-  playStatusCue(cue);
-}
-
-function playStatusCue(name){
-  const ctx = ensureAudioContext();
-  if(!ctx) return;
-  const buffer = audioCueCache.get(name) ?? buildAudioBuffer(name);
-  if(!buffer) return;
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  const gain = ctx.createGain();
-  gain.gain.value = 1;
-  source.connect(gain).connect(ctx.destination);
-  source.start();
-}
-
 function playDownAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
@@ -13836,7 +12874,7 @@ function playDownAnimation(){
   cancelFx(anim);
   cancelFx(image);
   if(!anim || !image) return Promise.resolve();
-  playStatusCue('down');
+  playCue('down', { source: 'status' });
   anim.setAttribute('aria-hidden','true');
   image.setAttribute('aria-hidden','true');
 
@@ -13891,7 +12929,7 @@ function playDeathAnimation(){
   cancelFx(anim);
   cancelFx(image);
   if(!anim || !image) return Promise.resolve();
-  playStatusCue('death');
+  playCue('death', { source: 'status' });
   anim.setAttribute('aria-hidden','true');
   image.setAttribute('aria-hidden','true');
 
@@ -13954,7 +12992,7 @@ function playHealAnimation(amount){
     float.textContent=`+${amount}`;
     anim.setAttribute('aria-hidden','true');
   }
-  playStatusCue('heal');
+  playCue('heal', { source: 'status' });
 
   const bloomWave = healOverlay ? animate(
     healOverlay,
@@ -14045,7 +13083,7 @@ function playSaveAnimation(){
   const anim=$('save-animation');
   if(!anim) return Promise.resolve();
   anim.hidden=false;
-  playStatusCue('save');
+  playCue('save', { source: 'status' });
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
@@ -14487,7 +13525,7 @@ let activeCampaignEditEntryId = null;
 function openNarrativeModal(id) {
   const opened = show(id);
   if (opened) {
-    playActionCue('prompt-open');
+    playCue('prompt-open', { source: 'action' });
   }
   return opened;
 }
@@ -17562,7 +16600,7 @@ function requestConcentrationDrop(card, power, proceed) {
   elements.concentrationPrompt.style.display = 'flex';
   elements.concentrationPrompt.dataset.open = 'true';
   if (!wasOpen) {
-    playActionCue('prompt-open');
+    playCue('prompt-open', { source: 'action' });
   }
   showPowerMessage(card, `Concentration conflict: drop ${activeConcentrationEffect?.name || 'current effect'} to continue.`, 'warning');
   return true;
@@ -17576,7 +16614,7 @@ function finalizePowerUse(card, power) {
   }
   const abilityCue = resolveAbilityUseCue(power);
   if (abilityCue) {
-    playActionCue(abilityCue);
+    playCue(abilityCue, { source: 'action' });
   }
   const label = getPowerCardLabel(card);
   logAction(`${label} used: ${power.name} — ${power.rulesText}`);
@@ -21375,7 +20413,7 @@ function createCard(kind, pref = {}) {
           if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
-              playActionCue(chk.checked ? 'equip' : 'unequip');
+              playCue(chk.checked ? 'equip' : 'unequip', { source: 'action' });
               if (kind === 'armor') {
                 logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
               }
@@ -21439,7 +20477,7 @@ function createCard(kind, pref = {}) {
       const handleConsume = () => {
         const nextQty = Number(qtyField.value);
         if (Number.isFinite(nextQty) && Number.isFinite(lastQty) && nextQty < lastQty) {
-          playActionCue('item-consume');
+          playCue('item-consume', { source: 'action' });
         }
         if (Number.isFinite(nextQty)) {
           lastQty = nextQty;
@@ -21514,7 +20552,7 @@ function createCard(kind, pref = {}) {
         : null;
       const abilityCue = resolveAbilityUseCue(powerData);
       if (abilityCue) {
-        playActionCue(abilityCue);
+        playCue(abilityCue, { source: 'action' });
       }
       sendAbilityUseEvent({ name, kind: abilityKind, power: powerData });
       const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
