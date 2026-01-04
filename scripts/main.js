@@ -9909,6 +9909,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
     if (unlocked.length) {
       renderLevelRewardReminders();
       show('modal-level-rewards');
+      playActionCue('level-up');
       const summary = unlocked.map(task => task.label).join('; ');
       window.dmNotify?.(`Level rewards unlocked: ${summary}`, { actionScope: 'major' });
       logAction(`Level rewards unlocked: ${summary}`);
@@ -13212,6 +13213,48 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.5, amplitude: 0.5 },
       { ratio: 4, amplitude: 0.35 },
       { ratio: 5.5, amplitude: 0.22 },
+    ],
+  },
+  'level-up': {
+    volume: 0.28,
+    segments: [
+      {
+        frequency: 260,
+        type: 'sawtooth',
+        duration: 0.22,
+        attack: 0.01,
+        release: 0.08,
+        partials: [
+          { ratio: 0.8, amplitude: 0.5 },
+          { ratio: 1.3, amplitude: 0.35 },
+          { ratio: 2.1, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.06,
+        frequency: 1240,
+        type: 'sine',
+        duration: 0.3,
+        attack: 0.002,
+        release: 0.18,
+        partials: [
+          { ratio: 1, amplitude: 1 },
+          { ratio: 2, amplitude: 0.4 },
+          { ratio: 3, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 520,
+        type: 'triangle',
+        duration: 0.18,
+        attack: 0.004,
+        release: 0.12,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 1.6, amplitude: 0.35 },
+        ],
+      },
     ],
   },
 };
