@@ -4724,6 +4724,11 @@ body:not(.no-hover) .modal .x:focus-visible{outline:2px solid var(--modal-accent
 .dm-quickRewards__label{font-size:.75rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .dm-quickRewards__select,.dm-quickRewards__control{position:relative;width:100%}
 .dm-quickRewards__select select,.dm-quickRewards__control select,.dm-quickRewards__presetSelect select,.dm-quickRewards__field input{width:100%;padding:8px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--text) 12%, transparent);background:color-mix(in srgb,var(--surface) 96%, transparent);color:inherit;font-size:.9rem;line-height:1.4;transition:var(--transition)}
+.dm-quickRewards__field.is-invalid input,.dm-quickRewards__select.is-invalid select{border-color:color-mix(in srgb,var(--error) 70%, transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--error) 40%, transparent)}
+.dm-quickRewards__validation{font-size:.75rem;color:var(--error);line-height:1.3}
+.dm-quickRewards__status{margin-top:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 88%, transparent);font-size:.8rem;line-height:1.4;color:var(--muted)}
+.dm-quickRewards__status[data-state="success"]{border-color:color-mix(in srgb,var(--success) 55%, transparent);background:color-mix(in srgb,var(--success) 14%, transparent);color:var(--success)}
+.dm-quickRewards__status[data-state="error"]{border-color:color-mix(in srgb,var(--error) 55%, transparent);background:color-mix(in srgb,var(--error) 14%, transparent);color:var(--error)}
 .dm-quickRewards__presets{display:flex;flex-direction:column;gap:6px}
 .dm-quickRewards__presetRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .dm-quickRewards__presetSelect{flex:1 1 180px}
@@ -5077,9 +5082,15 @@ body:not(.no-hover) .dm-catalog__tab:not(.is-active):hover,body:not(.no-hover) .
 .dm-catalog__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .dm-catalog__field{display:flex;flex-direction:column;gap:6px;font-size:.85rem}
 .dm-catalog__field-label{font-weight:600}
-.dm-catalog__field input,.dm-catalog__field textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;background:rgba(0,0,0,.1);color:inherit;transition:var(--transition)}
-.theme-light .dm-catalog__field input,.theme-light .dm-catalog__field textarea{background:rgba(255,255,255,.08)}
-.dm-catalog__field input:focus,.dm-catalog__field textarea:focus{box-shadow:0 0 0 1px rgba(59,130,246,.35);outline:none}
+.dm-catalog__field input,.dm-catalog__field textarea,.dm-catalog__field select{width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;background:rgba(0,0,0,.1);color:inherit;transition:var(--transition)}
+.theme-light .dm-catalog__field input,.theme-light .dm-catalog__field textarea,.theme-light .dm-catalog__field select{background:rgba(255,255,255,.08)}
+.dm-catalog__field input:focus,.dm-catalog__field textarea:focus,.dm-catalog__field select:focus{box-shadow:0 0 0 1px rgba(59,130,246,.35);outline:none}
+.dm-catalog__field.is-invalid input,.dm-catalog__field.is-invalid textarea,.dm-catalog__field.is-invalid select{border-color:color-mix(in srgb,var(--error) 70%, transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--error) 40%, transparent)}
+.dm-catalog__validation{font-size:.75rem;color:var(--error);line-height:1.3}
+.dm-catalog__status{margin-top:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 88%, transparent);font-size:.8rem;line-height:1.4;color:var(--muted)}
+.dm-catalog__status[data-state="success"]{border-color:color-mix(in srgb,var(--success) 55%, transparent);background:color-mix(in srgb,var(--success) 14%, transparent);color:var(--success)}
+.dm-catalog__status[data-state="error"]{border-color:color-mix(in srgb,var(--error) 55%, transparent);background:color-mix(in srgb,var(--error) 14%, transparent);color:var(--error)}
+.dm-catalog__form[data-pending="true"]{opacity:.75}
 .dm-catalog__field textarea{min-height:96px;resize:vertical}
 .dm-catalog__lock{display:flex;align-items:flex-start;gap:10px;font-size:.85rem;font-weight:600}
 .dm-catalog__lock input{margin-top:4px}
