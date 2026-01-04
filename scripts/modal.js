@@ -280,6 +280,11 @@ export function openDmAuthModal({ onAuthed, onClosed } = {}) {
     errorEl.hidden = !message;
   };
 
+  const dispatchLoginEvent = (name, detail = {}) => {
+    if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') return;
+    document.dispatchEvent(new CustomEvent(name, { detail }));
+  };
+
   const switchView = () => {
     const hasPassword = dmHasPasswordSet();
     if (viewSetup) {
@@ -301,6 +306,7 @@ export function openDmAuthModal({ onAuthed, onClosed } = {}) {
   setError('');
   switchView();
   show('dm-login-modal');
+  dispatchLoginEvent('dm-login:opened');
 
   let cleaned = false;
   const cleanup = () => {
@@ -362,13 +368,16 @@ export function openDmAuthModal({ onAuthed, onClosed } = {}) {
       const valid = await dmVerifyPassword(password);
       if (!valid) {
         setError('Incorrect password.');
+        dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
         passwordLogin?.focus();
         return;
       }
+      dispatchLoginEvent('dm-login:success');
       finalizeSuccess();
     } catch (err) {
       console.error('Failed to verify DM password', err);
       setError('Unable to verify password. Check storage access and try again.');
+      dispatchLoginEvent('dm-login:failure', { reason: 'error' });
     }
   }
 
@@ -386,6 +395,7 @@ export function openDmAuthModal({ onAuthed, onClosed } = {}) {
 
   function onClose() {
     hide('dm-login-modal');
+    dispatchLoginEvent('dm-login:closed');
     if (typeof onClosed === 'function') {
       try {
         onClosed();

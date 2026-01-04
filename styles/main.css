@@ -6334,6 +6334,7 @@ body:not(.no-hover) #dm-notifications-modal .dm-notifications__filters input:hov
 .dm-login__summary{margin:4px 0 12px;font-weight:600;color:var(--muted)}
 .dm-login__wait{margin:12px 0 0;color:var(--muted);font-weight:600}
 .dm-login__error{margin:12px 0 0;font-weight:600;color:var(--error)}
+.dm-login__wait{margin:10px 0 0;font-weight:600;color:var(--accent-2)}
 .dm-login__links--back{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .somf-toast{background:#0b1119;color:#e6f1ff;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}

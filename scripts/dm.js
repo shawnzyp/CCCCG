@@ -954,9 +954,12 @@ function initDMLogin(){
   const miniGamesBtn = document.getElementById('dm-tools-mini-games');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
-  const loginUsername = document.getElementById('dm-login-username');
-  const loginPin = document.getElementById('dm-login-pin');
-  const loginSubmit = document.getElementById('dm-login-submit');
+  const loginUsername = document.getElementById('dm-login-username-login')
+    || document.getElementById('dm-login-username');
+  const loginPin = document.getElementById('dm-login-password-login')
+    || document.getElementById('dm-login-pin');
+  const loginSubmit = document.getElementById('dm-login-submit-login')
+    || document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
@@ -1682,6 +1685,39 @@ function initDMLogin(){
 
   function notifyLoginCooldown(remainingMs){
     toast(formatLoginCooldownMessage(remainingMs), 'error');
+  }
+
+  function handleLoginOpened() {
+    const remaining = getLoginCooldownRemainingMs();
+    if (remaining > 0) {
+      startLoginCooldownCountdown(remaining);
+    } else {
+      clearLoginCooldownTimer();
+      clearLoginCooldownUI();
+    }
+  }
+
+  function handleLoginFailure() {
+    const nextState = recordLoginFailure();
+    if (nextState.lockUntil && nextState.lockUntil > Date.now()) {
+      const remaining = getLoginCooldownRemainingMs();
+      startLoginCooldownCountdown(remaining);
+      notifyLoginCooldown(remaining);
+      return;
+    }
+    clearLoginCooldownUI();
+  }
+
+  function handleLoginSuccess() {
+    resetLoginFailureState();
+    clearLoginCooldownTimer();
+    clearLoginCooldownUI();
+  }
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('dm-login:opened', handleLoginOpened);
+    document.addEventListener('dm-login:failure', handleLoginFailure);
+    document.addEventListener('dm-login:success', handleLoginSuccess);
   }
 
   const notifyModal = document.getElementById('dm-notifications-modal');
