@@ -3745,6 +3745,11 @@
         };
         const handleAccept = event => {
           event.preventDefault();
+          if (typeof window?.playActionCue === 'function') {
+            window.playActionCue('shard-draw');
+          } else if (typeof playActionCue === 'function') {
+            playActionCue('shard-draw');
+          }
           cleanup(true);
         };
         overlay.addEventListener('keydown', handleKeydown);

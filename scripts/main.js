@@ -13042,6 +13042,20 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2.67, amplitude: 0.25 },
     ],
   },
+  'shard-draw': {
+    frequency: 880,
+    type: 'sawtooth',
+    duration: 0.85,
+    volume: 0.22,
+    attack: 0.008,
+    release: 0.6,
+    partials: [
+      { ratio: 1, amplitude: 0.9 },
+      { ratio: 2.5, amplitude: 0.5 },
+      { ratio: 4, amplitude: 0.35 },
+      { ratio: 5.5, amplitude: 0.22 },
+    ],
+  },
 };
 
 let audioContext;
