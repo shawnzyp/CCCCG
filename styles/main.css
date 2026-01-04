@@ -6327,9 +6327,12 @@ body:not(.no-hover) #dm-notifications-modal .dm-notifications__filters input:hov
   .somf-dm__list{max-height:60vh}
 }
 #dm-login-modal input{width:100%;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text)}
+.dm-login__view{display:flex;flex-direction:column;gap:8px}
 .dm-login__view input{width:100%}
-.dm-login__view[data-login-view="login"] .actions [data-login-action="start-create"]{margin-right:auto}
+.dm-login__links [data-login-action="start-create"]{margin-right:auto}
+.dm-login__links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .dm-login__summary{margin:4px 0 12px;font-weight:600;color:var(--muted)}
+.dm-login__wait{margin:12px 0 0;color:var(--muted);font-weight:600}
 .dm-login__error{margin:12px 0 0;font-weight:600;color:var(--error)}
 .dm-login__links--back{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .somf-toast{background:#0b1119;color:#e6f1ff;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
