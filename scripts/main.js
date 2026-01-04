@@ -12850,18 +12850,47 @@ const AUDIO_CUE_SETTINGS = {
     ],
   },
   'dice-roll': {
-    frequency: 720,
-    type: 'square',
-    duration: 0.22,
     volume: 0.26,
-    attack: 0.003,
-    release: 0.09,
-    partials: [
-      { ratio: 1, amplitude: 0.6 },
-      { ratio: 1.3, amplitude: 0.5 },
-      { ratio: 2.1, amplitude: 0.4 },
-      { ratio: 3.2, amplitude: 0.3 },
-      { ratio: 4.4, amplitude: 0.18 },
+    type: 'square',
+    segments: [
+      {
+        frequency: 740,
+        duration: 0.055,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.35, amplitude: 0.45 },
+          { ratio: 2.2, amplitude: 0.32 },
+          { ratio: 3.4, amplitude: 0.2 },
+        ],
+      },
+      {
+        delay: 0.02,
+        frequency: 680,
+        duration: 0.06,
+        attack: 0.002,
+        release: 0.035,
+        partials: [
+          { ratio: 1, amplitude: 0.55 },
+          { ratio: 1.4, amplitude: 0.4 },
+          { ratio: 2.3, amplitude: 0.3 },
+          { ratio: 3.6, amplitude: 0.18 },
+        ],
+      },
+      {
+        delay: 0.03,
+        frequency: 790,
+        duration: 0.05,
+        attack: 0.002,
+        release: 0.03,
+        partials: [
+          { ratio: 1, amplitude: 0.5 },
+          { ratio: 1.3, amplitude: 0.35 },
+          { ratio: 2.1, amplitude: 0.28 },
+          { ratio: 3.2, amplitude: 0.16 },
+        ],
+      },
     ],
   },
   'dice-crit-success': {
@@ -13204,29 +13233,60 @@ function buildAudioBuffer(name){
     attack = 0.01,
     release = 0.1,
     partials,
+    segments,
   } = config;
   const sampleRate = ctx.sampleRate;
-  const totalSamples = Math.max(1, Math.floor(sampleRate * duration));
+  const hasSegments = Array.isArray(segments) && segments.length > 0;
+  const totalDuration = hasSegments
+    ? segments.reduce((sum, segment)=>sum + (segment.delay ?? 0) + (segment.duration ?? duration), 0)
+    : duration;
+  const totalSamples = Math.max(1, Math.floor(sampleRate * totalDuration));
   const buffer = ctx.createBuffer(1, totalSamples, sampleRate);
   const data = buffer.getChannelData(0);
-  const voices = (partials && partials.length) ? partials : [{ ratio: 1, amplitude: 1 }];
-  const normalization = voices.reduce((sum, part)=>sum + Math.abs(part.amplitude ?? 1), 0) || 1;
+  const renderSegment = (segment, startSample)=>{
+    const segmentDuration = segment.duration ?? duration;
+    const segmentFrequency = segment.frequency ?? frequency;
+    const segmentType = segment.type ?? type;
+    const segmentVolume = segment.volume ?? volume;
+    const segmentAttack = segment.attack ?? attack;
+    const segmentRelease = segment.release ?? release;
+    const segmentPartials = segment.partials ?? partials;
+    const voices = (segmentPartials && segmentPartials.length) ? segmentPartials : [{ ratio: 1, amplitude: 1 }];
+    const normalization = voices.reduce((sum, part)=>sum + Math.abs(part.amplitude ?? 1), 0) || 1;
+    const segmentSamples = Math.max(1, Math.floor(sampleRate * segmentDuration));
 
-  for(let i=0;i<totalSamples;i++){
-    const t = i / sampleRate;
-    let envelope = 1;
-    if(attack > 0 && t < attack){
-      envelope = t / attack;
-    }else if(release > 0 && t > duration - release){
-      envelope = Math.max((duration - t) / release, 0);
+    for(let i=0;i<segmentSamples;i++){
+      const t = i / sampleRate;
+      let envelope = 1;
+      if(segmentAttack > 0 && t < segmentAttack){
+        envelope = t / segmentAttack;
+      }else if(segmentRelease > 0 && t > segmentDuration - segmentRelease){
+        envelope = Math.max((segmentDuration - t) / segmentRelease, 0);
+      }
+      let sample = 0;
+      for(const part of voices){
+        const ratio = part.ratio ?? 1;
+        const amplitude = part.amplitude ?? 1;
+        sample += amplitude * renderWaveSample(segmentType, segmentFrequency * ratio, t);
+      }
+      const idx = startSample + i;
+      if(idx >= data.length) break;
+      data[idx] += (sample / normalization) * envelope * segmentVolume;
     }
-    let sample = 0;
-    for(const part of voices){
-      const ratio = part.ratio ?? 1;
-      const amplitude = part.amplitude ?? 1;
-      sample += amplitude * renderWaveSample(type, frequency * ratio, t);
+    return segmentSamples;
+  };
+
+  if(hasSegments){
+    let offsetSamples = 0;
+    for(const segment of segments){
+      const delay = segment.delay ?? 0;
+      if(delay > 0){
+        offsetSamples += Math.floor(sampleRate * delay);
+      }
+      offsetSamples += renderSegment(segment, offsetSamples);
     }
-    data[i] = (sample / normalization) * envelope * volume;
+  }else{
+    renderSegment({ duration, frequency, type, volume, attack, release, partials }, 0);
   }
 
   audioCueCache.set(name, buffer);
