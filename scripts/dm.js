@@ -863,6 +863,57 @@ function persistNotificationFilterState() {
   }
 }
 
+function refreshNotificationFiltersFromStorage() {
+  const stored = loadStoredNotificationFilters();
+  if (
+    stored.character !== notificationFilterState.character
+    || stored.severity !== notificationFilterState.severity
+    || stored.search !== notificationFilterState.search
+    || stored.resolved !== notificationFilterState.resolved
+  ) {
+    notificationFilterState = stored;
+  }
+}
+
+function formatNotificationSummaryValue(type, value) {
+  const normalized = typeof value === 'string' ? value : '';
+  if (type === 'character') {
+    if (normalized === 'all') return 'All characters';
+    if (!normalized) return 'Unassigned';
+    return normalized;
+  }
+  if (type === 'severity') {
+    if (normalized === 'all') return 'All severities';
+    if (!normalized) return 'Unspecified';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  if (type === 'resolved') {
+    if (normalized === 'resolved') return 'Resolved only';
+    if (normalized === 'unresolved') return 'Unresolved only';
+    return 'All notifications';
+  }
+  return normalized;
+}
+
+function updateNotificationSummary() {
+  if (!notifySummary) return;
+  const characterValue = formatNotificationSummaryValue('character', notificationFilterState.character);
+  const severityValue = formatNotificationSummaryValue('severity', notificationFilterState.severity);
+  const resolvedValue = formatNotificationSummaryValue('resolved', notificationFilterState.resolved);
+  const parts = [
+    `Character ${characterValue}`,
+    `Severity ${severityValue}`,
+    `Status ${resolvedValue}`,
+  ];
+  const searchValue = typeof notificationFilterState.search === 'string'
+    ? notificationFilterState.search.trim()
+    : '';
+  if (searchValue) {
+    parts.push(`Search “${searchValue}”`);
+  }
+  notifySummary.textContent = `Showing: ${parts.join(' · ')}`;
+}
+
 function deriveNotificationChar() {
   try {
     return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
@@ -1767,6 +1818,7 @@ function initDMLogin(){
   const notifyFilterSeverity = document.getElementById('dm-notifications-filter-severity');
   const notifyFilterResolved = document.getElementById('dm-notifications-filter-resolved');
   const notifyFilterSearch = document.getElementById('dm-notifications-filter-search');
+  const notifySummary = document.getElementById('dm-notifications-summary');
   const cloudNotificationsState = {
     enabled: shouldUseCloudNotifications(),
     available: false,
@@ -8062,6 +8114,7 @@ function initDMLogin(){
   function renderStoredNotifications() {
     if (!notifyList || !isLoggedIn()) {
       updateNotificationActionState();
+      updateNotificationSummary();
       return;
     }
     const characters = new Set();
@@ -8286,6 +8339,7 @@ function initDMLogin(){
 
       notifyList.prepend(li);
     });
+    updateNotificationSummary();
     updateNotificationActionState();
   }
 
@@ -9049,6 +9103,7 @@ function initDMLogin(){
   function openNotifications(){
     if(!notifyModal) return;
     resetUnreadCountValue();
+    refreshNotificationFiltersFromStorage();
     renderStoredNotifications();
     updateNotificationActionState();
     show('dm-notifications-modal');
