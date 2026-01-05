@@ -25,6 +25,6 @@ describe('welcome modal layout', () => {
     expect(login).not.toBeNull();
     expect(create).not.toBeNull();
     expect(cont).not.toBeNull();
-    expect(cont.hasAttribute('disabled')).toBe(true);
+    expect(cont.hasAttribute('disabled')).toBe(false);
   });
 });

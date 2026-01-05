@@ -1178,6 +1178,10 @@ function getUserPaths(uid) {
 }
 
 function getActiveUserPaths({ notify = false } = {}) {
+  if (isLocalAuthMode()) {
+    showLocalAuthModeNotice();
+    return null;
+  }
   const uid = activeAuthUserId;
   if (!uid) {
     if (notify) {
