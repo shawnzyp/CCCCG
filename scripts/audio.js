@@ -76,6 +76,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'sine',
     duration: 0.55,
     volume: 0.3,
+    dedupe: false,
     attack: 0.004,
     release: 0.34,
     partials: [
@@ -90,6 +91,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'sawtooth',
     duration: 0.7,
     volume: 0.3,
+    dedupe: false,
     attack: 0.012,
     release: 0.48,
     partials: [
@@ -102,6 +104,7 @@ const AUDIO_CUE_SETTINGS = {
   'roll-success': {
     volume: 0.28,
     type: 'sine',
+    dedupe: false,
     segments: [
       {
         frequency: 1240,
@@ -132,6 +135,7 @@ const AUDIO_CUE_SETTINGS = {
   'roll-failure': {
     volume: 0.3,
     type: 'triangle',
+    dedupe: false,
     segments: [
       {
         frequency: 180,
@@ -272,6 +276,10 @@ const AUDIO_CUE_SETTINGS = {
         partials: [
           { ratio: 1, amplitude: 1 },
           { ratio: 2, amplitude: 0.22 },
+        ],
+      },
+    ],
+  },
   equip: {
     volume: 0.24,
     segments: [
@@ -565,6 +573,10 @@ const AUDIO_CUE_SETTINGS = {
           { ratio: 1, amplitude: 0.55 },
           { ratio: 1.6, amplitude: 0.3 },
           { ratio: 2.4, amplitude: 0.18 },
+        ],
+      },
+    ],
+  },
   'ability-minor': {
     volume: 0.24,
     segments: [
@@ -765,6 +777,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'sine',
     duration: 0.26,
     volume: 0.2,
+    dedupe: false,
     attack: 0.004,
     release: 0.12,
     partials: [
@@ -778,6 +791,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'triangle',
     duration: 0.22,
     volume: 0.18,
+    dedupe: false,
     attack: 0.004,
     release: 0.11,
     partials: [
@@ -791,6 +805,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'square',
     duration: 0.24,
     volume: 0.2,
+    dedupe: false,
     attack: 0.004,
     release: 0.13,
     partials: [
@@ -804,6 +819,7 @@ const AUDIO_CUE_SETTINGS = {
     type: 'sawtooth',
     duration: 0.28,
     volume: 0.22,
+    dedupe: false,
     attack: 0.004,
     release: 0.16,
     partials: [
@@ -941,7 +957,7 @@ function getAudioContextStatus() {
     return { ctx: null, supported: false, reason: 'unsupported' };
   }
   if (!audioContext && !audioContextGestureReady) {
-    return { ctx: null, supported: true, reason: 'gesture-required' };
+    return { ctx: null, supported: true, reason: 'not_primed' };
   }
   if (!audioContext) {
     try {
@@ -1153,6 +1169,8 @@ export function playCue(name, opts = {}) {
     : null;
   const resolvedName = resolveCueName(name, fallbackCue);
   const requestedCue = typeof name === 'string' ? name.trim() : name;
+  const cueConfig = resolvedName ? AUDIO_CUE_SETTINGS[resolvedName] : null;
+  const shouldDedupe = opts.dedupe ?? cueConfig?.dedupe ?? true;
 
   if (!resolvedName) {
     return makeResult({
@@ -1170,23 +1188,25 @@ export function playCue(name, opts = {}) {
     });
   }
 
-  scheduleDedupeReset();
-  if (dedupedCues.has(resolvedName)) {
-    return makeResult({
-      status: 'deduped',
-      reason: 'deduped',
-      cue: resolvedName,
-      requestedCue,
-      fallbackCue,
-      contextState: audioContext?.state || 'none',
-      gestureReady: audioContextGestureReady,
-      muted,
-      volume: volumeOverride,
-      timestamp,
-      source,
-    });
+  if (shouldDedupe) {
+    scheduleDedupeReset();
+    if (dedupedCues.has(resolvedName)) {
+      return makeResult({
+        status: 'deduped',
+        reason: 'deduped',
+        cue: resolvedName,
+        requestedCue,
+        fallbackCue,
+        contextState: audioContext?.state || 'none',
+        gestureReady: audioContextGestureReady,
+        muted,
+        volume: volumeOverride,
+        timestamp,
+        source,
+      });
+    }
+    dedupedCues.add(resolvedName);
   }
-  dedupedCues.add(resolvedName);
 
   if (muted) {
     return makeResult({
@@ -1240,7 +1260,7 @@ export function playCue(name, opts = {}) {
     if (!audioContextGestureReady) {
       return makeResult({
         status: 'not-ready',
-        reason: 'gesture-required',
+        reason: 'not_primed',
         cue: resolvedName,
         requestedCue,
         fallbackCue,
@@ -1296,7 +1316,6 @@ export function playCue(name, opts = {}) {
   try {
     const sourceNode = ctx.createBufferSource();
     const gainNode = ctx.createGain();
-    const cueConfig = AUDIO_CUE_SETTINGS[resolvedName];
     const cueVolume = volumeOverride ?? clampNumber(cueConfig?.volume, 0.2, 0, 1);
     gainNode.gain.value = cueVolume;
     sourceNode.buffer = buffer;
