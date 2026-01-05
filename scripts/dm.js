@@ -1,7 +1,6 @@
 import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
-import { verifyDmCredential, upsertDmCredentialPin, getDmCredential } from './dm-pin.js';
-import { show, hide, openDmAuthModal } from './modal.js';
-import { dmIsUnlocked, dmLock, getDmUsername } from './dm-auth.js';
+import { show, hide } from './modal.js';
+import { dmLock } from './dm-auth.js';
 import {
   listMiniGames,
   getMiniGame,
@@ -19,7 +18,17 @@ import {
   areMiniGamesBlocked,
   onMiniGamesBlocked,
 } from './mini-games.js';
-import { isSignedIn, onAuthStateChange } from './auth.js';
+import {
+  createDmAccountWithEmailPassword,
+  getAuthState,
+  initFirebaseAuth,
+  isSignedIn,
+  onAuthStateChange,
+  onAuthStateChanged,
+  readFirestoreUserProfile,
+  signInWithEmailPassword,
+  signOut,
+} from './auth.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
@@ -1040,12 +1049,9 @@ function initDMLogin(){
   const miniGamesBtn = document.getElementById('dm-tools-mini-games');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
-  const loginUsername = document.getElementById('dm-login-username-login')
-    || document.getElementById('dm-login-username');
-  const loginPin = document.getElementById('dm-login-password-login')
-    || document.getElementById('dm-login-pin');
-  const loginSubmit = document.getElementById('dm-login-submit-login')
-    || document.getElementById('dm-login-submit');
+  const loginEmail = document.getElementById('dm-login-email');
+  const loginPassword = document.getElementById('dm-login-password');
+  const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
@@ -1059,36 +1065,20 @@ function initDMLogin(){
     }
   });
   const loginActionButtons = loginModal ? Array.from(loginModal.querySelectorAll('[data-login-action]')) : [];
-  const loginSetPinTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'start-create');
-  const loginResetTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'start-reset');
-  const loginForgotTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'forgot');
+  const loginRegisterTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'start-register');
   const loginBackToLoginTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'back-to-login');
-  const loginBackToCreateTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'back-to-create');
-  const loginBackToResetTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'back-to-reset');
-  const loginCreateSubmit = document.getElementById('dm-login-create-submit');
-  const loginConfirmSubmit = document.getElementById('dm-login-confirm-submit');
-  const loginNewPin = document.getElementById('dm-login-new-pin');
-  const loginNewUsername = document.getElementById('dm-login-new-username');
-  const loginConfirmPin = document.getElementById('dm-login-confirm-pin');
-  const loginResetUsername = document.getElementById('dm-login-reset-username');
-  const loginResetPin = document.getElementById('dm-login-reset-pin');
-  const loginResetSubmit = document.getElementById('dm-login-reset-submit');
+  const registerSubmit = document.getElementById('dm-register-submit');
+  const registerEmail = document.getElementById('dm-register-email');
+  const registerPassword = document.getElementById('dm-register-password');
+  const registerConfirm = document.getElementById('dm-register-confirm');
+  const registerCode = document.getElementById('dm-register-code');
+  const registerDisplayName = document.getElementById('dm-register-display-name');
   const loginErrorMessage = loginModal ? loginModal.querySelector('[data-login-error]') : null;
   const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
-  const loginConfirmDescription = loginModal ? loginModal.querySelector('[data-login-confirm-description]') : null;
-  const loginConfirmSummary = loginModal ? loginModal.querySelector('[data-login-confirm-summary]') : null;
   const LOGIN_VIEW_LOGIN = 'login';
-  const LOGIN_VIEW_CREATE = 'create';
-  const LOGIN_VIEW_CONFIRM = 'confirm';
-  const LOGIN_VIEW_RESET = 'reset';
-  const LOGIN_VIEW_RECOVERY = 'recovery';
-  const LOGIN_FLOW_MODE_CREATE = 'create';
-  const LOGIN_FLOW_MODE_RESET = 'reset';
+  const LOGIN_VIEW_REGISTER = 'register';
   const loginFlowState = {
     currentView: LOGIN_VIEW_LOGIN,
-    draftPin: '',
-    draftUsername: '',
-    mode: null,
   };
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = loginWaitMessageDefault;
@@ -1169,71 +1159,13 @@ function initDMLogin(){
     loginErrorMessage.hidden = !message;
   }
 
-  function setConfirmViewMode(mode) {
-    loginFlowState.mode = typeof mode === 'string' ? mode : null;
-    if (loginConfirmDescription) {
-      if (mode === LOGIN_FLOW_MODE_RESET) {
-        loginConfirmDescription.textContent = 'Confirm the new PIN for your DM profile.';
-      } else {
-        loginConfirmDescription.textContent = 'Re-enter the PIN to confirm your DM profile.';
-      }
-    }
-    if (Array.isArray(loginBackToCreateTriggers)) {
-      loginBackToCreateTriggers.forEach(btn => {
-        if (!btn) return;
-        const isVisible = mode === LOGIN_FLOW_MODE_CREATE;
-        btn.hidden = !isVisible;
-        if (isVisible) {
-          btn.setAttribute('aria-hidden', 'false');
-        } else {
-          btn.setAttribute('aria-hidden', 'true');
-        }
-      });
-    }
-    if (Array.isArray(loginBackToResetTriggers)) {
-      loginBackToResetTriggers.forEach(btn => {
-        if (!btn) return;
-        const isVisible = mode === LOGIN_FLOW_MODE_RESET;
-        btn.hidden = !isVisible;
-        if (isVisible) {
-          btn.setAttribute('aria-hidden', 'false');
-        } else {
-          btn.setAttribute('aria-hidden', 'true');
-        }
-      });
-    }
-    const username = loginFlowState.draftUsername ? sanitizeDmUsername(loginFlowState.draftUsername) : '';
-    if (loginConfirmSummary) {
-      if (username) {
-        loginConfirmSummary.hidden = false;
-        loginConfirmSummary.textContent = `Username: ${username}`;
-      } else {
-        loginConfirmSummary.hidden = true;
-        loginConfirmSummary.textContent = '';
-      }
-    }
-    if (loginConfirmSubmit) {
-      loginConfirmSubmit.textContent = mode === LOGIN_FLOW_MODE_RESET ? 'Update Profile' : 'Save Profile';
-    }
-  }
-
   function getDefaultFocusForView(view) {
-    if (view === LOGIN_VIEW_CREATE) {
-      if (loginNewUsername && !loginNewUsername.value) return loginNewUsername;
-      if (loginNewPin) return loginNewPin;
-    } else if (view === LOGIN_VIEW_RESET) {
-      if (loginResetUsername && !loginResetUsername.value) return loginResetUsername;
-      if (loginResetPin) return loginResetPin;
-    } else if (view === LOGIN_VIEW_CONFIRM) {
-      if (loginConfirmPin) return loginConfirmPin;
-    } else if (view === LOGIN_VIEW_RECOVERY) {
-      const recoveryView = getLoginViewTarget(LOGIN_VIEW_RECOVERY);
-      if (recoveryView) {
-        const button = recoveryView.querySelector('[data-login-action="back-to-login"]');
-        if (button) return button;
-      }
+    if (view === LOGIN_VIEW_REGISTER) {
+      if (registerEmail && !registerEmail.value) return registerEmail;
+      if (registerPassword) return registerPassword;
+      return registerConfirm;
     }
-    return loginUsername || loginPin;
+    return loginEmail || loginPassword;
   }
 
   function setLoginView(nextView, { focus = true } = {}) {
@@ -1245,15 +1177,8 @@ function initDMLogin(){
       node.hidden = !isActive;
       node.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    if (resolved === LOGIN_VIEW_CONFIRM) {
-      setConfirmViewMode(loginFlowState.mode);
-    } else {
-      setConfirmViewMode(null);
-      clearLoginError();
-    }
-    if (resolved !== LOGIN_VIEW_LOGIN) {
-      setLoginWaitMessage('');
-    }
+    clearLoginError();
+    if (resolved !== LOGIN_VIEW_LOGIN) setLoginWaitMessage('');
     dispatchLoginEvent('dm-login:view-change', { view: resolved });
     if (focus) {
       queueLoginFocus(getDefaultFocusForView(resolved));
@@ -1261,223 +1186,21 @@ function initDMLogin(){
   }
 
   function resetLoginFlow({ focus = false } = {}) {
-    loginFlowState.draftPin = '';
-    loginFlowState.draftUsername = '';
-    loginFlowState.mode = null;
-    if (loginNewUsername) loginNewUsername.value = '';
-    if (loginNewPin) loginNewPin.value = '';
-    if (loginResetUsername) loginResetUsername.value = '';
-    if (loginResetPin) loginResetPin.value = '';
-    if (loginConfirmPin) loginConfirmPin.value = '';
-    setConfirmViewMode(null);
+    if (registerEmail) registerEmail.value = '';
+    if (registerPassword) registerPassword.value = '';
+    if (registerConfirm) registerConfirm.value = '';
+    if (registerCode) registerCode.value = '';
+    if (registerDisplayName) registerDisplayName.value = '';
     clearLoginError();
     setLoginView(LOGIN_VIEW_LOGIN, { focus });
   }
 
-  function showCreatePinView({ preserveDraft = false } = {}) {
-    if (!preserveDraft) {
-      loginFlowState.draftPin = '';
-      loginFlowState.draftUsername = '';
-      if (loginNewUsername) {
-        const existing = sanitizeDmUsername(loginUsername?.value || '');
-        loginNewUsername.value = existing;
-      }
-      if (loginNewPin) loginNewPin.value = '';
-    } else {
-      if (loginNewUsername && !loginNewUsername.value) {
-        loginNewUsername.value = loginFlowState.draftUsername;
-      }
-      if (loginNewPin && !loginNewPin.value) {
-        loginNewPin.value = loginFlowState.draftPin;
-      }
-    }
-    if (loginConfirmPin) {
-      loginConfirmPin.value = '';
-    }
-    setConfirmViewMode(null);
-    clearLoginError();
-    setLoginView(LOGIN_VIEW_CREATE);
-  }
-
-  function showResetProfileView({ preserveDraft = false } = {}) {
-    if (!preserveDraft) {
-      loginFlowState.draftPin = '';
-      loginFlowState.draftUsername = '';
-      if (loginResetUsername) {
-        const existing = sanitizeDmUsername(loginUsername?.value || '');
-        loginResetUsername.value = existing;
-      }
-      if (loginResetPin) loginResetPin.value = '';
-    } else {
-      if (loginResetUsername && !loginResetUsername.value) {
-        loginResetUsername.value = loginFlowState.draftUsername;
-      }
-      if (loginResetPin && !loginResetPin.value) {
-        loginResetPin.value = loginFlowState.draftPin;
-      }
-    }
-    if (loginConfirmPin) {
-      loginConfirmPin.value = '';
-    }
-    setConfirmViewMode(null);
-    clearLoginError();
-    setLoginView(LOGIN_VIEW_RESET);
-  }
-
-  function startProfileConfirmationFlow(mode) {
-    const resolvedMode = mode === LOGIN_FLOW_MODE_RESET ? LOGIN_FLOW_MODE_RESET : LOGIN_FLOW_MODE_CREATE;
-    const usernameInput = resolvedMode === LOGIN_FLOW_MODE_RESET ? loginResetUsername : loginNewUsername;
-    const pinInput = resolvedMode === LOGIN_FLOW_MODE_RESET ? loginResetPin : loginNewPin;
-    if (!usernameInput || !pinInput) {
-      loginFlowState.draftUsername = '';
-      loginFlowState.draftPin = '';
-      loginFlowState.mode = resolvedMode;
-      if (loginConfirmPin) loginConfirmPin.value = '';
-      setConfirmViewMode(resolvedMode);
-      setLoginView(LOGIN_VIEW_CONFIRM);
-      return;
-    }
-    const username = sanitizeDmUsername(usernameInput.value);
-    const pin = sanitizeDmPin(pinInput.value);
-    usernameInput.value = username;
-    pinInput.value = pin;
-    if (!isValidDmUsername(username)) {
-      showLoginError('Enter a username between 2 and 32 characters.');
-      queueLoginFocus(usernameInput);
-      return;
-    }
-    if (!isValidDmPinFormat(pin)) {
-      showLoginError('Enter a 4-digit PIN.');
-      queueLoginFocus(pinInput);
-      return;
-    }
-    loginFlowState.draftUsername = username;
-    loginFlowState.draftPin = pin;
-    loginFlowState.mode = resolvedMode;
-    if (loginConfirmPin) {
-      loginConfirmPin.value = '';
-    }
-    setConfirmViewMode(resolvedMode);
-    clearLoginError();
-    setLoginView(LOGIN_VIEW_CONFIRM);
-  }
-
-  async function completePinCreation() {
-    const candidate = sanitizeDmPin(loginConfirmPin?.value || '');
-    if (!isValidDmPinFormat(candidate)) {
-      if (loginConfirmPin) {
-        loginConfirmPin.value = candidate;
-        queueLoginFocus(loginConfirmPin);
-      }
-      showLoginError('Enter a 4-digit PIN.');
-      return;
-    }
-    if (candidate !== loginFlowState.draftPin) {
-      showLoginError('PINs do not match. Try again.');
-      if (loginConfirmPin && typeof loginConfirmPin.select === 'function') {
-        try {
-          loginConfirmPin.select();
-        } catch {
-          /* ignore */
-        }
-      }
-      queueLoginFocus(loginConfirmPin);
-      return;
-    }
-    const finalPin = candidate;
-    const finalUsername = sanitizeDmUsername(loginFlowState.draftUsername || '');
-    const mode = loginFlowState.mode || LOGIN_FLOW_MODE_CREATE;
-    if (!finalUsername) {
-      showLoginError('Enter a username between 2 and 32 characters.');
-      queueLoginFocus(loginConfirmPin);
-      return;
-    }
-    if (loginConfirmSubmit) {
-      loginConfirmSubmit.disabled = true;
-      loginConfirmSubmit.setAttribute('aria-disabled', 'true');
-    }
-    try {
-      if (mode === LOGIN_FLOW_MODE_CREATE) {
-        setLoginWaitMessage('Checking username...');
-        let existingRecord = null;
-        try {
-          existingRecord = await getDmCredential(finalUsername, { forceRefresh: true });
-        } catch (availabilityError) {
-          console.error('Failed to verify DM username availability', availabilityError);
-          showLoginError('Unable to verify username availability. Check your connection and try again.');
-          queueLoginFocus(loginConfirmPin);
-          return;
-        }
-        if (existingRecord) {
-          if (loginConfirmPin) {
-            loginConfirmPin.value = '';
-          }
-          setLoginView(LOGIN_VIEW_CREATE, { focus: false });
-          showLoginError('That DM username is already registered. Choose another name.');
-          if (loginNewUsername) {
-            loginNewUsername.value = finalUsername;
-            queueLoginFocus(loginNewUsername);
-          }
-          return;
-        }
-      }
-      setLoginWaitMessage('Saving PIN...');
-      const record = await upsertDmCredentialPin(finalUsername, finalPin);
-      dispatchLoginEvent('dm-login:set-pin', { username: finalUsername, pin: finalPin, mode, record });
-      resetLoginFlow({ focus: false });
-      if (loginUsername) {
-        loginUsername.value = finalUsername;
-      }
-      if (loginPin) {
-        loginPin.value = finalPin;
-      }
-      clearLoginError();
-      setLoginView(LOGIN_VIEW_LOGIN, { focus: true });
-      try {
-        toast('DM PIN saved', 'success');
-      } catch { /* ignore */ }
-    } catch (error) {
-      console.error('Failed to save DM credential', error);
-      showLoginError('Unable to save PIN. Check your connection and try again.');
-      if (loginConfirmPin) {
-        loginConfirmPin.value = '';
-        queueLoginFocus(loginConfirmPin);
-      }
-    } finally {
-      setLoginWaitMessage('');
-      if (loginConfirmSubmit) {
-        loginConfirmSubmit.disabled = false;
-        loginConfirmSubmit.removeAttribute('aria-disabled');
-      }
-    }
-  }
-
-  function startRecoveryFlow() {
-    dispatchLoginEvent('dm-login:forgot-pin', { view: LOGIN_VIEW_RECOVERY });
-    setLoginView(LOGIN_VIEW_RECOVERY);
-  }
-
-  if (loginSetPinTriggers.length > 0) {
-    loginSetPinTriggers.forEach(btn => {
+  if (loginRegisterTriggers.length > 0) {
+    loginRegisterTriggers.forEach(btn => {
       btn?.addEventListener('click', event => {
         try { event?.preventDefault?.(); } catch { /* ignore */ }
-        showCreatePinView();
-      });
-    });
-  }
-  if (loginResetTriggers.length > 0) {
-    loginResetTriggers.forEach(btn => {
-      btn?.addEventListener('click', event => {
-        try { event?.preventDefault?.(); } catch { /* ignore */ }
-        showResetProfileView();
-      });
-    });
-  }
-  if (loginForgotTriggers.length > 0) {
-    loginForgotTriggers.forEach(btn => {
-      btn?.addEventListener('click', event => {
-        try { event?.preventDefault?.(); } catch { /* ignore */ }
-        startRecoveryFlow();
+        clearLoginError();
+        setLoginView(LOGIN_VIEW_REGISTER);
       });
     });
   }
@@ -1489,82 +1212,174 @@ function initDMLogin(){
       });
     });
   }
-  if (loginBackToCreateTriggers.length > 0) {
-    loginBackToCreateTriggers.forEach(btn => {
-      btn?.addEventListener('click', event => {
-        try { event?.preventDefault?.(); } catch { /* ignore */ }
-        showCreatePinView({ preserveDraft: true });
-      });
-    });
-  }
-  if (loginBackToResetTriggers.length > 0) {
-    loginBackToResetTriggers.forEach(btn => {
-      btn?.addEventListener('click', event => {
-        try { event?.preventDefault?.(); } catch { /* ignore */ }
-        showResetProfileView({ preserveDraft: true });
-      });
-    });
-  }
-  if (loginCreateSubmit) {
-    loginCreateSubmit.addEventListener('click', event => {
-      try { event?.preventDefault?.(); } catch { /* ignore */ }
-      startProfileConfirmationFlow(LOGIN_FLOW_MODE_CREATE);
-    });
-  }
-  if (loginResetSubmit) {
-    loginResetSubmit.addEventListener('click', event => {
-      try { event?.preventDefault?.(); } catch { /* ignore */ }
-      startProfileConfirmationFlow(LOGIN_FLOW_MODE_RESET);
-    });
-  }
-  if (loginConfirmSubmit) {
-    loginConfirmSubmit.addEventListener('click', event => {
-      try { event?.preventDefault?.(); } catch { /* ignore */ }
-      completePinCreation();
-    });
-  }
-  if (loginNewUsername) {
-    loginNewUsername.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        try { event.preventDefault(); } catch { /* ignore */ }
-        startProfileConfirmationFlow(LOGIN_FLOW_MODE_CREATE);
-      }
-    });
-  }
-  if (loginNewPin) {
-    loginNewPin.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        try { event.preventDefault(); } catch { /* ignore */ }
-        startProfileConfirmationFlow(LOGIN_FLOW_MODE_CREATE);
-      }
-    });
-  }
-  if (loginResetUsername) {
-    loginResetUsername.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        try { event.preventDefault(); } catch { /* ignore */ }
-        startProfileConfirmationFlow(LOGIN_FLOW_MODE_RESET);
-      }
-    });
-  }
-  if (loginResetPin) {
-    loginResetPin.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        try { event.preventDefault(); } catch { /* ignore */ }
-        startProfileConfirmationFlow(LOGIN_FLOW_MODE_RESET);
-      }
-    });
-  }
-  if (loginConfirmPin) {
-    loginConfirmPin.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        try { event.preventDefault(); } catch { /* ignore */ }
-        completePinCreation();
-      }
-    });
-  }
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
+
+  const dmAccessCodeConfig = typeof window !== 'undefined'
+    ? (window.__CCCG_DM_ACCESS_CODE__ || window.CCCG_DM_ACCESS_CODE || '')
+    : '';
+  const dmAccessHashConfig = typeof window !== 'undefined'
+    ? (window.__CCCG_DM_ACCESS_HASH__ || window.CCCG_DM_ACCESS_HASH || '')
+    : '';
+  const dmAccessCode = typeof dmAccessCodeConfig === 'string' ? dmAccessCodeConfig.trim() : '';
+  const dmAccessHash = typeof dmAccessHashConfig === 'string' ? dmAccessHashConfig.trim().toLowerCase() : '';
+
+  function hashAccessCode(value) {
+    const input = typeof value === 'string' ? value : String(value ?? '');
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < input.length; i += 1) {
+      hash ^= input.charCodeAt(i);
+      hash = (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
+  }
+
+  function validateAccessCode(value) {
+    const code = typeof value === 'string' ? value.trim() : '';
+    if (!code) {
+      return { ok: false, message: 'Enter the DM access code.' };
+    }
+    if (dmAccessCode) {
+      return { ok: code === dmAccessCode, message: 'Invalid DM access code.' };
+    }
+    if (!dmAccessHash) {
+      return { ok: false, message: 'DM access code is not configured.' };
+    }
+    const hashed = hashAccessCode(code);
+    return { ok: hashed.toLowerCase() === dmAccessHash, message: 'Invalid DM access code.' };
+  }
+
+  async function verifySignedInDmProfile() {
+    const { uid } = getAuthState();
+    if (!uid) return false;
+    const profile = await readFirestoreUserProfile(uid);
+    return !!(profile?.isDm === true || profile?.role === 'dm');
+  }
+
+  async function handleLoginSubmit(event) {
+    try { event?.preventDefault?.(); } catch { /* ignore */ }
+    clearLoginError();
+    const remaining = getLoginCooldownRemainingMs();
+    if (remaining > 0) {
+      startLoginCooldownCountdown(remaining);
+      notifyLoginCooldown(remaining);
+      return;
+    }
+    const email = loginEmail?.value?.trim() || '';
+    const password = loginPassword?.value || '';
+    if (!email || !password) {
+      showLoginError('Enter your DM email and password.');
+      queueLoginFocus(loginEmail || loginPassword);
+      return;
+    }
+    lockLoginControls();
+    setLoginWaitMessage('Signing in...');
+    let success = false;
+    try {
+      await initFirebaseAuth();
+      await signInWithEmailPassword(email, password);
+      const isDmProfile = await verifySignedInDmProfile();
+      if (!isDmProfile) {
+        await signOut();
+        throw new Error('This account does not have DM access.');
+      }
+      success = true;
+      dispatchLoginEvent('dm-login:success', { email });
+      closeLogin();
+      toast('DM login successful.', 'success');
+    } catch (error) {
+      console.error('Failed to sign in DM', error);
+      dispatchLoginEvent('dm-login:failure', { error });
+      showLoginError(error?.message || 'Unable to sign in.');
+    } finally {
+      setLoginWaitMessage('');
+      if (success || getLoginCooldownRemainingMs() <= 0) {
+        clearLoginCooldownUI();
+      }
+    }
+  }
+
+  async function handleRegisterSubmit(event) {
+    try { event?.preventDefault?.(); } catch { /* ignore */ }
+    clearLoginError();
+    const email = registerEmail?.value?.trim() || '';
+    const password = registerPassword?.value || '';
+    const confirm = registerConfirm?.value || '';
+    const accessCode = registerCode?.value || '';
+    const displayName = registerDisplayName?.value?.trim() || '';
+    if (!email) {
+      showLoginError('Enter a DM email address.');
+      queueLoginFocus(registerEmail);
+      return;
+    }
+    if (!password) {
+      showLoginError('Enter a DM password.');
+      queueLoginFocus(registerPassword);
+      return;
+    }
+    if (password !== confirm) {
+      showLoginError('Passwords do not match.');
+      queueLoginFocus(registerConfirm);
+      return;
+    }
+    const accessCheck = validateAccessCode(accessCode);
+    if (!accessCheck.ok) {
+      showLoginError(accessCheck.message);
+      queueLoginFocus(registerCode);
+      return;
+    }
+    if (registerSubmit) {
+      registerSubmit.disabled = true;
+      registerSubmit.setAttribute('aria-disabled', 'true');
+    }
+    setLoginWaitMessage('Registering DM account...');
+    try {
+      await initFirebaseAuth();
+      await createDmAccountWithEmailPassword({ email, password, displayName });
+      dispatchLoginEvent('dm-login:success', { email, mode: 'register' });
+      closeLogin();
+      toast('DM account created.', 'success');
+    } catch (error) {
+      console.error('Failed to register DM', error);
+      dispatchLoginEvent('dm-login:failure', { error });
+      showLoginError(error?.message || 'Unable to register DM account.');
+    } finally {
+      setLoginWaitMessage('');
+      if (registerSubmit) {
+        registerSubmit.disabled = false;
+        registerSubmit.removeAttribute('aria-disabled');
+      }
+    }
+  }
+
+  if (loginSubmit) {
+    loginSubmit.addEventListener('click', handleLoginSubmit);
+  }
+  if (loginEmail) {
+    loginEmail.addEventListener('keydown', event => {
+      if (event?.key === 'Enter') {
+        handleLoginSubmit(event);
+      }
+    });
+  }
+  if (loginPassword) {
+    loginPassword.addEventListener('keydown', event => {
+      if (event?.key === 'Enter') {
+        handleLoginSubmit(event);
+      }
+    });
+  }
+  if (registerSubmit) {
+    registerSubmit.addEventListener('click', handleRegisterSubmit);
+  }
+  [registerEmail, registerPassword, registerConfirm, registerCode].forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', event => {
+      if (event?.key === 'Enter') {
+        handleRegisterSubmit(event);
+      }
+    });
+  });
 
   function parseStoredNumber(value){
     if (typeof value !== 'string' || !value) return 0;
@@ -1697,13 +1512,13 @@ function initDMLogin(){
     if (!loginModal) return;
     const message = formatLoginCooldownMessage(remainingMs);
     setLoginWaitMessage(message);
-    if (loginUsername) {
-      loginUsername.disabled = true;
-      loginUsername.setAttribute('aria-disabled', 'true');
+    if (loginEmail) {
+      loginEmail.disabled = true;
+      loginEmail.setAttribute('aria-disabled', 'true');
     }
-    if (loginPin) {
-      loginPin.disabled = true;
-      loginPin.setAttribute('aria-disabled', 'true');
+    if (loginPassword) {
+      loginPassword.disabled = true;
+      loginPassword.setAttribute('aria-disabled', 'true');
     }
     if (loginSubmit) {
       loginSubmit.disabled = true;
@@ -1714,13 +1529,13 @@ function initDMLogin(){
   }
 
   function lockLoginControls(){
-    if (loginUsername) {
-      loginUsername.disabled = true;
-      loginUsername.setAttribute('aria-disabled', 'true');
+    if (loginEmail) {
+      loginEmail.disabled = true;
+      loginEmail.setAttribute('aria-disabled', 'true');
     }
-    if (loginPin) {
-      loginPin.disabled = true;
-      loginPin.setAttribute('aria-disabled', 'true');
+    if (loginPassword) {
+      loginPassword.disabled = true;
+      loginPassword.setAttribute('aria-disabled', 'true');
     }
     if (loginSubmit) {
       loginSubmit.disabled = true;
@@ -1729,13 +1544,13 @@ function initDMLogin(){
   }
 
   function clearLoginCooldownUI(){
-    if (loginUsername) {
-      loginUsername.disabled = false;
-      loginUsername.removeAttribute('aria-disabled');
+    if (loginEmail) {
+      loginEmail.disabled = false;
+      loginEmail.removeAttribute('aria-disabled');
     }
-    if (loginPin) {
-      loginPin.disabled = false;
-      loginPin.removeAttribute('aria-disabled');
+    if (loginPassword) {
+      loginPassword.disabled = false;
+      loginPassword.removeAttribute('aria-disabled');
     }
     if (loginSubmit) {
       loginSubmit.disabled = false;
@@ -8347,13 +8162,6 @@ function initDMLogin(){
     closeRewards();
   }
 
-  if (loginPin) {
-    loginPin.type = 'password';
-    loginPin.autocomplete = 'one-time-code';
-    loginPin.inputMode = 'numeric';
-    loginPin.pattern = '[0-9]*';
-  }
-
   function applyNotificationContent(node, entry) {
     if (!node) return;
     const resolvedValue = entry?.resolved ? '1' : '0';
@@ -9064,11 +8872,7 @@ function initDMLogin(){
   drainPendingNotifications();
 
   function isLoggedIn(){
-    try {
-      return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1';
-    } catch {
-      return false;
-    }
+    return !!getAuthState().isDm;
   }
 
   function setLoggedIn(){
@@ -9210,6 +9014,15 @@ function initDMLogin(){
     }
   }
 
+  onAuthStateChanged(({ isDm } = {}) => {
+    updateButtons();
+    if (isDm) {
+      initTools();
+    } else {
+      closeMenu();
+    }
+  });
+
   function logDmInitError(error) {
     console.error('Failed to init DM tools', error);
     try {
@@ -9236,19 +9049,42 @@ function initDMLogin(){
   function openLogin(){
     if(!loginModal) return;
     show('dm-login-modal');
-    if (loginUsername) {
-      loginUsername.value = sanitizeDmUsername(loginUsername.value || '');
-    }
-    if (loginPin) {
-      loginPin.value='';
-    }
+    dispatchLoginEvent('dm-login:opened');
     queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
   }
+
+  let loginCloseRequested = false;
 
   function closeLogin(){
     if(!loginModal) return;
     resetLoginFlow({ focus: false });
     hide('dm-login-modal');
+    loginCloseRequested = true;
+    dispatchLoginEvent('dm-login:closed');
+  }
+
+  if (loginClose) {
+    loginClose.addEventListener('click', event => {
+      try { event?.preventDefault?.(); } catch { /* ignore */ }
+      closeLogin();
+    });
+  }
+
+  if (loginModal) {
+    loginModal.addEventListener('click', event => {
+      if (event.target === loginModal) {
+        closeLogin();
+      }
+    });
+    loginModal.addEventListener('transitionend', event => {
+      if (event.target !== loginModal) return;
+      if (!loginModal.classList.contains('hidden')) return;
+      if (loginCloseRequested) {
+        loginCloseRequested = false;
+        return;
+      }
+      dispatchLoginEvent('dm-login:closed');
+    });
   }
 
   function requireLogin(){
@@ -9259,49 +9095,27 @@ function initDMLogin(){
         resolve(true);
       };
 
-      const startInteractiveFlow = () => {
-        if (dmIsUnlocked()) {
-          onLoginSuccess({ username: getDmUsername() });
-          completeWithActiveSession();
-          return;
-        }
-        const opened = openDmAuthModal({
-          onAuthed: () => {
-            onLoginSuccess({ username: getDmUsername() });
-            completeWithActiveSession();
-          },
-          onClosed: () => {
-            reject(new Error('cancel'));
-          },
-        });
-        if (!opened) {
-          reject(new Error('DM auth unavailable'));
-        }
-      };
-
       if (isLoggedIn()) {
         completeWithActiveSession();
         return;
       }
 
-      const storedPersistent = loadPersistentSessionRecord();
-      if (!storedPersistent || !storedPersistent.refreshToken) {
-        startInteractiveFlow();
-        return;
+      const onAuth = ({ isDm }) => {
+        if (!isDm) return;
+        if (typeof unsubscribe === 'function') unsubscribe();
+        completeWithActiveSession();
+      };
+      const unsubscribe = onAuthStateChanged(onAuth);
+      const onClosed = () => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+        if (!isLoggedIn()) {
+          reject(new Error('cancel'));
+        }
+      };
+      if (loginModal) {
+        loginModal.addEventListener('dm-login:closed', onClosed, { once: true });
       }
-
-      attemptPersistentSessionRestore({ silent: false })
-        .then(() => {
-          if (isLoggedIn()) {
-            completeWithActiveSession();
-            return;
-          }
-          startInteractiveFlow();
-        })
-        .catch(err => {
-          console.warn('Failed to restore DM persistent session', err);
-          startInteractiveFlow();
-        });
+      openLogin();
     });
   }
 
@@ -9321,6 +9135,9 @@ function initDMLogin(){
     invalidatePersistentSession({ reason: cause || 'logout' });
     dmLock();
     clearLoggedIn();
+    signOut().catch(err => {
+      console.warn('Failed to sign out DM', err);
+    });
     teardownPlayerBroadcastChannels();
     teardownMiniGameSubscription();
     closeMiniGames();
@@ -11516,10 +11333,6 @@ function initDMLogin(){
       logout();
     });
   }
-
-  attemptPersistentSessionRestore({ silent: true }).catch(err => {
-    console.warn('Failed to bootstrap DM persistent session', err);
-  });
 
   updateButtons();
   if (isLoggedIn()) initTools();

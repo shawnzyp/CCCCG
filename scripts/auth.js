@@ -427,6 +427,33 @@ function maybeShowAuthDomainWarning() {
   }
 }
 
+function getFirestoreProfileRef(firestore, uid) {
+  if (!firestore || !uid) return null;
+  return firestore.doc(`users/${uid}/profile`);
+}
+
+export async function readFirestoreUserProfile(uid) {
+  if (!uid) return null;
+  const firestore = await getFirebaseFirestore();
+  const profileRef = getFirestoreProfileRef(firestore, uid);
+  if (!profileRef) return null;
+  const snapshot = await profileRef.get();
+  const exists = typeof snapshot?.exists === 'function' ? snapshot.exists() : snapshot?.exists;
+  if (!exists) return null;
+  const profile = typeof snapshot?.data === 'function' ? snapshot.data() : snapshot?.data;
+  return profile && typeof profile === 'object' ? profile : null;
+}
+
+export async function writeFirestoreUserProfile(uid, profile) {
+  if (!uid) throw new Error('User id required');
+  const firestore = await getFirebaseFirestore();
+  const profileRef = getFirestoreProfileRef(firestore, uid);
+  if (!profileRef) throw new Error('Firestore profile reference unavailable');
+  const payload = profile && typeof profile === 'object' ? profile : {};
+  await profileRef.set(payload, { merge: true });
+  return true;
+}
+
 export function renderAuthDomainDiagnostics() {
   maybeShowAuthDomainWarning();
 }
@@ -621,15 +648,12 @@ async function initializeAuthInternal() {
       }
     });
     let isDm = false;
-    if (user && typeof user.getIdTokenResult === 'function') {
+    if (user?.uid) {
       try {
-        const tokenResult = await user.getIdTokenResult(true);
-        isDm = !!(
-          tokenResult?.claims?.token?.admin === true ||
-          tokenResult?.claims?.admin === true
-        );
+        const profile = await readFirestoreUserProfile(user.uid);
+        isDm = !!(profile?.isDm === true || profile?.role === 'dm');
       } catch (err) {
-        console.warn('Failed to read auth claims', err);
+        console.warn('Failed to read DM profile from Firestore', err);
       }
     }
     authState = {
@@ -878,6 +902,23 @@ export async function signInWithUsernamePassword(username, password) {
   return credential;
 }
 
+export async function signInWithEmailPassword(email, password) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('DM sign-in requires Firebase auth.');
+  }
+  const auth = await initFirebaseAuth();
+  const resolvedEmail = typeof email === 'string' ? email.trim() : '';
+  if (!resolvedEmail) {
+    throw new Error('Email is required.');
+  }
+  const resolvedPassword = typeof password === 'string' ? password : '';
+  if (!resolvedPassword) {
+    throw new Error('Password is required.');
+  }
+  return auth.signInWithEmailAndPassword(resolvedEmail, resolvedPassword);
+}
+
 export async function createAccountWithUsernamePassword(username, password) {
   await initFirebaseAuth();
   if (authMode === 'local') {
@@ -931,6 +972,34 @@ export async function createAccountWithUsernamePassword(username, password) {
       throw err;
     }
   }
+  return credential;
+}
+
+export async function createDmAccountWithEmailPassword({ email, password, displayName = '' } = {}) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('DM registration requires Firebase auth.');
+  }
+  const auth = await initFirebaseAuth();
+  const resolvedEmail = typeof email === 'string' ? email.trim() : '';
+  const resolvedPassword = typeof password === 'string' ? password : '';
+  if (!resolvedEmail) {
+    throw new Error('Email is required.');
+  }
+  if (!resolvedPassword) {
+    throw new Error('Password is required.');
+  }
+  const credential = await auth.createUserWithEmailAndPassword(resolvedEmail, resolvedPassword);
+  const uid = credential?.user?.uid || '';
+  if (!uid) throw new Error('DM registration failed.');
+  const now = Date.now();
+  await writeFirestoreUserProfile(uid, {
+    role: 'dm',
+    isDm: true,
+    createdAt: now,
+    dmRegisteredAt: now,
+    displayName: typeof displayName === 'string' ? displayName.trim() : '',
+  });
   return credential;
 }
 
