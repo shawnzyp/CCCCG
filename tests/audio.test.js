@@ -75,6 +75,10 @@ describe('audio playback contract', () => {
 
   afterEach(() => {
     cleanupAudioContextMock(originalAudioContext);
+    if (globalThis.localStorage) {
+      globalThis.localStorage.clear();
+    }
+    jest.restoreAllMocks();
     jest.resetModules();
     jest.clearAllMocks();
   });
@@ -129,5 +133,51 @@ describe('audio playback contract', () => {
     expect(typeof notifications.clearToastQueue).toBe('function');
     expect(typeof notifications.playTone).toBe('function');
     expect(typeof notifications.default).toBe('function');
+  });
+
+  test('priming listeners are attached once', async () => {
+    setupAudioContextMock();
+    const addListenerSpy = jest.spyOn(window, 'addEventListener');
+    const { attachAudioGestureListeners } = await import('../scripts/audio.js');
+
+    attachAudioGestureListeners();
+    attachAudioGestureListeners();
+
+    const gestureEvents = addListenerSpy.mock.calls.filter(([eventName]) =>
+      eventName === 'pointerdown' || eventName === 'keydown',
+    );
+    const pointerListeners = gestureEvents.filter(([eventName]) => eventName === 'pointerdown');
+    const keyListeners = gestureEvents.filter(([eventName]) => eventName === 'keydown');
+
+    expect(pointerListeners).toHaveLength(1);
+    expect(keyListeners).toHaveLength(1);
+  });
+
+  test('SFX settings persist to localStorage', async () => {
+    setupAudioContextMock();
+    const { setSfxEnabled, setSfxVolume, getSfxSettings } = await import('../scripts/audio.js');
+
+    setSfxEnabled(false);
+    setSfxVolume(0.4);
+
+    const settings = getSfxSettings();
+    expect(settings.enabled).toBe(false);
+    expect(settings.volume).toBeCloseTo(0.4);
+
+    jest.resetModules();
+    const reloaded = await import('../scripts/audio.js');
+    expect(reloaded.getSfxSettings().enabled).toBe(false);
+    expect(reloaded.getSfxSettings().volume).toBeCloseTo(0.4);
+  });
+
+  test('toast uses playCue integration', async () => {
+    document.body.innerHTML = '<div id="toast"></div>';
+    const notifications = await import('../scripts/notifications.js');
+    const playCueMock = jest.fn(() => ({ ok: true, status: 'played', reason: 'played' }));
+    window.playCue = playCueMock;
+
+    notifications.toast('Hello world', 'success');
+
+    expect(playCueMock).toHaveBeenCalledWith('success', { source: 'toast' });
   });
 });

@@ -285,7 +285,8 @@ function renderToastRequest(request) {
   t.appendChild(bubble);
 
   t.classList.add('show');
-  playCue(toastType, { source: 'toast' });
+  const cuePlayer = getOverrideFunction('playCue', playCue) || playCue;
+  cuePlayer(toastType, { source: 'toast' });
   clearTimeout(toastTimeout);
   ensureToastFocusHandlers();
   const shouldTrap = !(document?.body?.classList?.contains('modal-open'));

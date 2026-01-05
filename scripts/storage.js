@@ -505,9 +505,6 @@ export function listLegacyLocalSaves() {
     const storage = getLocalStorageSafe();
     if (!storage) return [];
     const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!isLegacySaveKey(k)) continue;
     for (let i = 0; i < storage.length; i++) {
       const k = storage.key(i);
       if (!k || !k.startsWith('save:')) continue;

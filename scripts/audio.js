@@ -857,6 +857,8 @@ const AUDIO_CUE_ALIASES = {
 const AUDIO_DEBUG_FLAG = '__CC_AUDIO_DEBUG__';
 const audioScope = typeof window !== 'undefined' ? window : null;
 const audioGlobal = audioScope || (typeof globalThis !== 'undefined' ? globalThis : null);
+const SFX_SETTINGS_STORAGE_KEY = 'cc:sfx-settings';
+const DEFAULT_SFX_SETTINGS = Object.freeze({ enabled: true, volume: 1 });
 
 let audioContext = null;
 const audioCueCache = new Map();
@@ -865,6 +867,7 @@ let audioContextPrimedOnce = false;
 let audioContextGestureReady = false;
 let audioGestureListenersBound = false;
 let audioLifecycleListenersBound = false;
+let cachedSfxSettings = null;
 
 let dedupePending = false;
 const dedupedCues = new Set();
@@ -901,6 +904,65 @@ function logAudioDebug(payload) {
   }
 }
 
+function clampScalar(value, fallback = 1) {
+  const numeric = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.min(Math.max(numeric, 0), 1);
+}
+
+function loadSfxSettings() {
+  if (cachedSfxSettings) return cachedSfxSettings;
+  if (!audioScope || typeof audioScope.localStorage === 'undefined') {
+    cachedSfxSettings = { ...DEFAULT_SFX_SETTINGS };
+    return cachedSfxSettings;
+  }
+  try {
+    const raw = audioScope.localStorage.getItem(SFX_SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      cachedSfxSettings = { ...DEFAULT_SFX_SETTINGS };
+      return cachedSfxSettings;
+    }
+    const parsed = JSON.parse(raw);
+    const enabled = parsed?.enabled !== false;
+    const volume = clampScalar(parsed?.volume, DEFAULT_SFX_SETTINGS.volume);
+    cachedSfxSettings = { enabled, volume };
+    return cachedSfxSettings;
+  } catch {
+    cachedSfxSettings = { ...DEFAULT_SFX_SETTINGS };
+    return cachedSfxSettings;
+  }
+}
+
+function persistSfxSettings(settings) {
+  cachedSfxSettings = { ...settings };
+  if (!audioScope || typeof audioScope.localStorage === 'undefined') return;
+  try {
+    audioScope.localStorage.setItem(SFX_SETTINGS_STORAGE_KEY, JSON.stringify(cachedSfxSettings));
+  } catch {
+    /* noop */
+  }
+}
+
+export function getSfxSettings() {
+  return { ...loadSfxSettings() };
+}
+
+export function setSfxSettings(nextSettings = {}) {
+  const current = loadSfxSettings();
+  const enabled = typeof nextSettings.enabled === 'boolean' ? nextSettings.enabled : current.enabled;
+  const volume = clampScalar(nextSettings.volume, current.volume);
+  const updated = { enabled, volume };
+  persistSfxSettings(updated);
+  return { ...updated };
+}
+
+export function setSfxEnabled(enabled) {
+  return setSfxSettings({ enabled: Boolean(enabled) });
+}
+
+export function setSfxVolume(volume) {
+  return setSfxSettings({ volume });
+}
+
 function closeAudioContext(reason = 'pagehide') {
   if (!audioContext || typeof audioContext.close !== 'function') return;
   const ctx = audioContext;
@@ -927,6 +989,19 @@ function bindAudioLifecycleListeners() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         closeAudioContext('hidden');
+        return;
+      }
+      if (
+        document.visibilityState === 'visible'
+        && audioContext
+        && audioContextGestureReady
+        && audioContext.state === 'suspended'
+      ) {
+        try {
+          audioContext.resume?.();
+        } catch {
+          /* noop */
+        }
       }
     });
   }
@@ -1163,6 +1238,7 @@ export function playCue(name, opts = {}) {
   const timestamp = getTimestamp();
   const fallbackCue = opts.fallbackCue;
   const source = opts.source || 'cue';
+  const sfxSettings = loadSfxSettings();
   const muted = Boolean(opts.muted);
   const volumeOverride = typeof opts.volume === 'number' && Number.isFinite(opts.volume)
     ? clampNumber(opts.volume, 0.2, 0, 1)
@@ -1183,6 +1259,38 @@ export function playCue(name, opts = {}) {
       gestureReady: audioContextGestureReady,
       muted,
       volume: volumeOverride,
+      timestamp,
+      source,
+    });
+  }
+
+  if (!sfxSettings.enabled) {
+    return makeResult({
+      status: 'muted',
+      reason: 'sfx_disabled',
+      cue: resolvedName,
+      requestedCue,
+      fallbackCue,
+      contextState: audioContext?.state || 'none',
+      gestureReady: audioContextGestureReady,
+      muted: true,
+      volume: sfxSettings.volume,
+      timestamp,
+      source,
+    });
+  }
+
+  if (sfxSettings.volume <= 0) {
+    return makeResult({
+      status: 'muted',
+      reason: 'volume_zero',
+      cue: resolvedName,
+      requestedCue,
+      fallbackCue,
+      contextState: audioContext?.state || 'none',
+      gestureReady: audioContextGestureReady,
+      muted: true,
+      volume: sfxSettings.volume,
       timestamp,
       source,
     });
@@ -1316,7 +1424,8 @@ export function playCue(name, opts = {}) {
   try {
     const sourceNode = ctx.createBufferSource();
     const gainNode = ctx.createGain();
-    const cueVolume = volumeOverride ?? clampNumber(cueConfig?.volume, 0.2, 0, 1);
+    const baseVolume = volumeOverride ?? clampNumber(cueConfig?.volume, 0.2, 0, 1);
+    const cueVolume = clampNumber(baseVolume * sfxSettings.volume, baseVolume, 0, 1);
     gainNode.gain.value = cueVolume;
     sourceNode.buffer = buffer;
     sourceNode.connect(gainNode).connect(ctx.destination);
@@ -1357,8 +1466,24 @@ export function playTone(type, opts = {}) {
   return playCue(type, { ...opts, source: opts.source || 'tone' });
 }
 
+export function getAudioDiagnostics() {
+  const sfxSettings = loadSfxSettings();
+  return {
+    supported: Boolean(audioScope && (audioScope.AudioContext || audioScope.webkitAudioContext)),
+    contextState: audioContext?.state || 'none',
+    gestureReady: audioContextGestureReady,
+    primed: audioContextPrimedOnce,
+    sfxEnabled: sfxSettings.enabled,
+    sfxVolume: sfxSettings.volume,
+    dedupeSize: dedupedCues.size,
+  };
+}
+
 if (audioGlobal) {
   audioGlobal.ccPlayCue = playCue;
   audioGlobal.playCue = playCue;
   audioGlobal.playTone = playTone;
+  audioGlobal.getAudioDiagnostics = getAudioDiagnostics;
+  audioGlobal.setSfxEnabled = setSfxEnabled;
+  audioGlobal.setSfxVolume = setSfxVolume;
 }

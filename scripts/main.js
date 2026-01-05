@@ -2377,11 +2377,6 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const tickerOpen = tickerDrawer?.getAttribute('data-state') !== 'closed';
   const tickerHeight = tickerOpen && tickerPanel ? tickerPanel.getBoundingClientRect().height : 0;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-  const baseOffset = clamp(viewportHeight * 0.30, 180, 520);
-  const safeTop = getSafeAreaInsetTop();
-  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
-  const launcherRect = playerToolsTabElement.getBoundingClientRect();
-  const launcherWidth = launcherRect.width || 0;
   const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
   const safeTop = getSafeAreaInsetTop();
   const launcherRect = playerToolsTabElement.getBoundingClientRect();
