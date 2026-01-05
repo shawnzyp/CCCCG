@@ -180,4 +180,30 @@ describe('audio playback contract', () => {
 
     expect(playCueMock).toHaveBeenCalledWith('success', { source: 'toast' });
   });
+
+  test('toast honors playTone overrides when playCue is not overridden', async () => {
+    document.body.innerHTML = '<div id="toast"></div>';
+    const originalPlayCue = window.playCue;
+    const originalPlayTone = window.playTone;
+    delete window.playCue;
+    const playToneMock = jest.fn();
+    window.playTone = playToneMock;
+
+    const notifications = await import('../scripts/notifications.js');
+
+    notifications.toast('Hello world', 'success');
+
+    expect(playToneMock).toHaveBeenCalledWith('success', { source: 'toast' });
+
+    if (originalPlayCue === undefined) {
+      delete window.playCue;
+    } else {
+      window.playCue = originalPlayCue;
+    }
+    if (originalPlayTone === undefined) {
+      delete window.playTone;
+    } else {
+      window.playTone = originalPlayTone;
+    }
+  });
 });

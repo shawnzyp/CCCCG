@@ -285,8 +285,7 @@ function renderToastRequest(request) {
   t.appendChild(bubble);
 
   t.classList.add('show');
-  const cuePlayer = getOverrideFunction('playCue', playCue) || playCue;
-  cuePlayer(toastType, { source: 'toast' });
+  playToastCue(toastType);
   clearTimeout(toastTimeout);
   ensureToastFocusHandlers();
   const shouldTrap = !(document?.body?.classList?.contains('modal-open'));
@@ -311,6 +310,26 @@ function renderToastRequest(request) {
     toastTimeout = null;
   }
   dispatchToastEvent('cc:toast-shown', { message, options });
+}
+
+function playToastCue(toastType) {
+  const cueOverride = getOverrideFunction('playCue', playCue);
+  if (cueOverride) {
+    try {
+      return cueOverride(toastType, { source: 'toast' });
+    } catch {
+      return undefined;
+    }
+  }
+  const toneOverride = getOverrideFunction('playTone', playTone);
+  if (toneOverride) {
+    try {
+      return toneOverride(toastType, { source: 'toast' });
+    } catch {
+      return undefined;
+    }
+  }
+  return playCue(toastType, { source: 'toast' });
 }
 
 function realToast(msg, type = 'info') {

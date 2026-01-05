@@ -1479,11 +1479,27 @@ export function getAudioDiagnostics() {
   };
 }
 
+function ensureGlobalFunction(name, fn) {
+  if (!audioGlobal) return;
+  if (typeof audioGlobal[name] === 'function') return;
+  try {
+    audioGlobal[name] = fn;
+  } catch {
+    try {
+      Object.defineProperty(audioGlobal, name, {
+        configurable: true,
+        writable: true,
+        value: fn,
+      });
+    } catch {}
+  }
+}
+
 if (audioGlobal) {
-  audioGlobal.ccPlayCue = playCue;
-  audioGlobal.playCue = playCue;
-  audioGlobal.playTone = playTone;
-  audioGlobal.getAudioDiagnostics = getAudioDiagnostics;
-  audioGlobal.setSfxEnabled = setSfxEnabled;
-  audioGlobal.setSfxVolume = setSfxVolume;
+  ensureGlobalFunction('ccPlayCue', playCue);
+  ensureGlobalFunction('playCue', playCue);
+  ensureGlobalFunction('playTone', playTone);
+  ensureGlobalFunction('getAudioDiagnostics', getAudioDiagnostics);
+  ensureGlobalFunction('setSfxEnabled', setSfxEnabled);
+  ensureGlobalFunction('setSfxVolume', setSfxVolume);
 }
