@@ -21,11 +21,10 @@ import {
 import {
   createDmAccountWithEmailPassword,
   getAuthState,
+  getFirebaseFirestore,
   initFirebaseAuth,
   isSignedIn,
-  onAuthStateChange,
   onAuthStateChanged,
-  readFirestoreUserProfile,
   signInWithEmailPassword,
   signOut,
 } from './auth.js';
@@ -49,18 +48,12 @@ const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const CLOUD_DM_NOTIFICATIONS_PATH = 'dm-notifications';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
-const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
-const DM_LOGIN_AT_KEY = 'dmLoggedInAt';
-const DM_LOGIN_LAST_ACTIVE_KEY = 'dmLoggedInLastActive';
 const DM_LOGIN_FAILURE_COUNT_KEY = 'dmLoginFailureCount';
 const DM_LOGIN_LAST_FAILURE_KEY = 'dmLoginLastFailureAt';
 const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
-const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
-const DM_PERSISTENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const CLOUD_DM_SESSIONS_PATH = 'dm-sessions';
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
@@ -121,7 +114,6 @@ function dmClearInterval(id) {
   }
 }
 
-const DM_PIN_REQUIRED_LENGTH = 4;
 const DM_TOOL_IDS = new Set([
   'tsomf',
   'notifications',
@@ -130,34 +122,6 @@ const DM_TOOL_IDS = new Set([
   'characters',
   'mini-games',
 ]);
-
-function sanitizeDmPin(value) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(Math.trunc(Math.abs(value))).slice(0, DM_PIN_REQUIRED_LENGTH);
-  }
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const digits = value.replace(/\D+/g, '');
-  return digits.slice(0, DM_PIN_REQUIRED_LENGTH);
-}
-
-function isValidDmPinFormat(pin) {
-  return typeof pin === 'string' && pin.length === DM_PIN_REQUIRED_LENGTH && /^\d{4}$/.test(pin);
-}
-
-function sanitizeDmUsername(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value.replace(/\s+/g, ' ').trim();
-}
-
-function isValidDmUsername(candidate) {
-  const normalized = sanitizeDmUsername(candidate);
-  if (!normalized) return false;
-  return normalized.length >= 2 && normalized.length <= 32;
-}
 
 function normalizeDmToolId(value) {
   if (typeof value !== 'string') return null;
@@ -182,203 +146,6 @@ function persistLastDmTool(toolId) {
     localStorage.setItem(DM_LAST_TOOL_KEY, normalized);
   } catch {
     /* ignore */
-  }
-}
-
-async function verifyDmCredentials(credentials) {
-  if (!credentials || typeof credentials !== 'object') {
-    return false;
-  }
-  const username = sanitizeDmUsername(credentials.username);
-  const pin = sanitizeDmPin(credentials.pin);
-  if (!isValidDmUsername(username)) return false;
-  if (!isValidDmPinFormat(pin)) return false;
-  try {
-    return await verifyDmCredential(username, pin);
-  } catch (error) {
-    console.error('Failed to verify DM credentials', error);
-    return false;
-  }
-}
-function parseSessionTimestamp(value) {
-  if (typeof value !== 'string' || !value) return null;
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getSessionTimestamp(key) {
-  try {
-    return parseSessionTimestamp(sessionStorage.getItem(key));
-  } catch {
-    return null;
-  }
-}
-
-function setSessionTimestamp(key, value) {
-  try {
-    sessionStorage.setItem(key, String(value));
-  } catch {
-    /* ignore */
-  }
-}
-
-function clearSessionTimestamp(key) {
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    /* ignore */
-  }
-}
-
-function parsePersistentSessionRecord(raw) {
-  if (typeof raw !== 'string' || !raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const refreshToken = typeof parsed.refreshToken === 'string'
-      ? parsed.refreshToken.trim()
-      : '';
-    if (!refreshToken) return null;
-    const username = typeof parsed.username === 'string'
-      ? sanitizeDmUsername(parsed.username)
-      : '';
-    const issuedAt = Number(parsed.issuedAt);
-    const lastValidatedAt = Number(parsed.lastValidatedAt);
-    return {
-      refreshToken,
-      username,
-      issuedAt: Number.isFinite(issuedAt) ? issuedAt : null,
-      lastValidatedAt: Number.isFinite(lastValidatedAt) ? lastValidatedAt : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function loadPersistentSessionRecord() {
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(DM_PERSISTENT_SESSION_KEY);
-    return parsePersistentSessionRecord(raw);
-  } catch {
-    return null;
-  }
-}
-
-function storePersistentSessionRecord(record) {
-  if (typeof localStorage === 'undefined') return;
-  if (!record || typeof record !== 'object') return;
-  const refreshToken = typeof record.refreshToken === 'string'
-    ? record.refreshToken.trim()
-    : '';
-  if (!refreshToken) return;
-  const username = sanitizeDmUsername(record.username || '');
-  const issuedAt = Number(record.issuedAt);
-  const lastValidatedAt = Number(record.lastValidatedAt);
-  const payload = {
-    refreshToken,
-    username,
-    issuedAt: Number.isFinite(issuedAt) ? issuedAt : Date.now(),
-    lastValidatedAt: Number.isFinite(lastValidatedAt) ? lastValidatedAt : Date.now(),
-  };
-  try {
-    localStorage.setItem(DM_PERSISTENT_SESSION_KEY, JSON.stringify(payload));
-  } catch (err) {
-    console.warn('Failed to persist DM session token', err);
-  }
-}
-
-function clearPersistentSessionRecord() {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.removeItem(DM_PERSISTENT_SESSION_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-function generatePersistentSessionToken() {
-  try {
-    if (typeof crypto === 'object' && crypto && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-  } catch {
-    /* ignore */
-  }
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    const idx = Math.floor(Math.random() * alphabet.length);
-    token += alphabet.charAt(idx);
-  }
-  return token;
-}
-
-async function putPersistentSessionRecord(token, payload) {
-  if (!token) return null;
-  const db = await getFirebaseDatabase();
-  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).set(payload);
-  return payload;
-}
-
-async function patchPersistentSessionRecord(token, updates) {
-  if (!token) return null;
-  const db = await getFirebaseDatabase();
-  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).update(updates);
-  return updates;
-}
-
-async function deletePersistentSessionRecord(token) {
-  if (!token) return;
-  const db = await getFirebaseDatabase();
-  await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).remove();
-}
-
-async function fetchPersistentSessionRecord(token) {
-  if (!token) return null;
-  const db = await getFirebaseDatabase();
-  const snapshot = await db.ref(`${CLOUD_DM_SESSIONS_PATH}/${encodeURIComponent(token)}`).once('value');
-  return snapshot.val();
-}
-
-async function registerPersistentSession(username) {
-  const normalized = sanitizeDmUsername(username || '');
-  const refreshToken = generatePersistentSessionToken();
-  const now = Date.now();
-  storePersistentSessionRecord({
-    refreshToken,
-    username: normalized,
-    issuedAt: now,
-    lastValidatedAt: now,
-  });
-  if (typeof fetch === 'function') {
-    const payload = {
-      username: normalized,
-      issuedAt: now,
-      lastValidatedAt: now,
-      expiresAt: now + DM_PERSISTENT_SESSION_MAX_AGE_MS,
-      userAgent: DM_USER_AGENT.slice(0, 160),
-    };
-    try {
-      await putPersistentSessionRecord(refreshToken, payload);
-    } catch (err) {
-      console.error('Failed to register persistent DM session', err);
-    }
-  }
-  return refreshToken;
-}
-
-async function invalidatePersistentSession({ reason } = {}) {
-  const stored = loadPersistentSessionRecord();
-  clearPersistentSessionRecord();
-  if (!stored || !stored.refreshToken) return;
-  if (typeof fetch !== 'function') return;
-  try {
-    await deletePersistentSessionRecord(stored.refreshToken);
-  } catch (err) {
-    if (reason !== 'silent') {
-      console.warn('Failed to invalidate DM persistent session', err);
-    }
   }
 }
 
@@ -925,9 +692,7 @@ function updateNotificationSummary() {
 
 function deriveNotificationChar() {
   try {
-    return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
-      ? 'DM'
-      : readLastSaveName();
+    return getAuthState().isDm ? 'DM' : readLastSaveName();
   } catch {
     return '';
   }
@@ -1071,7 +836,6 @@ function initDMLogin(){
   const registerEmail = document.getElementById('dm-register-email');
   const registerPassword = document.getElementById('dm-register-password');
   const registerConfirm = document.getElementById('dm-register-confirm');
-  const registerCode = document.getElementById('dm-register-code');
   const registerDisplayName = document.getElementById('dm-register-display-name');
   const loginErrorMessage = loginModal ? loginModal.querySelector('[data-login-error]') : null;
   const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
@@ -1189,7 +953,6 @@ function initDMLogin(){
     if (registerEmail) registerEmail.value = '';
     if (registerPassword) registerPassword.value = '';
     if (registerConfirm) registerConfirm.value = '';
-    if (registerCode) registerCode.value = '';
     if (registerDisplayName) registerDisplayName.value = '';
     clearLoginError();
     setLoginView(LOGIN_VIEW_LOGIN, { focus });
@@ -1215,45 +978,42 @@ function initDMLogin(){
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
 
-  const dmAccessCodeConfig = typeof window !== 'undefined'
-    ? (window.__CCCG_DM_ACCESS_CODE__ || window.CCCG_DM_ACCESS_CODE || '')
-    : '';
-  const dmAccessHashConfig = typeof window !== 'undefined'
-    ? (window.__CCCG_DM_ACCESS_HASH__ || window.CCCG_DM_ACCESS_HASH || '')
-    : '';
-  const dmAccessCode = typeof dmAccessCodeConfig === 'string' ? dmAccessCodeConfig.trim() : '';
-  const dmAccessHash = typeof dmAccessHashConfig === 'string' ? dmAccessHashConfig.trim().toLowerCase() : '';
-
-  function hashAccessCode(value) {
-    const input = typeof value === 'string' ? value : String(value ?? '');
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < input.length; i += 1) {
-      hash ^= input.charCodeAt(i);
-      hash = (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
-    }
-    return hash.toString(16).padStart(8, '0');
-  }
-
-  function validateAccessCode(value) {
-    const code = typeof value === 'string' ? value.trim() : '';
-    if (!code) {
-      return { ok: false, message: 'Enter the DM access code.' };
-    }
-    if (dmAccessCode) {
-      return { ok: code === dmAccessCode, message: 'Invalid DM access code.' };
-    }
-    if (!dmAccessHash) {
-      return { ok: false, message: 'DM access code is not configured.' };
-    }
-    const hashed = hashAccessCode(code);
-    return { ok: hashed.toLowerCase() === dmAccessHash, message: 'Invalid DM access code.' };
-  }
-
-  async function verifySignedInDmProfile() {
-    const { uid } = getAuthState();
+  async function requestDmAccess({ uid, email, displayName } = {}) {
     if (!uid) return false;
-    const profile = await readFirestoreUserProfile(uid);
-    return !!(profile?.isDm === true || profile?.role === 'dm');
+    const firestore = await getFirebaseFirestore();
+    const requestRef = firestore.collection('dmRequests').doc(uid);
+    const snapshot = await requestRef.get();
+    const exists = typeof snapshot?.exists === 'function' ? snapshot.exists() : snapshot?.exists;
+    if (exists) return true;
+    await requestRef.set({
+      uid,
+      email: typeof email === 'string' ? email.trim() : '',
+      displayName: typeof displayName === 'string' ? displayName.trim() : '',
+      createdAt: Date.now(),
+      approved: false,
+    });
+    return true;
+  }
+
+  function waitForDmAuthState({ timeoutMs = 5000 } = {}) {
+    return new Promise(resolve => {
+      let settled = false;
+      const unsubscribe = onAuthStateChanged(({ uid, isDm } = {}) => {
+        if (!uid) return;
+        if (settled) return;
+        settled = true;
+        if (typeof unsubscribe === 'function') unsubscribe();
+        resolve({ uid, isDm: !!isDm });
+      });
+      if (typeof setTimeout === 'function') {
+        setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          if (typeof unsubscribe === 'function') unsubscribe();
+          resolve({ uid: '', isDm: false });
+        }, timeoutMs);
+      }
+    });
   }
 
   async function handleLoginSubmit(event) {
@@ -1278,8 +1038,8 @@ function initDMLogin(){
     try {
       await initFirebaseAuth();
       await signInWithEmailPassword(email, password);
-      const isDmProfile = await verifySignedInDmProfile();
-      if (!isDmProfile) {
+      const { isDm } = await waitForDmAuthState();
+      if (!isDm) {
         await signOut();
         throw new Error('This account does not have DM access.');
       }
@@ -1305,7 +1065,6 @@ function initDMLogin(){
     const email = registerEmail?.value?.trim() || '';
     const password = registerPassword?.value || '';
     const confirm = registerConfirm?.value || '';
-    const accessCode = registerCode?.value || '';
     const displayName = registerDisplayName?.value?.trim() || '';
     if (!email) {
       showLoginError('Enter a DM email address.');
@@ -1322,12 +1081,6 @@ function initDMLogin(){
       queueLoginFocus(registerConfirm);
       return;
     }
-    const accessCheck = validateAccessCode(accessCode);
-    if (!accessCheck.ok) {
-      showLoginError(accessCheck.message);
-      queueLoginFocus(registerCode);
-      return;
-    }
     if (registerSubmit) {
       registerSubmit.disabled = true;
       registerSubmit.setAttribute('aria-disabled', 'true');
@@ -1336,9 +1089,13 @@ function initDMLogin(){
     try {
       await initFirebaseAuth();
       await createDmAccountWithEmailPassword({ email, password, displayName });
+      const { uid } = getAuthState();
+      if (uid) {
+        await requestDmAccess({ uid, email, displayName });
+      }
       dispatchLoginEvent('dm-login:success', { email, mode: 'register' });
       closeLogin();
-      toast('DM account created.', 'success');
+      toast('Account created. DM access must be granted by an admin.', 'success');
     } catch (error) {
       console.error('Failed to register DM', error);
       dispatchLoginEvent('dm-login:failure', { error });
@@ -1372,7 +1129,7 @@ function initDMLogin(){
   if (registerSubmit) {
     registerSubmit.addEventListener('click', handleRegisterSubmit);
   }
-  [registerEmail, registerPassword, registerConfirm, registerCode].forEach(input => {
+  [registerEmail, registerPassword, registerConfirm].forEach(input => {
     if (!input) return;
     input.addEventListener('keydown', event => {
       if (event?.key === 'Enter') {
@@ -5606,7 +5363,7 @@ function initDMLogin(){
     }
   };
 
-  onAuthStateChange(user => {
+  onAuthStateChanged(({ user } = {}) => {
     miniGamesSignedIn = !!user;
     applyMiniGamesPermissionState();
     updateRecipientControlsState();
@@ -8875,112 +8632,6 @@ function initDMLogin(){
     return !!getAuthState().isDm;
   }
 
-  function setLoggedIn(){
-    try {
-      const now = Date.now();
-      sessionStorage.setItem(DM_LOGIN_FLAG_KEY,'1');
-      setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  function clearLoggedIn(){
-    try {
-      sessionStorage.removeItem(DM_LOGIN_FLAG_KEY);
-      clearSessionTimestamp(DM_LOGIN_AT_KEY);
-      clearSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
-      sessionStorage.removeItem('dmLastUsername');
-    } catch {
-      /* ignore */
-    }
-    setActiveDmTool(null);
-  }
-
-  function activateLoggedInState({ username, source } = {}) {
-    setLoggedIn();
-    if (username) {
-      try {
-        sessionStorage.setItem('dmLastUsername', sanitizeDmUsername(username));
-      } catch {
-        /* ignore */
-      }
-    }
-    updateButtons();
-    drainPendingNotifications();
-    ensureMiniGameSubscription();
-    initTools();
-    Promise.resolve().then(() => restoreLastDmTool());
-  }
-
-  let persistentSessionRestorePromise = null;
-
-  function attemptPersistentSessionRestore({ force = false, silent = false } = {}) {
-    if (!force && persistentSessionRestorePromise) {
-      return persistentSessionRestorePromise;
-    }
-    const stored = loadPersistentSessionRecord();
-    if (!stored || !stored.refreshToken) {
-      if (!stored) {
-        clearPersistentSessionRecord();
-      }
-      return Promise.resolve(false);
-    }
-    const token = stored.refreshToken;
-    const executor = async () => {
-      if (typeof fetch !== 'function') return false;
-      let remoteRecord = null;
-      try {
-        remoteRecord = await fetchPersistentSessionRecord(token);
-      } catch (err) {
-        if (!silent) {
-          console.warn('Failed to validate DM persistent session', err);
-        }
-        return false;
-      }
-      if (!remoteRecord || typeof remoteRecord !== 'object') {
-        clearPersistentSessionRecord();
-        return false;
-      }
-      const now = Date.now();
-      const expiresAt = Number(remoteRecord.expiresAt);
-      if (Number.isFinite(expiresAt) && expiresAt <= now) {
-        try {
-          await deletePersistentSessionRecord(token);
-        } catch (err) {
-          if (!silent) {
-            console.warn('Failed to revoke expired DM session', err);
-          }
-        }
-        clearPersistentSessionRecord();
-        return false;
-      }
-      const username = sanitizeDmUsername(remoteRecord.username || stored.username || '');
-      storePersistentSessionRecord({
-        refreshToken: token,
-        username,
-        issuedAt: Number.isFinite(stored.issuedAt) ? stored.issuedAt : now,
-        lastValidatedAt: now,
-      });
-      try {
-        await patchPersistentSessionRecord(token, {
-          lastValidatedAt: now,
-          expiresAt: now + DM_PERSISTENT_SESSION_MAX_AGE_MS,
-        });
-      } catch (err) {
-        if (!silent) {
-          console.warn('Failed to extend DM session', err);
-        }
-      }
-      activateLoggedInState({ source: 'restore', username });
-      return true;
-    };
-    persistentSessionRestorePromise = executor().finally(() => {
-      persistentSessionRestorePromise = null;
-    });
-    return persistentSessionRestorePromise;
-  }
-
   function clearNotificationDisplay() {
     if (notifyList) notifyList.innerHTML = '';
     updateNotificationActionState();
@@ -9132,9 +8783,8 @@ function initDMLogin(){
       : typeof reason === 'object' && reason && typeof reason.reason === 'string'
         ? reason.reason
         : null;
-    invalidatePersistentSession({ reason: cause || 'logout' });
     dmLock();
-    clearLoggedIn();
+    setActiveDmTool(null);
     signOut().catch(err => {
       console.warn('Failed to sign out DM', err);
     });
@@ -9292,14 +8942,6 @@ function initDMLogin(){
     updateNotificationActionState();
     hide('dm-notifications-modal');
     clearActiveDmTool('notifications');
-  }
-
-  function onLoginSuccess({ username } = {}){
-    resetLoginFailureState();
-    clearLoginCooldownTimer();
-    clearLoginCooldownUI();
-    activateLoggedInState({ username, source: 'login' });
-    registerPersistentSession(username);
   }
 
   const characterNameCollator = typeof Intl !== 'undefined' && typeof Intl.Collator === 'function'

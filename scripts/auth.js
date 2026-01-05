@@ -427,9 +427,14 @@ function maybeShowAuthDomainWarning() {
   }
 }
 
+export function getProfileDocPath(uid) {
+  if (!uid) return '';
+  return `users/${uid}/profile/main`;
+}
+
 function getFirestoreProfileRef(firestore, uid) {
   if (!firestore || !uid) return null;
-  return firestore.doc(`users/${uid}/profile`);
+  return firestore.doc(getProfileDocPath(uid));
 }
 
 export async function readFirestoreUserProfile(uid) {
@@ -648,12 +653,12 @@ async function initializeAuthInternal() {
       }
     });
     let isDm = false;
-    if (user?.uid) {
+    if (user && typeof user.getIdTokenResult === 'function') {
       try {
-        const profile = await readFirestoreUserProfile(user.uid);
-        isDm = !!(profile?.isDm === true || profile?.role === 'dm');
+        const tokenResult = await user.getIdTokenResult(true);
+        isDm = resolveDmFromClaims(tokenResult);
       } catch (err) {
-        console.warn('Failed to read DM profile from Firestore', err);
+        console.warn('Failed to read auth claims', err);
       }
     }
     authState = {
@@ -919,6 +924,14 @@ export async function signInWithEmailPassword(email, password) {
   return auth.signInWithEmailAndPassword(resolvedEmail, resolvedPassword);
 }
 
+export function resolveDmFromClaims(tokenResult) {
+  return !!(
+    tokenResult?.claims?.admin === true ||
+    tokenResult?.claims?.isDm === true ||
+    tokenResult?.claims?.token?.admin === true
+  );
+}
+
 export async function createAccountWithUsernamePassword(username, password) {
   await initFirebaseAuth();
   if (authMode === 'local') {
@@ -994,10 +1007,9 @@ export async function createDmAccountWithEmailPassword({ email, password, displa
   if (!uid) throw new Error('DM registration failed.');
   const now = Date.now();
   await writeFirestoreUserProfile(uid, {
-    role: 'dm',
-    isDm: true,
+    role: 'player',
+    isDm: false,
     createdAt: now,
-    dmRegisteredAt: now,
     displayName: typeof displayName === 'string' ? displayName.trim() : '',
   });
   return credential;

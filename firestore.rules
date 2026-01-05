@@ -12,8 +12,27 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /users/{userId}/profile {
-      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId}/profile/{profileId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && profileId == 'main'
+        && request.resource.data.role == 'player'
+        && request.resource.data.isDm == false;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && profileId == 'main'
+        && request.resource.data.role == 'player'
+        && request.resource.data.isDm == false
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.isDm == resource.data.isDm;
+    }
+
+    match /dmRequests/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.admin == true);
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.approved != true;
     }
 
     match /miniGames/{deploymentId} {
