@@ -20,6 +20,8 @@
   name="discord-proxy-url"
   content="https://YOUR-WORKER.yourdomain.workers.dev"
 />
+<meta name="cc-dm-pin-sha256" content="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"/>
+<!-- Generate with: node -e "crypto=require('crypto');console.log(crypto.createHash('sha256').update(process.env.DM_PIN || '').digest('hex'))" -->
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
@@ -2346,72 +2348,15 @@
       <div class="dm-login__content">
         <div class="dm-login__view" data-login-view="login">
           <h3 id="dm-login-title">DM Login</h3>
-          <p class="dm-login__description">Enter your DM profile to unlock the tools.</p>
-          <label class="sr-only" for="dm-login-username">DM Username</label>
-          <input id="dm-login-username" data-view-allow type="text" autocomplete="username" placeholder="DM username">
+          <p class="dm-login__description">Enter the DM PIN to unlock the tools.</p>
           <label class="sr-only" for="dm-login-pin">DM PIN</label>
-          <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="current-password" placeholder="4-digit PIN">
+          <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="\\d{4,6}" maxlength="6" autocomplete="one-time-code" placeholder="4-6 digit PIN">
           <div class="actions">
             <button id="dm-login-submit" class="somf-btn" type="button">Enter</button>
-          </div>
-          <div class="dm-login__links">
-            <button class="btn-sm" type="button" data-login-action="start-create">Create profile</button>
-            <button class="btn-sm" type="button" data-login-action="start-reset">Reset PIN</button>
-            <button class="btn-sm" type="button" data-login-action="forgot">Forgot PIN?</button>
-          </div>
-        </div>
-        <div class="dm-login__view" data-login-view="create" hidden aria-hidden="true">
-          <h3>Create DM Profile</h3>
-          <p class="dm-login__description">Choose a DM username and a 4-digit PIN.</p>
-          <label class="sr-only" for="dm-login-new-username">DM Username</label>
-          <input id="dm-login-new-username" data-view-allow type="text" autocomplete="username" placeholder="DM username">
-          <label class="sr-only" for="dm-login-new-pin">New DM PIN</label>
-          <input id="dm-login-new-pin" data-view-allow type="password" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="new-password" placeholder="4-digit PIN">
-          <div class="actions">
-            <button id="dm-login-create-submit" class="somf-btn" type="button">Continue</button>
-          </div>
-          <div class="dm-login__links dm-login__links--back">
-            <button class="btn-sm" type="button" data-login-action="back-to-login">Back to login</button>
-          </div>
-        </div>
-        <div class="dm-login__view" data-login-view="confirm" hidden aria-hidden="true">
-          <h3>Confirm PIN</h3>
-          <p class="dm-login__description" data-login-confirm-description>Re-enter the PIN to confirm your DM profile.</p>
-          <p class="dm-login__summary" data-login-confirm-summary hidden></p>
-          <label class="sr-only" for="dm-login-confirm-pin">Confirm DM PIN</label>
-          <input id="dm-login-confirm-pin" data-view-allow type="password" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="new-password" placeholder="Confirm PIN">
-          <div class="actions">
-            <button id="dm-login-confirm-submit" class="somf-btn" type="button">Save Profile</button>
-          </div>
-          <div class="dm-login__links dm-login__links--back">
-            <button class="btn-sm" type="button" data-login-action="back-to-create">Back to create</button>
-            <button class="btn-sm" type="button" data-login-action="back-to-reset">Back to reset</button>
-          </div>
-        </div>
-        <div class="dm-login__view" data-login-view="reset" hidden aria-hidden="true">
-          <h3>Reset DM PIN</h3>
-          <p class="dm-login__description">Enter your DM username and new 4-digit PIN.</p>
-          <label class="sr-only" for="dm-login-reset-username">DM Username</label>
-          <input id="dm-login-reset-username" data-view-allow type="text" autocomplete="username" placeholder="DM username">
-          <label class="sr-only" for="dm-login-reset-pin">New DM PIN</label>
-          <input id="dm-login-reset-pin" data-view-allow type="password" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="new-password" placeholder="New 4-digit PIN">
-          <div class="actions">
-            <button id="dm-login-reset-submit" class="somf-btn" type="button">Continue</button>
-          </div>
-          <div class="dm-login__links dm-login__links--back">
-            <button class="btn-sm" type="button" data-login-action="back-to-login">Back to login</button>
-          </div>
-        </div>
-        <div class="dm-login__view" data-login-view="recovery" hidden aria-hidden="true">
-          <h3>Recover DM PIN</h3>
-          <p class="dm-login__description">Ask a party admin or site owner to reset your DM PIN. When you're ready, return to login.</p>
-          <div class="actions">
-            <button class="somf-btn" type="button" data-login-action="back-to-login">Back to login</button>
           </div>
         </div>
         <p class="dm-login__wait" data-login-wait hidden></p>
         <p class="dm-login__error" data-login-error hidden role="alert"></p>
-        <p class="dm-login__wait" data-login-wait hidden role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>

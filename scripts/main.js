@@ -26108,16 +26108,6 @@ if (authCreateUsername) {
   });
 }
 
-function setDmVisibility(isDm) {
-  const dmLogin = $('dm-login');
-  const dmToggle = $('dm-tools-toggle');
-  const dmMenu = $('dm-tools-menu');
-  const hidden = !isDm;
-  if (dmLogin) dmLogin.hidden = hidden;
-  if (dmToggle) dmToggle.hidden = hidden;
-  if (dmMenu) dmMenu.hidden = hidden;
-}
-
 function setOfflineBlankState(enabled) {
   if (typeof document === 'undefined') return;
   const { body } = document;
@@ -26804,7 +26794,6 @@ function syncCloudSubscriptions(uid) {
 }
 
 function handleAuthStateChange({ uid, isDm } = {}) {
-  setDmVisibility(!!isDm);
   setClaimTokenAdminVisibility(!!isDm);
   if (uid) {
     setOfflineBlankState(false);
