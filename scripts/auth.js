@@ -745,6 +745,30 @@ export async function getAuthToken() {
   }
 }
 
+export async function claimUsernameTransaction(db, username, uid) {
+  if (!db || typeof db.ref !== 'function') {
+    throw new Error('Database required');
+  }
+  if (!uid) throw new Error('User id required');
+  const normalized = normalizeUsername(username) || normalizeUsernameLocal(username);
+  if (!normalized) throw new Error('Username required');
+  const ref = db.ref(`usernames/${normalized}`);
+  const result = await ref.transaction(current => {
+    if (current && current !== uid) {
+      return undefined;
+    }
+    return uid;
+  });
+  if (!result?.committed) {
+    const existing = result?.snapshot?.val?.();
+    if (existing && existing !== uid) {
+      throw new Error('Username already taken');
+    }
+    return false;
+  }
+  return true;
+}
+
 async function reserveUsernameAndProfile(firestore, normalizedUsername, uid) {
   if (!firestore) throw new Error('Firestore required');
   if (!normalizedUsername) throw new Error('Username required');
