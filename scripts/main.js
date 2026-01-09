@@ -45,6 +45,7 @@ import {
   ensureGuestSession,
   getFirebaseDatabase,
   renderAuthDomainDiagnostics,
+  writeFirestoreUserProfile,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -25145,10 +25146,10 @@ function setDmVisibility(isDm) {
   const dmLogin = $('dm-login');
   const dmToggle = $('dm-tools-toggle');
   const dmMenu = $('dm-tools-menu');
-  const hidden = !isDm;
-  if (dmLogin) dmLogin.hidden = hidden;
-  if (dmToggle) dmToggle.hidden = hidden;
-  if (dmMenu) dmMenu.hidden = hidden;
+  const showDmTools = !!isDm;
+  if (dmLogin) dmLogin.hidden = showDmTools;
+  if (dmToggle) dmToggle.hidden = !showDmTools;
+  if (dmMenu) dmMenu.hidden = !showDmTools;
 }
 
 function setOfflineBlankState(enabled) {
@@ -25448,10 +25449,20 @@ async function handleAuthSubmit(mode) {
       const uid = credential?.user?.uid || getAuthState().uid;
       if (uid) {
         try {
-          await saveUserProfile(uid, {
+          const createdAt = Date.now();
+          const profile = {
             username: normalized,
             displayName: username,
-            createdAt: Date.now(),
+            role: 'player',
+            isDm: false,
+            createdAt,
+          };
+          await saveUserProfile(uid, profile);
+          await writeFirestoreUserProfile(uid, {
+            role: 'player',
+            isDm: false,
+            createdAt,
+            displayName: username,
           });
         } catch (profileErr) {
           console.error('Failed to save user profile to cloud', profileErr);

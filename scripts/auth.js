@@ -427,6 +427,38 @@ function maybeShowAuthDomainWarning() {
   }
 }
 
+export function getProfileDocPath(uid) {
+  if (!uid) return '';
+  return `users/${uid}/profile/main`;
+}
+
+function getFirestoreProfileRef(firestore, uid) {
+  if (!firestore || !uid) return null;
+  return firestore.doc(getProfileDocPath(uid));
+}
+
+export async function readFirestoreUserProfile(uid) {
+  if (!uid) return null;
+  const firestore = await getFirebaseFirestore();
+  const profileRef = getFirestoreProfileRef(firestore, uid);
+  if (!profileRef) return null;
+  const snapshot = await profileRef.get();
+  const exists = typeof snapshot?.exists === 'function' ? snapshot.exists() : snapshot?.exists;
+  if (!exists) return null;
+  const profile = typeof snapshot?.data === 'function' ? snapshot.data() : snapshot?.data;
+  return profile && typeof profile === 'object' ? profile : null;
+}
+
+export async function writeFirestoreUserProfile(uid, profile) {
+  if (!uid) throw new Error('User id required');
+  const firestore = await getFirebaseFirestore();
+  const profileRef = getFirestoreProfileRef(firestore, uid);
+  if (!profileRef) throw new Error('Firestore profile reference unavailable');
+  const payload = profile && typeof profile === 'object' ? profile : {};
+  await profileRef.set(payload, { merge: true });
+  return true;
+}
+
 export function renderAuthDomainDiagnostics() {
   maybeShowAuthDomainWarning();
 }
@@ -624,10 +656,7 @@ async function initializeAuthInternal() {
     if (user && typeof user.getIdTokenResult === 'function') {
       try {
         const tokenResult = await user.getIdTokenResult(true);
-        isDm = !!(
-          tokenResult?.claims?.token?.admin === true ||
-          tokenResult?.claims?.admin === true
-        );
+        isDm = resolveDmFromClaims(tokenResult);
       } catch (err) {
         console.warn('Failed to read auth claims', err);
       }
@@ -902,6 +931,31 @@ export async function signInWithUsernamePassword(username, password) {
   return credential;
 }
 
+export async function signInWithEmailPassword(email, password) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('DM sign-in requires Firebase auth.');
+  }
+  const auth = await initFirebaseAuth();
+  const resolvedEmail = typeof email === 'string' ? email.trim() : '';
+  if (!resolvedEmail) {
+    throw new Error('Email is required.');
+  }
+  const resolvedPassword = typeof password === 'string' ? password : '';
+  if (!resolvedPassword) {
+    throw new Error('Password is required.');
+  }
+  return auth.signInWithEmailAndPassword(resolvedEmail, resolvedPassword);
+}
+
+export function resolveDmFromClaims(tokenResult) {
+  return !!(
+    tokenResult?.claims?.admin === true ||
+    tokenResult?.claims?.isDm === true ||
+    tokenResult?.claims?.token?.admin === true
+  );
+}
+
 export async function createAccountWithUsernamePassword(username, password) {
   await initFirebaseAuth();
   if (authMode === 'local') {
@@ -955,6 +1009,33 @@ export async function createAccountWithUsernamePassword(username, password) {
       throw err;
     }
   }
+  return credential;
+}
+
+export async function createDmAccountWithEmailPassword({ email, password, displayName = '' } = {}) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('DM registration requires Firebase auth.');
+  }
+  const auth = await initFirebaseAuth();
+  const resolvedEmail = typeof email === 'string' ? email.trim() : '';
+  const resolvedPassword = typeof password === 'string' ? password : '';
+  if (!resolvedEmail) {
+    throw new Error('Email is required.');
+  }
+  if (!resolvedPassword) {
+    throw new Error('Password is required.');
+  }
+  const credential = await auth.createUserWithEmailAndPassword(resolvedEmail, resolvedPassword);
+  const uid = credential?.user?.uid || '';
+  if (!uid) throw new Error('DM registration failed.');
+  const now = Date.now();
+  await writeFirestoreUserProfile(uid, {
+    role: 'player',
+    isDm: false,
+    createdAt: now,
+    displayName: typeof displayName === 'string' ? displayName.trim() : '',
+  });
   return credential;
 }
 
