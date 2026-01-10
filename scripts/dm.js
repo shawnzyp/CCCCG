@@ -1189,7 +1189,9 @@ function initDMLogin(){
       showLoginError('Unable to verify PIN. Try again.');
       dispatchLoginEvent('dm-login:failure', { reason: 'error' });
     } finally {
-      setLoginWaitMessage('');
+      if (getLoginCooldownRemainingMs() <= 0) {
+        setLoginWaitMessage('');
+      }
     }
   }
 
@@ -1211,14 +1213,14 @@ function initDMLogin(){
   if (loginModal) {
     loginModal.addEventListener('click', event => {
       if (event.target === loginModal) {
-        dispatchLoginEvent('dm-login:closed');
+        closeLogin();
       }
     });
   }
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('keydown', event => {
       if (event?.key === 'Escape' && loginModal && !loginModal.classList.contains('hidden')) {
-        dispatchLoginEvent('dm-login:closed');
+        closeLogin();
       }
     });
   }
