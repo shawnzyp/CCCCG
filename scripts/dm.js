@@ -820,6 +820,7 @@ function escapeCsvValue(value) {
 let dmTestHooks = null;
 let dmInitialized = false;
 let dmInitPromise = null;
+const DM_GLOBAL_SCOPE = '__ccccg_dm_login_escape_listener__';
 
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
@@ -935,6 +936,30 @@ function initDMLogin(){
       lastFailureAt: Number.isFinite(state.lastFailureAt) && state.lastFailureAt > 0 ? Math.floor(state.lastFailureAt) : 0,
       lockUntil: Number.isFinite(state.lockUntil) && state.lockUntil > 0 ? Math.floor(state.lockUntil) : 0,
     };
+  }
+
+  function ensureLoginEscapeHandler() {
+    if (typeof globalThis !== 'object' || typeof document === 'undefined') {
+      return;
+    }
+    const state = globalThis[DM_GLOBAL_SCOPE] || {};
+    state.closeLogin = closeLogin;
+    if (state.attached) {
+      globalThis[DM_GLOBAL_SCOPE] = state;
+      return;
+    }
+    state.attached = true;
+    state.handler = event => {
+      if (event?.key !== 'Escape') {
+        return;
+      }
+      const modal = document.getElementById('dm-login-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        state.closeLogin?.();
+      }
+    };
+    document.addEventListener('keydown', state.handler);
+    globalThis[DM_GLOBAL_SCOPE] = state;
   }
 
   let loginFailureStateCache = { count: 0, lastFailureAt: 0, lockUntil: 0 };
@@ -1186,8 +1211,13 @@ function initDMLogin(){
       toast('DM tools unlocked.', 'success');
     } catch (err) {
       console.error('Failed to verify DM PIN', err);
-      showLoginError('Unable to verify PIN. Try again.');
-      dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+      if (err?.message === 'WebCrypto unavailable') {
+        showLoginError('PIN verification is unavailable in this browser.');
+        dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
+      } else {
+        showLoginError('Unable to verify PIN. Try again.');
+        dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+      }
     } finally {
       if (getLoginCooldownRemainingMs() <= 0) {
         setLoginWaitMessage('');
@@ -1217,13 +1247,7 @@ function initDMLogin(){
       }
     });
   }
-  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-    document.addEventListener('keydown', event => {
-      if (event?.key === 'Escape' && loginModal && !loginModal.classList.contains('hidden')) {
-        closeLogin();
-      }
-    });
-  }
+  ensureLoginEscapeHandler();
 
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');

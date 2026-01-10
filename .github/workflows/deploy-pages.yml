@@ -31,15 +31,30 @@ jobs:
       - name: Prepare deploy directory
         run: |
           mkdir -p deploy
-          git ls-files -z | tar --null -T - -cf - | tar -xf - -C deploy
+          rsync -a \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude "node_modules" \
+            --exclude "deploy" \
+            --exclude "tests" \
+            --exclude "docs" \
+            --exclude "tools" \
+            --exclude "*.md" \
+            ./ deploy/
       - name: Inject DM PIN hash
         env:
           DM_PIN: ${{ secrets.DM_PIN }}
           DM_PIN_SHA256: ${{ secrets.DM_PIN_SHA256 }}
         run: node tools/inject-dm-pin-hash.mjs deploy/index.html
+      - name: Assert DM PIN meta tag exists
+        run: |
+          if ! grep -n "name=\"cc-dm-pin-sha256\"" deploy/index.html; then
+            echo "DM PIN meta tag is missing from deploy artifact."
+            exit 1
+          fi
       - name: Assert DM PIN placeholder removed
         run: |
-          if grep -n "__DM_PIN_SHA256__" deploy/index.html; then
+          if grep -n -e "__DM_PIN_SHA256__" -e "REPLACE_WITH_DM_PIN_SHA256" deploy/index.html; then
             echo "DM PIN placeholder still present in deploy artifact."
             exit 1
           fi

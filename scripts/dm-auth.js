@@ -27,7 +27,7 @@ function getSubtleCrypto() {
 async function sha256Hex(input) {
   const subtle = getSubtleCrypto();
   if (!subtle) {
-    return '';
+    throw new Error('WebCrypto unavailable');
   }
   const encoder = new TextEncoder();
   const data = encoder.encode(input);
