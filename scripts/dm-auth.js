@@ -52,7 +52,15 @@ export async function dmUnlockWithPin(pin) {
   if (!expectedHash) return false;
   const digest = await sha256Hex(normalized);
   if (!digest) return false;
-  return digest === expectedHash;
+  const matches = digest === expectedHash;
+  if (matches && typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.setItem(DM_LOGIN_FLAG_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  }
+  return matches;
 }
 
 export function dmLock() {
