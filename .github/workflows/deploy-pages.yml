@@ -1,0 +1,53 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: Build site assets
+        run: npm run build
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p deploy
+          git ls-files -z | tar --null -T - -cf - | tar -xf - -C deploy
+      - name: Inject DM PIN hash
+        env:
+          DM_PIN: ${{ secrets.DM_PIN }}
+          DM_PIN_SHA256: ${{ secrets.DM_PIN_SHA256 }}
+        run: node tools/inject-dm-pin-hash.mjs deploy/index.html
+      - name: Assert DM PIN placeholder removed
+        run: |
+          if grep -n "__DM_PIN_SHA256__" deploy/index.html; then
+            echo "DM PIN placeholder still present in deploy artifact."
+            exit 1
+          fi
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: deploy
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

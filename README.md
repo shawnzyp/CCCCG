@@ -228,7 +228,7 @@ Note: Realtime Database rules are configured separately from Firestore rules. If
 
 ### DM tools access
 
-The DM tools are protected by a shared PIN hashed with SHA-256 in the `cc-dm-pin-sha256` meta tag. Any signed-in user can unlock them with the PIN, so treat it as a shared secret.
+The DM tools are protected by a shared PIN hashed with SHA-256 in the `cc-dm-pin-sha256` meta tag. Any signed-in user can unlock them with the PIN, so treat it as a shared secret. For local development, set the meta tag content in `index.html` or run `DM_PIN=1234 node tools/inject-dm-pin-hash.mjs index.html` before loading the page.
 
 ### Discord webhook testing
 
