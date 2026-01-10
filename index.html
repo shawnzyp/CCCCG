@@ -20,8 +20,10 @@
   name="discord-proxy-url"
   content="https://YOUR-WORKER.yourdomain.workers.dev"
 />
-<meta name="cc-dm-pin-sha256" content="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"/>
+<meta name="cc-dm-pin-sha256" content="__DM_PIN_SHA256__"/>
+<!-- Inject the hash at deploy time with a secret value such as a GitHub Actions secret. -->
 <!-- Generate with: node -e "crypto=require('crypto');console.log(crypto.createHash('sha256').update(process.env.DM_PIN || '').digest('hex'))" -->
+<!-- Client-side PIN hashing is a deterrent only and not a security boundary. -->
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
