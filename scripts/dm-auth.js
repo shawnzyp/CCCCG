@@ -14,7 +14,12 @@ function readDmPinHash() {
   if (typeof document === 'undefined') return '';
   const meta = document.querySelector(`meta[name="${DM_PIN_META_NAME}"]`);
   const content = meta?.content || '';
-  return typeof content === 'string' ? content.trim().toLowerCase() : '';
+  if (typeof content !== 'string') return '';
+  const normalized = content.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    return '';
+  }
+  return normalized;
 }
 
 function getSubtleCrypto() {
@@ -49,7 +54,9 @@ export async function dmUnlockWithPin(pin) {
   const normalized = validateDmPin(pin);
   if (!normalized) return false;
   const expectedHash = readDmPinHash();
-  if (!expectedHash) return false;
+  if (!expectedHash) {
+    throw new Error('DM PIN not configured');
+  }
   const digest = await sha256Hex(normalized);
   if (!digest) return false;
   const matches = digest === expectedHash;

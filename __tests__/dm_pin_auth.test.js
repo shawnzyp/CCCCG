@@ -69,4 +69,18 @@ describe('dm PIN auth', () => {
     await expect(dmUnlockWithPin('1234')).resolves.toBe(true);
     await expect(dmUnlockWithPin('0000')).resolves.toBe(false);
   });
+
+  it('rejects when the DM PIN meta tag is missing', async () => {
+    document.head.innerHTML = '';
+    await expect(dmUnlockWithPin('1234')).rejects.toThrow('DM PIN not configured');
+  });
+
+  it('rejects when the DM PIN meta tag is invalid', async () => {
+    document.head.innerHTML = '';
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'cc-dm-pin-sha256');
+    meta.setAttribute('content', '__DM_PIN_SHA256__');
+    document.head.appendChild(meta);
+    await expect(dmUnlockWithPin('1234')).rejects.toThrow('DM PIN not configured');
+  });
 });

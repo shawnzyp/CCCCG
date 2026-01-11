@@ -820,7 +820,7 @@ function escapeCsvValue(value) {
 let dmTestHooks = null;
 let dmInitialized = false;
 let dmInitPromise = null;
-const DM_GLOBAL_SCOPE = '__ccccg_dm_login_escape_listener__';
+const DM_LOGIN_ESCAPE_LISTENER_KEY = '__ccccg_dm_login_escape_listener__';
 
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
@@ -942,10 +942,10 @@ function initDMLogin(){
     if (typeof globalThis !== 'object' || typeof document === 'undefined') {
       return;
     }
-    const state = globalThis[DM_GLOBAL_SCOPE] || {};
+    const state = globalThis[DM_LOGIN_ESCAPE_LISTENER_KEY] || {};
     state.closeLogin = closeLogin;
     if (state.attached) {
-      globalThis[DM_GLOBAL_SCOPE] = state;
+      globalThis[DM_LOGIN_ESCAPE_LISTENER_KEY] = state;
       return;
     }
     state.attached = true;
@@ -959,7 +959,7 @@ function initDMLogin(){
       }
     };
     document.addEventListener('keydown', state.handler);
-    globalThis[DM_GLOBAL_SCOPE] = state;
+    globalThis[DM_LOGIN_ESCAPE_LISTENER_KEY] = state;
   }
 
   let loginFailureStateCache = { count: 0, lastFailureAt: 0, lockUntil: 0 };
@@ -1211,7 +1211,10 @@ function initDMLogin(){
       toast('DM tools unlocked.', 'success');
     } catch (err) {
       console.error('Failed to verify DM PIN', err);
-      if (err?.message === 'WebCrypto unavailable') {
+      if (err?.message === 'DM PIN not configured') {
+        showLoginError('DM PIN is not configured for this deployment.');
+        dispatchLoginEvent('dm-login:failure', { reason: 'config' });
+      } else if (err?.message === 'WebCrypto unavailable') {
         showLoginError('PIN verification is unavailable in this browser.');
         dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
       } else {
