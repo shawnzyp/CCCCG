@@ -19,6 +19,7 @@ import {
   saveCharacterIndexEntry,
   deleteCharacterIndexEntry,
   listCharacterIndex,
+  listCloudCharacters,
   getDeviceId,
   writeLastSyncedAt,
 } from './storage.js';
@@ -46,6 +47,9 @@ function safeToast(message, type = 'error', options = {}) {
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
 const CHARACTER_ID_STORAGE_PREFIX = 'cc:character-id:';
+const CLOUD_CHARACTER_SLOTS = ['legacy', 'slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const CLOUD_PLAYER_SLOTS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const CLOUD_CHARACTER_SLOT_SET = new Set(CLOUD_CHARACTER_SLOTS);
 export const SAVE_SCHEMA_VERSION = 2;
 export const UI_STATE_VERSION = 2;
 export const APP_VERSION = '1.0.0';
@@ -140,6 +144,61 @@ function generateCharacterId() {
     token += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
   }
   return token;
+}
+
+function isCloudSlotId(candidate) {
+  return CLOUD_CHARACTER_SLOT_SET.has(candidate);
+}
+
+async function listUsedCloudSlots(uid) {
+  if (!uid) return new Set();
+  try {
+    const rows = await listCloudCharacters(uid);
+    const used = new Set();
+    rows.forEach(row => {
+      const slotId = typeof row?.characterId === 'string' ? row.characterId : '';
+      if (isCloudSlotId(slotId)) {
+        used.add(slotId);
+      }
+    });
+    return used;
+  } catch (err) {
+    console.error('Failed to list cloud character slots', err);
+    return new Set();
+  }
+}
+
+export async function ensureCloudCharacterSlotId({ uid, payload, storageName, allowLegacy = false } = {}) {
+  if (!uid) throw new Error('Missing user id');
+  if (!payload || typeof payload !== 'object') throw new Error('Missing character payload');
+  const resolvedName = storageName || payload?.meta?.name || payload?.character?.name || '';
+  const stored = resolvedName ? readCharacterIdForName(resolvedName) : '';
+  const existing = payload?.character?.characterId || payload?.characterId || stored;
+  let slotId = isCloudSlotId(existing) ? existing : '';
+  if (!slotId) {
+    if (allowLegacy) {
+      slotId = 'legacy';
+    } else {
+      const used = await listUsedCloudSlots(uid);
+      slotId = CLOUD_PLAYER_SLOTS.find(slot => !used.has(slot)) || '';
+      if (!slotId) {
+        throw new Error('All character slots are full.');
+      }
+    }
+  }
+  if (payload.character && typeof payload.character === 'object') {
+    payload.character.characterId = slotId;
+    payload.character.slotId = slotId;
+  }
+  payload.characterId = slotId;
+  payload.meta = {
+    ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+    slotId,
+  };
+  if (resolvedName) {
+    writeCharacterIdForName(resolvedName, slotId);
+  }
+  return slotId;
 }
 
 export function ensureCharacterId(payload, name) {
@@ -1194,7 +1253,11 @@ export async function loadCharacter(name, options = {}) {
       }
       try {
         if (authUid) {
-          const characterId = ensureCharacterId(payload, storageName || name);
+          const characterId = await ensureCloudCharacterSlotId({
+            uid: authUid,
+            payload,
+            storageName: storageName || name,
+          });
           payload.meta = {
             ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
             name: displayName || storageName || name,
@@ -1245,7 +1308,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
     if (!localUid) {
       throw new Error('Login required to save characters.');
     }
-    const characterId = ensureCharacterId(payload, storageName);
+    let characterId = ensureCharacterId(payload, storageName);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     await verifyPin(displayCharacterName(name));
@@ -1267,6 +1330,18 @@ export async function saveCharacter(data, name = currentCharacter()) {
       payload.character.characterId = characterId;
     }
     payload.updatedAt = payload.meta.updatedAt;
+    if (authUid) {
+      try {
+        characterId = await ensureCloudCharacterSlotId({
+          uid: authUid,
+          payload,
+          storageName,
+        });
+      } catch (err) {
+        console.error('Failed to assign character slot', err);
+        throw err;
+      }
+    }
     try {
       await saveLocal(storageName, payload, { characterId });
     } catch (err) {
@@ -1324,7 +1399,7 @@ export async function claimCharacterOwnership(name, ownerUid) {
     const data = await loadLocal(storageName, { characterId: storedCharacterId });
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    const characterId = ensureCharacterId(payload, storageName);
+    let characterId = ensureCharacterId(payload, storageName);
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid,
@@ -1339,6 +1414,13 @@ export async function claimCharacterOwnership(name, ownerUid) {
       payload.character.characterId = characterId;
     }
     payload.updatedAt = payload.meta.updatedAt;
+    if (authUid) {
+      characterId = await ensureCloudCharacterSlotId({
+        uid: authUid,
+        payload,
+        storageName,
+      });
+    }
     await saveLocal(storageName, payload, { characterId });
     try {
       if (authUid) {
@@ -1368,7 +1450,7 @@ export async function renameCharacter(oldName, newName, data) {
     const storageNewName = normalizedCharacterName(newName) || newName;
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    const characterId = ensureCharacterId(payload, storageOldName);
+    let characterId = ensureCharacterId(payload, storageOldName);
     migrateCharacterIdKey(oldName, newName, characterId);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
@@ -1392,6 +1474,11 @@ export async function renameCharacter(oldName, newName, data) {
     let cloudStatus;
     try {
       if (authUid) {
+        characterId = await ensureCloudCharacterSlotId({
+          uid: authUid,
+          payload,
+          storageName: storageNewName,
+        });
         payload.meta = {
           ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
           name: displayCharacterName(newName),

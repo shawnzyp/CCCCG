@@ -1578,11 +1578,11 @@
     </div>
     <div class="modal__actions modal__actions--stacked">
       <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Log In</button>
-      <button id="welcome-create" class="cc-btn cc-btn--ghost" type="button">Create Account</button>
+      <button id="welcome-create" class="cc-btn cc-btn--ghost" type="button">Set PIN</button>
       <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button">Continue Offline</button>
     </div>
     <div class="modal__footer">
-      <span>Cloud accounts use a username + password only (no email required).</span>
+      <span>Cloud accounts use your roster name and a 4-digit PIN.</span>
     </div>
   </div>
 </div>
@@ -1594,17 +1594,18 @@
       <div class="modal__badge" aria-hidden="true">CC</div>
       <div class="modal__titles">
         <h2 id="auth-login-title">Account Login</h2>
-        <p class="modal__subtitle">Use your username and password.</p>
+        <p class="modal__subtitle" id="auth-login-subtitle">Enter your roster name and PIN.</p>
       </div>
     </div>
     <div class="modal__body">
       <div class="auth-panel auth-panel--login">
-        <label class="sr-only" for="auth-login-username">Username</label>
-        <input id="auth-login-username" type="text" autocomplete="username" placeholder="Username" required>
-        <label class="sr-only" for="auth-login-password">Password</label>
-        <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <label class="sr-only" for="auth-login-username">Roster name</label>
+        <input id="auth-login-username" type="text" autocomplete="username" placeholder="Roster name" required>
+        <label class="sr-only" for="auth-login-pin">PIN</label>
+        <input id="auth-login-pin" type="password" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" placeholder="4-digit PIN" required>
+        <label class="sr-only" for="auth-login-confirm">Confirm PIN</label>
+        <input id="auth-login-confirm" type="password" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" placeholder="Confirm PIN" hidden>
         <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Log In</button>
-        <button id="auth-login-open-create" class="cc-btn cc-btn--ghost auth-panel__switch" type="button">Need an account? Create one.</button>
       </div>
       <p id="auth-login-error" class="modal__hint" role="alert" hidden></p>
     </div>

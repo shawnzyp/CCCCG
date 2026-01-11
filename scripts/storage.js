@@ -523,7 +523,6 @@ const CLOUD_SAVES_PATH = 'saves';
 const CLOUD_HISTORY_PATH = 'history';
 const CLOUD_AUTOSAVES_PATH = 'autosaves';
 const CLOUD_CAMPAIGN_LOG_PATH = 'campaignLogs';
-const CLOUD_CHARACTERS_PATH = 'characters';
 const CLOUD_USERS_PATH = 'users';
 
 let lastHistoryTimestamp = 0;
@@ -1166,7 +1165,7 @@ function getUserPaths(uid) {
   if (!normalizedUid) return null;
   const encodedUid = encodePath(normalizedUid);
   return {
-    charactersPath: `${CLOUD_CHARACTERS_PATH}/${encodedUid}`,
+    charactersPath: `${CLOUD_USERS_PATH}/${encodedUid}/characters`,
     autosavesPath: `${CLOUD_AUTOSAVES_PATH}/${encodedUid}`,
     historyPath: `${CLOUD_HISTORY_PATH}/${encodedUid}`,
     savesPath: `${CLOUD_SAVES_PATH}/${encodedUid}`,

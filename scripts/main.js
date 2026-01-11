@@ -23,6 +23,7 @@ import {
   calculateSnapshotChecksum,
   persistLocalAutosaveSnapshot,
   ensureCharacterId,
+  ensureCloudCharacterSlotId,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -37,8 +38,10 @@ import { buildImportedCopyName } from './import-utils.js';
 import {
   initFirebaseAuth,
   onAuthStateChanged,
-  signInWithUsernamePassword,
-  createAccountWithUsernamePassword,
+  claimRosterAccount,
+  getRosterLoginState,
+  signInWithRosterPin,
+  normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
   getAuthState,
@@ -63,7 +66,6 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
-  saveUserProfile,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
@@ -24936,7 +24938,9 @@ const welcomeCreate = $('welcome-create');
 const authLoginModal = $('modal-auth-login');
 const authCreateModal = $('modal-auth-create');
 const authLoginUsername = $('auth-login-username');
-const authLoginPassword = $('auth-login-password');
+const authLoginPin = $('auth-login-pin');
+const authLoginConfirm = $('auth-login-confirm');
+const authLoginSubtitle = $('auth-login-subtitle');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
@@ -24985,6 +24989,15 @@ let firebaseInitErrorMessage = '';
 let usernameAvailabilityState = 'idle';
 let lastUsernameCheckToken = 0;
 let offlineBlankActive = false;
+let rosterLoginState = null;
+let rosterLoginStage = 'idle';
+let rosterLoginCooldownTimer = null;
+let rosterLoginLockUntil = 0;
+let rosterLoginFailures = 0;
+
+const ROSTER_PIN_LENGTH = 4;
+const ROSTER_PIN_FAILURE_LIMIT = 5;
+const ROSTER_PIN_LOCK_MS = 30000;
 
 function setAuthError(message, mode) {
   const text = typeof message === 'string' ? message.trim() : '';
@@ -25002,12 +25015,137 @@ function clearAuthErrors() {
 function setAuthBusy(busy) {
   authBusy = !!busy;
   const disabled = !!busy;
+  [authLoginUsername, authLoginPin, authLoginConfirm].forEach(input => {
+    if (!input) return;
+    input.disabled = disabled;
+    input.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
   [authLoginSubmit, authLoginOpenCreate, authLoginCancel, authCreateOpenLogin, authCreateCancel].forEach(btn => {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   });
   updateCreateSubmitState();
+}
+
+function resetRosterLoginState() {
+  rosterLoginState = null;
+  rosterLoginStage = 'idle';
+  if (authLoginConfirm) {
+    authLoginConfirm.hidden = true;
+    authLoginConfirm.value = '';
+    authLoginConfirm.required = false;
+  }
+  if (authLoginPin) {
+    authLoginPin.value = '';
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.textContent = 'Log In';
+  }
+  if (authLoginSubtitle) {
+    authLoginSubtitle.textContent = 'Enter your roster name and PIN.';
+  }
+}
+
+function applyRosterLoginStage(stage) {
+  rosterLoginStage = stage;
+  if (authLoginConfirm) {
+    authLoginConfirm.hidden = stage !== 'create';
+    if (stage !== 'create') {
+      authLoginConfirm.value = '';
+    }
+    authLoginConfirm.required = stage === 'create';
+  }
+  if (authLoginPin) {
+    authLoginPin.required = true;
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.textContent = stage === 'create' ? 'Create PIN' : 'Log In';
+  }
+  if (authLoginSubtitle) {
+    authLoginSubtitle.textContent = stage === 'create'
+      ? 'Create a 4-digit PIN to claim your roster entry.'
+      : 'Enter your roster name and PIN.';
+  }
+}
+
+function normalizeRosterPinInput(pin) {
+  if (typeof pin !== 'string') return '';
+  return pin.replace(/\D/g, '').slice(0, ROSTER_PIN_LENGTH);
+}
+
+function clearRosterLoginCooldown() {
+  if (rosterLoginCooldownTimer !== null) {
+    clearInterval(rosterLoginCooldownTimer);
+    rosterLoginCooldownTimer = null;
+  }
+}
+
+function updateRosterLoginLockout() {
+  const now = Date.now();
+  if (rosterLoginLockUntil > now) {
+    const seconds = Math.ceil((rosterLoginLockUntil - now) / 1000);
+    if (authLoginSubmit) {
+      authLoginSubmit.disabled = true;
+      authLoginSubmit.setAttribute('aria-disabled', 'true');
+      authLoginSubmit.textContent = `Try again in ${seconds}s`;
+    }
+    if (authLoginPin) {
+      authLoginPin.disabled = true;
+      authLoginPin.setAttribute('aria-disabled', 'true');
+    }
+    if (authLoginConfirm && rosterLoginStage === 'create') {
+      authLoginConfirm.disabled = true;
+      authLoginConfirm.setAttribute('aria-disabled', 'true');
+    }
+    return true;
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.disabled = authBusy;
+    authLoginSubmit.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+    authLoginSubmit.textContent = rosterLoginStage === 'create' ? 'Create PIN' : 'Log In';
+  }
+  if (authLoginPin) {
+    authLoginPin.disabled = authBusy;
+    authLoginPin.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+  }
+  if (authLoginConfirm && rosterLoginStage === 'create') {
+    authLoginConfirm.disabled = authBusy;
+    authLoginConfirm.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+  }
+  return false;
+}
+
+function scheduleRosterLoginLockout() {
+  clearRosterLoginCooldown();
+  if (!rosterLoginLockUntil) return;
+  rosterLoginCooldownTimer = setInterval(() => {
+    if (!updateRosterLoginLockout()) {
+      clearRosterLoginCooldown();
+      setAuthError('', 'login');
+    }
+  }, 250);
+  updateRosterLoginLockout();
+}
+
+function recordRosterLoginFailure(message) {
+  rosterLoginFailures += 1;
+  if (rosterLoginFailures >= ROSTER_PIN_FAILURE_LIMIT) {
+    rosterLoginFailures = 0;
+    rosterLoginLockUntil = Date.now() + ROSTER_PIN_LOCK_MS;
+    setAuthError('Too many failed PIN attempts. Please wait 30 seconds.', 'login');
+    scheduleRosterLoginLockout();
+    return;
+  }
+  if (message) {
+    setAuthError(message, 'login');
+  }
+}
+
+function resetRosterLoginFailures() {
+  rosterLoginFailures = 0;
+  rosterLoginLockUntil = 0;
+  clearRosterLoginCooldown();
 }
 
 function setUsernameAvailabilityStatus({ state = 'idle', message = '' } = {}) {
@@ -25138,6 +25276,38 @@ if (authCreateUsername) {
   });
   authCreateUsername.addEventListener('blur', () => {
     refreshUsernameAvailability();
+  });
+}
+
+if (authLoginUsername) {
+  authLoginUsername.addEventListener('input', () => {
+    setAuthError('', 'login');
+    resetRosterLoginState();
+    rosterLoginState = null;
+  });
+}
+
+if (authLoginPin) {
+  authLoginPin.addEventListener('input', () => {
+    authLoginPin.value = normalizeRosterPinInput(authLoginPin.value || '');
+    setAuthError('', 'login');
+  });
+  authLoginPin.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      handleAuthSubmit();
+    }
+  });
+}
+
+if (authLoginConfirm) {
+  authLoginConfirm.addEventListener('input', () => {
+    authLoginConfirm.value = normalizeRosterPinInput(authLoginConfirm.value || '');
+    setAuthError('', 'login');
+  });
+  authLoginConfirm.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      handleAuthSubmit();
+    }
   });
 }
 
@@ -25341,6 +25511,7 @@ async function primeFirebaseAuth() {
 function openLoginModal() {
   if (!authLoginModal) return;
   clearAuthErrors();
+  resetRosterLoginState();
   hide(WELCOME_MODAL_ID);
   show('modal-auth-login');
   if (firebaseInitErrorMessage) {
@@ -25350,6 +25521,7 @@ function openLoginModal() {
       setAuthError(err?.message || 'Firebase failed to initialize.', 'login');
     });
   }
+  scheduleRosterLoginLockout();
 }
 
 function openCreateModal() {
@@ -25396,95 +25568,76 @@ function closeClaimModal() {
   hide('modal-claim-characters');
 }
 
-async function handleAuthSubmit(mode) {
+function isPinFailureError(error) {
+  const code = error?.code || '';
+  return [
+    'auth/wrong-password',
+    'auth/invalid-credential',
+    'auth/user-not-found',
+  ].includes(code);
+}
+
+async function handleAuthSubmit() {
   try {
+    if (updateRosterLoginLockout()) {
+      return;
+    }
     clearAuthErrors();
     setAuthBusy(true);
     await primeFirebaseAuth();
-    if (mode === 'create') {
-      const username = authCreateUsername?.value?.trim() || '';
-      const password = authCreatePassword?.value || '';
-      const confirm = authCreateConfirm?.value || '';
-      const normalized = normalizeUsername(username);
-      if (!username || !password) {
-        setAuthError('Enter a username and password to continue.', 'create');
-        return;
-      }
-      if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'create');
-        return;
-      }
-      if (!['available', 'unchecked'].includes(usernameAvailabilityState)) {
-        setAuthError('That username is not available yet.', 'create');
-        return;
-      }
-      if (password !== confirm) {
-        setAuthError('Passwords do not match.', 'create');
-        return;
-      }
-      const lengthError = getPasswordLengthError(password, passwordPolicy);
-      if (lengthError) {
-        updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
-        setAuthError(lengthError, 'create');
-        return;
-      }
-      const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
-      if (unmetRules.length) {
-        setAuthError('Password does not meet requirements.', 'create');
-        return;
-      }
-      pendingPostAuthChoice = true;
-      const credential = await createAccountWithUsernamePassword(username, password);
-      const uid = credential?.user?.uid || getAuthState().uid;
-      if (uid) {
-        try {
-          await saveUserProfile(uid, {
-            username: normalized,
-            displayName: username,
-            createdAt: Date.now(),
-          });
-        } catch (profileErr) {
-          console.error('Failed to save user profile to cloud', profileErr);
-        }
-      }
-    } else {
-      const username = authLoginUsername?.value?.trim() || '';
-      const password = authLoginPassword?.value || '';
-      const normalized = normalizeUsername(username);
-      if (!username || !password) {
-        setAuthError('Enter your username and password to continue.', 'login');
-        return;
-      }
-      if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'login');
-        return;
-      }
-      pendingPostAuthChoice = true;
-      await signInWithUsernamePassword(username, password);
+    const usernameInput = authLoginUsername?.value?.trim() || '';
+    const normalizedUsername = normalizeRosterUsername(usernameInput);
+    if (!usernameInput || !normalizedUsername) {
+      setAuthError('Enter your roster name to continue.', 'login');
+      return;
     }
+    if (!rosterLoginState || rosterLoginState.normalized !== normalizedUsername) {
+      rosterLoginState = await getRosterLoginState(usernameInput);
+      rosterLoginState.normalized = normalizedUsername;
+      applyRosterLoginStage(rosterLoginState.claimedUid ? 'login' : 'create');
+    }
+    const pin = normalizeRosterPinInput(authLoginPin?.value || '');
+    const confirm = normalizeRosterPinInput(authLoginConfirm?.value || '');
+    if (!pin || pin.length !== ROSTER_PIN_LENGTH) {
+      setAuthError(`Enter a ${ROSTER_PIN_LENGTH}-digit PIN to continue.`, 'login');
+      return;
+    }
+    pendingPostAuthChoice = true;
+    if (rosterLoginStage === 'create') {
+      if (!confirm || confirm.length !== ROSTER_PIN_LENGTH) {
+        setAuthError('Confirm your PIN to continue.', 'login');
+        return;
+      }
+      if (pin !== confirm) {
+        setAuthError('PIN entries do not match.', 'login');
+        return;
+      }
+      await claimRosterAccount(usernameInput, pin);
+    } else {
+      await signInWithRosterPin(usernameInput, pin);
+    }
+    resetRosterLoginFailures();
     hide('modal-auth-login');
     hide('modal-auth-create');
   } catch (err) {
     console.error('Auth failed', err);
-    if (mode === 'create') {
-      const password = authCreatePassword?.value || '';
-      const policyFeedback = applyPasswordPolicyError({
-        container: authPasswordPolicy,
-        password,
-        policy: passwordPolicy,
-        error: err,
-      });
-      if (policyFeedback) {
-        setAuthError(policyFeedback.message, 'create');
-      } else {
-        const friendly = getFriendlySignupError(err);
-        setAuthError(`${friendly} (${formatAuthErrorDetails(err)})`, 'create');
-      }
-    } else {
-      setAuthError(err?.message || 'Unable to sign in.', 'login');
+    if (err?.code === 'preuser-unclaimed') {
+      applyRosterLoginStage('create');
+      setAuthError('Create your PIN to claim this roster entry.', 'login');
+      return;
     }
+    if (err?.message === 'Not on roster') {
+      setAuthError('Not on roster', 'login');
+      return;
+    }
+    if (isPinFailureError(err)) {
+      recordRosterLoginFailure('Incorrect PIN. Please try again.');
+      return;
+    }
+    setAuthError(err?.message || 'Unable to sign in.', 'login');
   } finally {
     setAuthBusy(false);
+    updateRosterLoginLockout();
   }
 }
 
@@ -25516,21 +25669,29 @@ async function handleClaimTokenSubmit() {
     const cloudPayload = await loadCloudCharacter(sourceUid, characterId);
     const migrated = migrateSavePayload(cloudPayload);
     const { payload } = buildCanonicalPayload(migrated);
+    const displayName = payload?.meta?.name || payload?.character?.name || characterId;
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid: uid,
       uid,
       deviceId: getDeviceId(),
+      name: displayName,
+      displayName,
       updatedAt: Date.now(),
     };
     payload.updatedAt = payload.meta.updatedAt;
-    await saveCloudCharacter(uid, characterId, payload);
-    await saveCharacterIndexEntry(uid, characterId, {
-      name: payload?.meta?.name || payload?.character?.name || characterId,
+    const slotId = await ensureCloudCharacterSlotId({
+      uid,
+      payload,
+      storageName: displayName,
+    });
+    await saveCloudCharacter(uid, slotId, payload);
+    await saveCharacterIndexEntry(uid, slotId, {
+      name: displayName,
       updatedAt: payload.meta.updatedAt,
     });
-    writeLastSyncedAt(characterId, payload.meta.updatedAt);
-    await saveLocal(payload?.meta?.name || characterId, payload, { characterId });
+    writeLastSyncedAt(slotId, payload.meta.updatedAt);
+    await saveLocal(displayName || slotId, payload, { characterId: slotId });
     toast('Character claimed from token.', 'success');
     claimTokenInput.value = '';
     await refreshClaimModal();
@@ -25612,7 +25773,11 @@ async function handleLegacyClaim({ name, source }) {
     toast('This character is already claimed by another account.', 'error');
     return;
   }
-  const characterId = ensureCharacterId(payload, name);
+  const characterId = await ensureCloudCharacterSlotId({
+    uid,
+    payload,
+    storageName: name,
+  });
   try {
     const db = await getFirebaseDatabase();
     await claimCharacterLock(db, characterId, uid);
@@ -25672,7 +25837,11 @@ async function handleFileImport() {
     toast('This character is already claimed by another account.', 'error');
     return;
   }
-  const characterId = ensureCharacterId(payload, name);
+  const characterId = await ensureCloudCharacterSlotId({
+    uid,
+    payload,
+    storageName: name,
+  });
   try {
     const db = await getFirebaseDatabase();
     await claimCharacterLock(db, characterId, uid);
@@ -25885,7 +26054,7 @@ registerBootTask(() => {
     welcomeLogin.addEventListener('click', () => openLoginModal());
   }
   if (welcomeCreate) {
-    welcomeCreate.addEventListener('click', () => openCreateModal());
+    welcomeCreate.addEventListener('click', () => openLoginModal());
   }
   if (welcomeContinue) {
     welcomeContinue.addEventListener('click', async () => {
@@ -25915,10 +26084,7 @@ registerBootTask(() => {
     });
   }
   if (authLoginSubmit) {
-    authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
-  }
-  if (authCreateSubmit) {
-    authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+    authLoginSubmit.addEventListener('click', () => handleAuthSubmit());
   }
   if (authLoginCancel) {
     authLoginCancel.addEventListener('click', () => {

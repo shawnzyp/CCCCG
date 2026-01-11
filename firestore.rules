@@ -12,6 +12,13 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null && request.auth.uid == userId;
     }
 
+    match /preusers/{canonical} {
+      allow read: if true;
+      allow update: if request.auth != null
+        && request.resource.data.claimedUid == request.auth.uid
+        && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid);
+    }
+
     match /miniGames/{deploymentId} {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null && request.auth.token.admin == true;
