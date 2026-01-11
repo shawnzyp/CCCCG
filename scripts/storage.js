@@ -1948,13 +1948,15 @@ export async function listCloudCharacters(uid) {
   try {
     const paths = getUserPaths(uid);
     if (!paths) return [];
-    const ref = await getDatabaseRef(paths.charactersPath);
+    const ref = await getDatabaseRef(paths.charactersIndexPath);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (!val || typeof val !== 'object') return [];
-    return Object.entries(val).map(([characterId, payload]) => ({
+    return Object.entries(val).map(([characterId, entry]) => ({
       characterId,
-      payload,
+      name: entry?.name || '',
+      updatedAt: Number(entry?.updatedAt) || 0,
+      updatedAtServer: Number(entry?.updatedAtServer) || 0,
     }));
   } catch (e) {
     console.error('Cloud character list failed', e);

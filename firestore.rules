@@ -14,9 +14,11 @@ service cloud.firestore {
 
     match /preusers/{canonical} {
       allow read: if true;
+      allow create: if false;
       allow update: if request.auth != null
         && request.resource.data.claimedUid == request.auth.uid
-        && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid);
+        && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedUid', 'claimedAt']);
     }
 
     match /miniGames/{deploymentId} {

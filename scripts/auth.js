@@ -1055,6 +1055,10 @@ export async function signInWithRosterPin(username, pin) {
   const credential = await auth.signInWithEmailAndPassword(email, password);
   const uid = credential?.user?.uid || '';
   if (!uid) throw new Error('Login failed');
+  if (claimedUid && uid !== claimedUid) {
+    await auth.signOut();
+    throw new Error('Roster entry mismatch.');
+  }
   try {
     await upsertRosterUserProfile(uid, { canonical, displayName, isNew: false });
   } catch (err) {

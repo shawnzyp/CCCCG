@@ -1245,15 +1245,24 @@ export async function loadCharacter(name, options = {}) {
       payload.character?.uiState ||
       !isSnapshotChecksumValid(payload);
     if (needsSchemaUpdate) {
+      let characterId = '';
       try {
-        const characterId = ensureCharacterId(payload, storageName || name);
+        if (authUid) {
+          characterId = await ensureCloudCharacterSlotId({
+            uid: authUid,
+            payload,
+            storageName: storageName || name,
+          });
+        } else {
+          characterId = ensureCharacterId(payload, storageName || name);
+        }
         await saveLocal(storageName || name, payload, { characterId });
       } catch (err) {
         console.error(`Failed to normalize local data for ${storageName || name}`, err);
       }
       try {
         if (authUid) {
-          const characterId = await ensureCloudCharacterSlotId({
+          const resolvedId = characterId || await ensureCloudCharacterSlotId({
             uid: authUid,
             payload,
             storageName: storageName || name,
@@ -1268,12 +1277,12 @@ export async function loadCharacter(name, options = {}) {
             updatedAt: Date.now(),
           };
           payload.updatedAt = payload.meta.updatedAt;
-          await saveCloudCharacter(authUid, characterId, payload);
-          await saveCharacterIndexEntry(authUid, characterId, {
+          await saveCloudCharacter(authUid, resolvedId, payload);
+          await saveCharacterIndexEntry(authUid, resolvedId, {
             name: displayName || storageName || name,
             updatedAt: payload.meta.updatedAt,
           });
-          writeLastSyncedAt(characterId, payload.meta.updatedAt);
+          writeLastSyncedAt(resolvedId, payload.meta.updatedAt);
         } else {
           await saveCloud(storageName || name, payload);
         }
@@ -1461,6 +1470,13 @@ export async function renameCharacter(oldName, newName, data) {
     }
     await verifyPin(displayCharacterName(oldName));
     try {
+      if (authUid) {
+        characterId = await ensureCloudCharacterSlotId({
+          uid: authUid,
+          payload,
+          storageName: storageNewName,
+        });
+      }
       await saveLocal(storageNewName, payload, { characterId });
     } catch (err) {
       console.error(`Failed to persist renamed character ${storageNewName} locally`, err);
@@ -1474,11 +1490,6 @@ export async function renameCharacter(oldName, newName, data) {
     let cloudStatus;
     try {
       if (authUid) {
-        characterId = await ensureCloudCharacterSlotId({
-          uid: authUid,
-          payload,
-          storageName: storageNewName,
-        });
         payload.meta = {
           ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
           name: displayCharacterName(newName),
