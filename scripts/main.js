@@ -13786,7 +13786,13 @@ async function resolveSlotIndexMap(uid) {
   if (!uid) return new Map();
   const entries = await listCharacterIndex(uid);
   const map = new Map();
-  entries.forEach(entry => {
+  const list = Array.isArray(entries)
+    ? entries
+    : Object.entries(entries || {}).map(([characterId, entry]) => ({
+      characterId,
+      ...(entry && typeof entry === 'object' ? entry : {}),
+    }));
+  list.forEach(entry => {
     const slotId = entry?.characterId || '';
     if (slotId) {
       map.set(slotId, entry);
@@ -13969,7 +13975,15 @@ if(charList){
           allowOverwrite: true,
         });
         await saveLocal(displayName || slotId, payload, { characterId: slotId });
-        applyCloudSnapshotPayload(payload, { source: 'slot' });
+        applyAppSnapshot(payload);
+        applyViewLockState();
+        setCurrentCharacter(displayName);
+        syncMiniGamePlayerName();
+        writeLastSaveName(displayName);
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
         hide('modal-load-list');
       } catch (err) {
         console.error('Failed to load slot', err);
@@ -13992,6 +14006,10 @@ if(charList){
       if (boundSlotId && SLOT_ORDER.includes(boundSlotId)) {
         await saveCharacter(createAppSnapshot(), targetName);
         toast(`Saved to ${SLOT_LABELS[boundSlotId] || boundSlotId}.`, 'success');
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: boundSlotId,
+          lastLoadedAt: Date.now(),
+        });
         await renderSlotList();
         return;
       }
@@ -14021,6 +14039,10 @@ if(charList){
         });
         await saveCharacter(snapshot, targetName);
         toast(`Saved to ${SLOT_LABELS[slotId] || slotId}.`, 'success');
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
         await renderSlotList();
       } catch (err) {
         console.error('Failed to save to slot', err);
@@ -14066,6 +14088,10 @@ if(charList){
         applyAppSnapshot(snapshot);
         setMode('edit');
         writeLastSaveName(clean);
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
         queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
         toast(`Created ${clean} in ${SLOT_LABELS[slotId] || slotId}.`, 'success');
         hide('modal-load-list');
@@ -25070,6 +25096,8 @@ const authLoginUsername = $('auth-login-username');
 const authLoginPin = $('auth-login-pin');
 const authLoginConfirm = $('auth-login-confirm');
 const authLoginSubtitle = $('auth-login-subtitle');
+const authLoginRosterStatus = $('auth-login-roster-status');
+const authLoginShowPin = $('auth-login-showpin');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
@@ -25129,6 +25157,27 @@ let rosterBootstrapPreferLegacy = false;
 const ROSTER_PIN_LENGTH = 4;
 const ROSTER_PIN_FAILURE_LIMIT = 5;
 const ROSTER_PIN_LOCK_MS = 30000;
+const ROSTER_LAST_NAME_KEY = 'cc:roster:lastName';
+
+function readLastRosterName() {
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  if (!storage) return '';
+  try {
+    return storage.getItem(ROSTER_LAST_NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeLastRosterName(name) {
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  if (!storage) return;
+  const value = typeof name === 'string' ? name.trim() : '';
+  if (!value) return;
+  try {
+    storage.setItem(ROSTER_LAST_NAME_KEY, value);
+  } catch {}
+}
 
 function setAuthError(message, mode) {
   const text = typeof message === 'string' ? message.trim() : '';
@@ -25169,12 +25218,17 @@ function resetRosterLoginState() {
   }
   if (authLoginPin) {
     authLoginPin.value = '';
+    authLoginPin.type = authLoginShowPin?.checked ? 'text' : 'password';
   }
   if (authLoginSubmit) {
     authLoginSubmit.textContent = 'Log In';
   }
   if (authLoginSubtitle) {
     authLoginSubtitle.textContent = 'Enter your roster name and PIN.';
+  }
+  if (authLoginRosterStatus) {
+    authLoginRosterStatus.textContent = '';
+    authLoginRosterStatus.hidden = true;
   }
 }
 
@@ -25416,6 +25470,29 @@ if (authLoginUsername) {
     resetRosterLoginState();
     rosterLoginState = null;
   });
+  authLoginUsername.addEventListener('blur', async () => {
+    const username = authLoginUsername.value || '';
+    const normalized = normalizeRosterUsername(username);
+    if (!normalized) return;
+    try {
+      const state = await getRosterLoginState(username);
+      rosterLoginState = { ...state, normalized };
+      applyRosterLoginStage(state.claimedUid ? 'login' : 'create');
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = state.claimedUid
+          ? 'Roster entry found. Enter your PIN.'
+          : 'Roster entry found. Create your PIN.';
+        authLoginRosterStatus.hidden = false;
+      }
+      writeLastRosterName(username);
+      authLoginPin?.focus?.();
+    } catch (err) {
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = err?.message || 'Roster lookup failed.';
+        authLoginRosterStatus.hidden = false;
+      }
+    }
+  });
 }
 
 if (authLoginPin) {
@@ -25439,6 +25516,14 @@ if (authLoginConfirm) {
     if (event.key === 'Enter') {
       handleAuthSubmit();
     }
+  });
+}
+
+if (authLoginShowPin) {
+  authLoginShowPin.addEventListener('change', () => {
+    const type = authLoginShowPin.checked ? 'text' : 'password';
+    if (authLoginPin) authLoginPin.type = type;
+    if (authLoginConfirm) authLoginConfirm.type = type;
   });
 }
 
@@ -25645,6 +25730,12 @@ function openLoginModal() {
   resetRosterLoginState();
   hide(WELCOME_MODAL_ID);
   show('modal-auth-login');
+  if (authLoginUsername) {
+    const saved = readLastRosterName();
+    if (saved && !authLoginUsername.value) {
+      authLoginUsername.value = saved;
+    }
+  }
   if (firebaseInitErrorMessage) {
     setAuthError(firebaseInitErrorMessage, 'login');
   } else {
@@ -25742,12 +25833,15 @@ async function bootstrapRosterSession({ preferLegacy = false } = {}) {
         allowOverwrite: true,
       });
       await saveLocal(displayName || slotId, payload, { characterId: slotId });
-      applyCloudSnapshotPayload(payload, { source: 'slot' });
+      applyAppSnapshot(payload);
+      applyViewLockState();
+      setCurrentCharacter(displayName);
+      syncMiniGamePlayerName();
+      writeLastSaveName(displayName);
       await updateUserProfile(uid, {
         lastLoadedSlotId: slotId,
         lastLoadedAt: Date.now(),
       });
-      writeLastSaveName(displayName);
       restoreUiAfterWelcome();
       return true;
     };

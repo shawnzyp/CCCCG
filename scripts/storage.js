@@ -1954,6 +1954,7 @@ export async function listCloudCharacters(uid) {
     if (!val || typeof val !== 'object') return [];
     return Object.entries(val).map(([characterId, entry]) => ({
       characterId,
+      payload: null,
       name: entry?.name || '',
       updatedAt: Number(entry?.updatedAt) || 0,
       updatedAtServer: Number(entry?.updatedAtServer) || 0,
