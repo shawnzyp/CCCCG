@@ -5,7 +5,6 @@ import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOp
 import {
   currentCharacter,
   setCurrentCharacter,
-  listCharacters,
   loadCharacter,
   loadBackup,
   listBackups,
@@ -44,6 +43,7 @@ import {
   normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
+  waitForAuthReady,
   getAuthState,
   ensureGuestSession,
   getFirebaseDatabase,
@@ -13765,8 +13765,37 @@ registerBootTask(() => {
   }
 });
 const btnLoad = $('btn-load');
+const SLOT_ORDER = ['legacy', 'slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const SLOT_LABELS = {
+  legacy: 'Legacy Slot',
+  slot1: 'Slot 1',
+  slot2: 'Slot 2',
+  slot3: 'Slot 3',
+  slot4: 'Slot 4',
+  slot5: 'Slot 5',
+};
+
+function formatSlotTimestamp(ts) {
+  const value = Number(ts);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return new Date(value).toLocaleString();
+}
+
+async function resolveSlotIndexMap(uid) {
+  if (!uid) return new Map();
+  const entries = await listCharacterIndex(uid);
+  const map = new Map();
+  entries.forEach(entry => {
+    const slotId = entry?.characterId || '';
+    if (slotId) {
+      map.set(slotId, entry);
+    }
+  });
+  return map;
+}
+
 async function openCharacterList(){
-  await renderCharacterList();
+  await renderSlotList();
   show('modal-load-list');
   updateSaveLoadAuthState();
   setSaveLoadStatus('');
@@ -13778,42 +13807,57 @@ registerBootTask(() => {
 });
 window.openCharacterList = openCharacterList;
 
-async function renderCharacterList(){
+async function renderSlotList(){
   const list = $('char-list');
   if(!list) return;
-  let names = [];
-  try { names = await listCharacters(); }
-  catch (e) { console.error('Failed to list characters', e); }
-  const current = currentCharacter();
   list.innerHTML = '';
-  names.forEach(c => {
+  const { uid } = getAuthState();
+  const slotMap = await resolveSlotIndexMap(uid);
+  SLOT_ORDER.forEach(slotId => {
+    const entry = slotMap.get(slotId);
+    const name = entry?.name || '';
+    const updatedAt = formatSlotTimestamp(entry?.updatedAtServer || entry?.updatedAt);
     const item = document.createElement('div');
-    item.className = `catalog-item${c===current ? ' active' : ''}`;
-    const link = document.createElement('a');
-    link.href = '#';
-    link.dataset.char = c;
-    link.textContent = c;
-    item.appendChild(link);
-    if(c !== 'The DM'){
-      const lock = document.createElement('button');
-      lock.className = 'btn-sm';
-      lock.dataset.lock = c;
-      item.appendChild(lock);
-      const btn = document.createElement('button');
-      btn.className = 'btn-sm';
-      btn.dataset.del = c;
-      item.appendChild(btn);
+    item.className = 'catalog-item catalog-item--slot';
+    item.dataset.slotId = slotId;
+    const title = document.createElement('div');
+    title.className = 'catalog-item__title';
+    title.textContent = SLOT_LABELS[slotId] || slotId;
+    const subtitle = document.createElement('div');
+    subtitle.className = 'catalog-item__subtitle';
+    subtitle.textContent = name ? `${name}${updatedAt ? ` • ${updatedAt}` : ''}` : 'Empty';
+    const actions = document.createElement('div');
+    actions.className = 'catalog-item__actions';
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn-sm';
+    loadBtn.dataset.slotAction = 'load';
+    loadBtn.dataset.slotId = slotId;
+    loadBtn.textContent = 'Load';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-sm';
+    saveBtn.dataset.slotAction = 'save';
+    saveBtn.dataset.slotId = slotId;
+    saveBtn.textContent = 'Save Here';
+    const createBtn = document.createElement('button');
+    createBtn.className = 'btn-sm';
+    createBtn.dataset.slotAction = 'create';
+    createBtn.dataset.slotId = slotId;
+    createBtn.textContent = 'Create New Here';
+    if (!uid) {
+      [loadBtn, saveBtn, createBtn].forEach(btn => {
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      });
     }
+    actions.append(loadBtn, saveBtn, createBtn);
+    item.append(title, subtitle, actions);
     list.appendChild(item);
   });
-  applyLockIcons(list);
-  applyDeleteIcons(list);
-  selectedChar = current;
 }
 
 registerBootTask(() => {
-  document.addEventListener('character-saved', renderCharacterList);
-  document.addEventListener('character-deleted', renderCharacterList);
+  document.addEventListener('character-saved', renderSlotList);
+  document.addEventListener('character-deleted', renderSlotList);
   document.addEventListener('character-cloud-update', event => {
     const detail = event?.detail || {};
     const name = detail.name;
@@ -13832,7 +13876,7 @@ registerBootTask(() => {
   });
 });
 registerBootTask(() => {
-  window.addEventListener('storage', renderCharacterList);
+  window.addEventListener('storage', renderSlotList);
 });
 
 async function renderRecoverCharList(){
@@ -13885,64 +13929,148 @@ let selectedChar = null;
 const charList = $('char-list');
 if(charList){
   charList.addEventListener('click', async e=>{
-    const loadBtn = e.target.closest('[data-char]');
-    const delBtn = e.target.closest('button[data-del]');
-    const lockBtn = e.target.closest('button[data-lock]');
-    if(loadBtn){
-      e.preventDefault();
-      selectedChar = loadBtn.dataset.char;
-      qsa('#char-list .catalog-item').forEach(ci=> ci.classList.remove('active'));
-      const item = loadBtn.closest('.catalog-item');
-      if(item) item.classList.add('active');
-      pendingLoad = { name: selectedChar };
-      const text = $('load-confirm-text');
-      if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
-      show('modal-load');
-    } else if(lockBtn){
-      const ch = lockBtn.dataset.lock;
-      const status = await ensureAuthoritativePinState(ch, { force: true });
-      if(status.pinned){
-        const pin = await pinPrompt('Enter PIN to disable protection');
-        if(pin !== null){
-          const ok = await verifyStoredPin(ch, pin);
-          if(ok){
-            const cleared = await clearPin(ch);
-            if(cleared){
-              applyLockIcon(lockBtn);
-              toast('PIN disabled','info');
-            }else{
-              toast('Failed to disable PIN','error');
-            }
-          }else{
-            toast('Invalid PIN','error');
-          }
-        }
-      }else{
-        const pin1 = await pinPrompt('Set PIN');
-        if(pin1){
-          const pin2 = await pinPrompt('Confirm PIN');
-          if(pin1 === pin2){
-            const stored = await setPin(ch, pin1);
-            if(stored){
-              applyLockIcon(lockBtn);
-              toast('PIN enabled','success');
-            }else{
-              toast('Failed to enable PIN','error');
-            }
-          }else if(pin2 !== null){
-            toast('PINs did not match','error');
-          }
-        }
+    const actionBtn = e.target.closest('button[data-slot-action]');
+    if(!actionBtn) return;
+    const slotId = actionBtn.dataset.slotId || '';
+    const action = actionBtn.dataset.slotAction || '';
+    const { uid } = getAuthState();
+    if (!uid) {
+      toast('Sign in to manage cloud slots.', 'info');
+      return;
+    }
+    const slotMap = await resolveSlotIndexMap(uid);
+    const entry = slotMap.get(slotId);
+    const slotName = entry?.name || '';
+    if (action === 'load') {
+      if (!slotName) {
+        toast('This slot is empty.', 'info');
+        return;
       }
-    } else if(delBtn){
-      const ch = delBtn.dataset.del;
-      if(ch === 'The DM'){
-        toast('Cannot delete The DM','error');
-      }else if(confirm(`Delete ${ch}?`) && confirm('This cannot be undone. Are you sure?')){
-        deleteCharacter(ch).then(()=>{
-          renderCharacterList();
-          toast('Deleted','info');
-        }).catch(e=> toast(e.message || 'Delete failed','error'));
+      try {
+        const payload = await loadCloudCharacter(uid, slotId);
+        const displayName = slotName || payload?.meta?.name || payload?.character?.name || slotId;
+        payload.meta = {
+          ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          name: displayName,
+          displayName,
+          slotId,
+        };
+        payload.character = {
+          ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+          name: displayName,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload,
+          storageName: displayName,
+          requestedSlotId: slotId,
+          allowOverwrite: true,
+        });
+        await saveLocal(displayName || slotId, payload, { characterId: slotId });
+        applyCloudSnapshotPayload(payload, { source: 'slot' });
+        hide('modal-load-list');
+      } catch (err) {
+        console.error('Failed to load slot', err);
+        toast('Failed to load slot.', 'error');
+      }
+      return;
+    }
+    if (action === 'save') {
+      const targetName = resolveSaveTargetName();
+      if (!targetName) {
+        toast('Enter a character name before saving.', 'error');
+        return;
+      }
+      let boundSlotId = '';
+      try {
+        const stored = await loadLocal(targetName, {});
+        boundSlotId = stored?.meta?.slotId || stored?.character?.characterId || '';
+      } catch {}
+      const slotOccupied = !!slotName;
+      if (boundSlotId && SLOT_ORDER.includes(boundSlotId)) {
+        await saveCharacter(createAppSnapshot(), targetName);
+        toast(`Saved to ${SLOT_LABELS[boundSlotId] || boundSlotId}.`, 'success');
+        await renderSlotList();
+        return;
+      }
+      if (slotOccupied) {
+        const confirmOverwrite = confirm(`${slotName} already occupies ${SLOT_LABELS[slotId] || slotId}. Overwrite it?`);
+        if (!confirmOverwrite) return;
+      }
+      try {
+        const snapshot = createAppSnapshot();
+        snapshot.meta = {
+          ...(snapshot.meta && typeof snapshot.meta === 'object' ? snapshot.meta : {}),
+          name: targetName,
+          displayName: targetName,
+          slotId,
+        };
+        snapshot.character = {
+          ...(snapshot.character && typeof snapshot.character === 'object' ? snapshot.character : {}),
+          name: targetName,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload: snapshot,
+          storageName: targetName,
+          requestedSlotId: slotId,
+          allowOverwrite: slotOccupied,
+        });
+        await saveCharacter(snapshot, targetName);
+        toast(`Saved to ${SLOT_LABELS[slotId] || slotId}.`, 'success');
+        await renderSlotList();
+      } catch (err) {
+        console.error('Failed to save to slot', err);
+        toast(err?.message || 'Failed to save slot.', 'error');
+      }
+      return;
+    }
+    if (action === 'create') {
+      const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';
+      const clean = name ? name.trim() : '';
+      if (!clean) {
+        toast('Name required to create a character.', 'error');
+        return;
+      }
+      if (slotName) {
+        const confirmOverwrite = confirm(`${slotName} already occupies ${SLOT_LABELS[slotId] || slotId}. Overwrite it?`);
+        if (!confirmOverwrite) return;
+      }
+      try {
+        const snapshot = createDefaultSnapshot();
+        snapshot.meta = {
+          ...(snapshot.meta && typeof snapshot.meta === 'object' ? snapshot.meta : {}),
+          name: clean,
+          displayName: clean,
+          slotId,
+        };
+        snapshot.character = {
+          ...(snapshot.character && typeof snapshot.character === 'object' ? snapshot.character : {}),
+          name: clean,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload: snapshot,
+          storageName: clean,
+          requestedSlotId: slotId,
+          allowOverwrite: !!slotName,
+        });
+        await saveCharacter(snapshot, clean);
+        setCurrentCharacter(clean);
+        syncMiniGamePlayerName();
+        setPinInteractionGuard('', { locked: false });
+        applyAppSnapshot(snapshot);
+        setMode('edit');
+        writeLastSaveName(clean);
+        queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
+        toast(`Created ${clean} in ${SLOT_LABELS[slotId] || slotId}.`, 'success');
+        hide('modal-load-list');
+      } catch (err) {
+        console.error('Failed to create slot character', err);
+        toast(err?.message || 'Failed to create character.', 'error');
       }
     }
   });
@@ -24994,6 +25122,8 @@ let rosterLoginStage = 'idle';
 let rosterLoginCooldownTimer = null;
 let rosterLoginLockUntil = 0;
 let rosterLoginFailures = 0;
+let rosterBootstrapPending = false;
+let rosterBootstrapPreferLegacy = false;
 
 const ROSTER_PIN_LENGTH = 4;
 const ROSTER_PIN_FAILURE_LIMIT = 5;
@@ -25577,6 +25707,81 @@ function isPinFailureError(error) {
   ].includes(code);
 }
 
+async function bootstrapRosterSession({ preferLegacy = false } = {}) {
+  try {
+    await waitForAuthReady();
+    const { uid } = getAuthState();
+    if (!uid) return false;
+    const slotMap = await resolveSlotIndexMap(uid);
+    const loadSlot = async (slotId) => {
+      const entry = slotMap.get(slotId);
+      if (!entry?.name) return false;
+      const payload = await loadCloudCharacter(uid, slotId);
+      const displayName = entry?.name || payload?.meta?.name || payload?.character?.name || slotId;
+      payload.meta = {
+        ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+        name: displayName,
+        displayName,
+        slotId,
+      };
+      payload.character = {
+        ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+        name: displayName,
+        characterId: slotId,
+      };
+      await ensureCloudCharacterSlotId({
+        uid,
+        payload,
+        storageName: displayName,
+        requestedSlotId: slotId,
+        allowOverwrite: true,
+      });
+      await saveLocal(displayName || slotId, payload, { characterId: slotId });
+      applyCloudSnapshotPayload(payload, { source: 'slot' });
+      writeLastSaveName(displayName);
+      restoreUiAfterWelcome();
+      return true;
+    };
+
+    if (preferLegacy) {
+      if (await loadSlot('legacy')) return true;
+    } else {
+      const lastName = readLastSaveName();
+      if (lastName) {
+        let ownerMatches = true;
+        try {
+          const local = await loadLocal(lastName, {});
+          const ownerUid = local?.meta?.ownerUid || local?.meta?.uid || '';
+          if (ownerUid && ownerUid !== uid) {
+            ownerMatches = false;
+          }
+        } catch {}
+        if (ownerMatches) {
+          try {
+            const snapshot = await loadCharacter(lastName, { bypassPin: true });
+            applyAppSnapshot(snapshot);
+            setCurrentCharacter(lastName);
+            syncMiniGamePlayerName();
+            restoreUiAfterWelcome();
+            return true;
+          } catch (err) {
+            console.warn('Failed to load last character after login', err);
+          }
+        }
+      }
+      if (await loadSlot('legacy')) return true;
+      for (const slotId of SLOT_ORDER) {
+        if (slotId === 'legacy') continue;
+        if (await loadSlot(slotId)) return true;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to bootstrap roster session', err);
+  }
+  restoreUiAfterWelcome();
+  return false;
+}
+
 async function handleAuthSubmit() {
   try {
     if (updateRosterLoginLockout()) {
@@ -25612,13 +25817,21 @@ async function handleAuthSubmit() {
         setAuthError('PIN entries do not match.', 'login');
         return;
       }
+      rosterBootstrapPending = true;
+      rosterBootstrapPreferLegacy = true;
       await claimRosterAccount(usernameInput, pin);
     } else {
+      rosterBootstrapPending = true;
+      rosterBootstrapPreferLegacy = false;
       await signInWithRosterPin(usernameInput, pin);
     }
     resetRosterLoginFailures();
     hide('modal-auth-login');
     hide('modal-auth-create');
+    pendingPostAuthChoice = false;
+    await bootstrapRosterSession({ preferLegacy: rosterBootstrapPreferLegacy });
+    rosterBootstrapPending = false;
+    rosterBootstrapPreferLegacy = false;
   } catch (err) {
     console.error('Auth failed', err);
     if (err?.code === 'preuser-unclaimed') {
@@ -25638,6 +25851,10 @@ async function handleAuthSubmit() {
   } finally {
     setAuthBusy(false);
     updateRosterLoginLockout();
+    if (rosterBootstrapPending && !getAuthState().uid) {
+      rosterBootstrapPending = false;
+      rosterBootstrapPreferLegacy = false;
+    }
   }
 }
 
@@ -26009,6 +26226,10 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
       .then(({ hadLocal, restoredCount, updatedCount, totalCloud } = {}) => {
+        if (rosterBootstrapPending) {
+          pendingPostAuthChoice = false;
+          return;
+        }
         restoreLastLoadedCharacter().catch(err => {
           console.error('Failed to restore last loaded character', err);
         });

@@ -168,7 +168,14 @@ async function listUsedCloudSlots(uid) {
   }
 }
 
-export async function ensureCloudCharacterSlotId({ uid, payload, storageName, allowLegacy = false } = {}) {
+export async function ensureCloudCharacterSlotId({
+  uid,
+  payload,
+  storageName,
+  allowLegacy = false,
+  requestedSlotId = '',
+  allowOverwrite = false,
+} = {}) {
   if (!uid) throw new Error('Missing user id');
   if (!payload || typeof payload !== 'object') throw new Error('Missing character payload');
   const resolvedName = storageName || payload?.meta?.name || payload?.character?.name || '';
@@ -176,7 +183,14 @@ export async function ensureCloudCharacterSlotId({ uid, payload, storageName, al
   const existing = payload?.character?.characterId || payload?.characterId || stored;
   let slotId = isCloudSlotId(existing) ? existing : '';
   if (!slotId) {
-    if (allowLegacy) {
+    const requested = typeof requestedSlotId === 'string' ? requestedSlotId.trim() : '';
+    if (requested && isCloudSlotId(requested)) {
+      const used = await listUsedCloudSlots(uid);
+      if (used.has(requested) && !allowOverwrite) {
+        throw new Error('That slot is already occupied.');
+      }
+      slotId = requested;
+    } else if (allowLegacy) {
       slotId = 'legacy';
     } else {
       const used = await listUsedCloudSlots(uid);
