@@ -43,7 +43,6 @@ import {
   normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
-  waitForAuthReady,
   getAuthState,
   ensureGuestSession,
   getFirebaseDatabase,
@@ -72,6 +71,8 @@ import {
   readLastSyncedAt,
   writeLastSyncedAt,
   listLocalSaves,
+  loadUserProfile,
+  updateUserProfile,
   storeConflictSnapshot,
   saveCloudConflictBackup,
   getDeviceId,
@@ -25122,7 +25123,7 @@ let rosterLoginStage = 'idle';
 let rosterLoginCooldownTimer = null;
 let rosterLoginLockUntil = 0;
 let rosterLoginFailures = 0;
-let rosterBootstrapPending = false;
+let pendingRosterBootstrap = false;
 let rosterBootstrapPreferLegacy = false;
 
 const ROSTER_PIN_LENGTH = 4;
@@ -25709,10 +25710,14 @@ function isPinFailureError(error) {
 
 async function bootstrapRosterSession({ preferLegacy = false } = {}) {
   try {
-    await waitForAuthReady();
     const { uid } = getAuthState();
     if (!uid) return false;
+    const profile = await loadUserProfile(uid);
     const slotMap = await resolveSlotIndexMap(uid);
+    const indexEntries = await listCharacterIndex(uid);
+    const preferredSlotId = !preferLegacy && typeof profile?.lastLoadedSlotId === 'string'
+      ? profile.lastLoadedSlotId.trim()
+      : '';
     const loadSlot = async (slotId) => {
       const entry = slotMap.get(slotId);
       if (!entry?.name) return false;
@@ -25738,6 +25743,10 @@ async function bootstrapRosterSession({ preferLegacy = false } = {}) {
       });
       await saveLocal(displayName || slotId, payload, { characterId: slotId });
       applyCloudSnapshotPayload(payload, { source: 'slot' });
+      await updateUserProfile(uid, {
+        lastLoadedSlotId: slotId,
+        lastLoadedAt: Date.now(),
+      });
       writeLastSaveName(displayName);
       restoreUiAfterWelcome();
       return true;
@@ -25746,32 +25755,11 @@ async function bootstrapRosterSession({ preferLegacy = false } = {}) {
     if (preferLegacy) {
       if (await loadSlot('legacy')) return true;
     } else {
-      const lastName = readLastSaveName();
-      if (lastName) {
-        let ownerMatches = true;
-        try {
-          const local = await loadLocal(lastName, {});
-          const ownerUid = local?.meta?.ownerUid || local?.meta?.uid || '';
-          if (ownerUid && ownerUid !== uid) {
-            ownerMatches = false;
-          }
-        } catch {}
-        if (ownerMatches) {
-          try {
-            const snapshot = await loadCharacter(lastName, { bypassPin: true });
-            applyAppSnapshot(snapshot);
-            setCurrentCharacter(lastName);
-            syncMiniGamePlayerName();
-            restoreUiAfterWelcome();
-            return true;
-          } catch (err) {
-            console.warn('Failed to load last character after login', err);
-          }
-        }
-      }
+      if (preferredSlotId && await loadSlot(preferredSlotId)) return true;
       if (await loadSlot('legacy')) return true;
-      for (const slotId of SLOT_ORDER) {
-        if (slotId === 'legacy') continue;
+      for (const entry of indexEntries) {
+        const slotId = entry?.characterId || '';
+        if (!slotId || slotId === 'legacy') continue;
         if (await loadSlot(slotId)) return true;
       }
     }
@@ -25817,11 +25805,11 @@ async function handleAuthSubmit() {
         setAuthError('PIN entries do not match.', 'login');
         return;
       }
-      rosterBootstrapPending = true;
+      pendingRosterBootstrap = true;
       rosterBootstrapPreferLegacy = true;
       await claimRosterAccount(usernameInput, pin);
     } else {
-      rosterBootstrapPending = true;
+      pendingRosterBootstrap = true;
       rosterBootstrapPreferLegacy = false;
       await signInWithRosterPin(usernameInput, pin);
     }
@@ -25829,9 +25817,6 @@ async function handleAuthSubmit() {
     hide('modal-auth-login');
     hide('modal-auth-create');
     pendingPostAuthChoice = false;
-    await bootstrapRosterSession({ preferLegacy: rosterBootstrapPreferLegacy });
-    rosterBootstrapPending = false;
-    rosterBootstrapPreferLegacy = false;
   } catch (err) {
     console.error('Auth failed', err);
     if (err?.code === 'preuser-unclaimed') {
@@ -25851,8 +25836,8 @@ async function handleAuthSubmit() {
   } finally {
     setAuthBusy(false);
     updateRosterLoginLockout();
-    if (rosterBootstrapPending && !getAuthState().uid) {
-      rosterBootstrapPending = false;
+    if (pendingRosterBootstrap && !getAuthState().uid) {
+      pendingRosterBootstrap = false;
       rosterBootstrapPreferLegacy = false;
     }
   }
@@ -26226,8 +26211,13 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
       .then(({ hadLocal, restoredCount, updatedCount, totalCloud } = {}) => {
-        if (rosterBootstrapPending) {
+        if (pendingRosterBootstrap) {
           pendingPostAuthChoice = false;
+          bootstrapRosterSession({ preferLegacy: rosterBootstrapPreferLegacy })
+            .finally(() => {
+              pendingRosterBootstrap = false;
+              rosterBootstrapPreferLegacy = false;
+            });
           return;
         }
         restoreLastLoadedCharacter().catch(err => {

@@ -1978,6 +1978,24 @@ export async function saveUserProfile(uid, profile) {
   await ref.set(serialized.value);
 }
 
+export async function loadUserProfile(uid) {
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
+  const ref = await getDatabaseRef(paths.profilePath);
+  const snapshot = await ref.once('value');
+  const val = snapshot.val();
+  return val && typeof val === 'object' ? val : {};
+}
+
+export async function updateUserProfile(uid, patch) {
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
+  if (!patch || typeof patch !== 'object') return false;
+  const ref = await getDatabaseRef(paths.profilePath);
+  await ref.update(patch);
+  return true;
+}
+
 export async function saveCharacterIndexEntry(uid, characterId, entry) {
   if (isLocalAuthMode()) {
     const resolvedUid = uid || activeAuthUserId || 'local';

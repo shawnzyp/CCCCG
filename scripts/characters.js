@@ -1331,13 +1331,27 @@ export async function saveCharacter(data, name = currentCharacter()) {
     if (!localUid) {
       throw new Error('Login required to save characters.');
     }
-    let characterId = ensureCharacterId(payload, storageName);
+    let characterId = '';
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     await verifyPin(displayCharacterName(name));
     const ownerUid = payload?.meta?.ownerUid || payload?.character?.ownerUid || '';
     if (ownerUid && ownerUid !== localUid && !isDm) {
       throw new Error('You do not have permission to edit this character.');
+    }
+    if (authUid) {
+      try {
+        characterId = await ensureCloudCharacterSlotId({
+          uid: authUid,
+          payload,
+          storageName,
+        });
+      } catch (err) {
+        console.error('Failed to assign character slot', err);
+        throw err;
+      }
+    } else {
+      characterId = ensureCharacterId(payload, storageName);
     }
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
@@ -1353,18 +1367,6 @@ export async function saveCharacter(data, name = currentCharacter()) {
       payload.character.characterId = characterId;
     }
     payload.updatedAt = payload.meta.updatedAt;
-    if (authUid) {
-      try {
-        characterId = await ensureCloudCharacterSlotId({
-          uid: authUid,
-          payload,
-          storageName,
-        });
-      } catch (err) {
-        console.error('Failed to assign character slot', err);
-        throw err;
-      }
-    }
     try {
       await saveLocal(storageName, payload, { characterId });
     } catch (err) {
@@ -1422,7 +1424,16 @@ export async function claimCharacterOwnership(name, ownerUid) {
     const data = await loadLocal(storageName, { characterId: storedCharacterId });
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    let characterId = ensureCharacterId(payload, storageName);
+    let characterId = '';
+    if (authUid) {
+      characterId = await ensureCloudCharacterSlotId({
+        uid: authUid,
+        payload,
+        storageName,
+      });
+    } else {
+      characterId = ensureCharacterId(payload, storageName);
+    }
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid,
@@ -1437,13 +1448,6 @@ export async function claimCharacterOwnership(name, ownerUid) {
       payload.character.characterId = characterId;
     }
     payload.updatedAt = payload.meta.updatedAt;
-    if (authUid) {
-      characterId = await ensureCloudCharacterSlotId({
-        uid: authUid,
-        payload,
-        storageName,
-      });
-    }
     await saveLocal(storageName, payload, { characterId });
     try {
       if (authUid) {
@@ -1473,8 +1477,17 @@ export async function renameCharacter(oldName, newName, data) {
     const storageNewName = normalizedCharacterName(newName) || newName;
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    let characterId = ensureCharacterId(payload, storageOldName);
-    migrateCharacterIdKey(oldName, newName, characterId);
+    let characterId = '';
+    if (authUid) {
+      characterId = await ensureCloudCharacterSlotId({
+        uid: authUid,
+        payload,
+        storageName: storageNewName,
+      });
+    } else {
+      characterId = ensureCharacterId(payload, storageOldName);
+      migrateCharacterIdKey(oldName, newName, characterId);
+    }
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
     if (!storageOldName || storageOldName === storageNewName) {
@@ -1484,13 +1497,6 @@ export async function renameCharacter(oldName, newName, data) {
     }
     await verifyPin(displayCharacterName(oldName));
     try {
-      if (authUid) {
-        characterId = await ensureCloudCharacterSlotId({
-          uid: authUid,
-          payload,
-          storageName: storageNewName,
-        });
-      }
       await saveLocal(storageNewName, payload, { characterId });
     } catch (err) {
       console.error(`Failed to persist renamed character ${storageNewName} locally`, err);
