@@ -33,6 +33,7 @@ const MANIFEST_URL = resolveAssetUrl(`${MANIFEST_PATH}?v=${MANIFEST_VERSION}`);
 
 let manifestFetchPromise = null;
 let cachedManifest = null;
+let precacheFailureLogged = false;
 
 function isValidManifest(manifest) {
   return (
@@ -130,7 +131,12 @@ async function precacheAll(cache, manifest) {
   await Promise.all(
     [...assetSet].map(async asset => {
       try {
-        await cache.add(asset);
+        const response = await fetch(asset, { cache: 'reload' });
+        if (!response.ok) {
+          skippedAssets.push({ asset, status: response.status });
+          return;
+        }
+        await cache.put(asset, response);
       } catch (err) {
         skippedAssets.push({ asset, error: err });
       }
@@ -138,11 +144,14 @@ async function precacheAll(cache, manifest) {
   );
 
   if (skippedAssets.length && typeof console !== 'undefined') {
-    const failed = skippedAssets.map(entry => entry.asset);
-    if (!isSwOffline() && console?.warn) {
-      console.warn('Skipped precaching assets due to cache.add failures:', failed);
-    } else if (console?.info) {
-      console.info('Skipped precaching assets while offline:', failed);
+    if (!precacheFailureLogged) {
+      const failed = skippedAssets.map(entry => entry.asset);
+      if (!isSwOffline() && console?.warn) {
+        console.warn('Skipped precaching assets due to fetch failures:', failed);
+      } else if (console?.info) {
+        console.info('Skipped precaching assets while offline:', failed);
+      }
+      precacheFailureLogged = true;
     }
   }
 }
