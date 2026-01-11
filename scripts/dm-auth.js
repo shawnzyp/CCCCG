@@ -1,134 +1,84 @@
-const DM_USERNAME_FALLBACK = 'SPeiris';
-const DM_USERNAME_DEFAULT = 'DM';
-const DM_SALT_KEY = 'cccg:dm:salt';
-const DM_HASH_KEY = 'cccg:dm:hash';
-const DM_ITER_KEY = 'cccg:dm:iter';
-const DEFAULT_ITERATIONS = 120000;
-const MIN_PASSWORD_LENGTH = 8;
+const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
+const DM_PIN_META_NAME = 'cc-dm-pin-sha256';
 
-let dmUnlocked = false;
-
-function getCrypto() {
-  if (typeof crypto !== 'undefined' && crypto && crypto.subtle) return crypto;
-  throw new Error('WebCrypto unavailable');
-}
-
-function toBase64(bytes) {
-  if (!bytes) return '';
-  let binary = '';
-  bytes.forEach(byte => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
-
-function fromBase64(value) {
-  if (typeof value !== 'string' || !value) return new Uint8Array();
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+export function validateDmPin(pin) {
+  const raw = typeof pin === 'string' || typeof pin === 'number' ? String(pin) : '';
+  const digits = raw.replace(/\D+/g, '');
+  if (digits.length < 4 || digits.length > 6) {
+    return '';
   }
-  return bytes;
+  return digits;
 }
 
-function getStoredCredentials() {
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    const salt = localStorage.getItem(DM_SALT_KEY) || '';
-    const hash = localStorage.getItem(DM_HASH_KEY) || '';
-    const iterRaw = localStorage.getItem(DM_ITER_KEY) || '';
-    const iterations = Number(iterRaw);
-    if (!salt || !hash || !Number.isFinite(iterations)) return null;
-    return { salt, hash, iterations };
-  } catch {
+function readDmPinHash() {
+  if (typeof document === 'undefined') return '';
+  const meta = document.querySelector(`meta[name="${DM_PIN_META_NAME}"]`);
+  const content = meta?.content || '';
+  if (typeof content !== 'string') return '';
+  const normalized = content.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    return '';
+  }
+  return normalized;
+}
+
+function getSubtleCrypto() {
+  if (typeof crypto === 'undefined' || !crypto?.subtle) {
     return null;
   }
+  return crypto.subtle;
 }
 
-async function deriveHash(password, saltBytes, iterations) {
-  const cryptoApi = getCrypto();
-  const encoder = new TextEncoder();
-  const keyMaterial = await cryptoApi.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
-  const bits = await cryptoApi.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: saltBytes,
-      iterations,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    256
-  );
-  return new Uint8Array(bits);
-}
-
-export function getDmUsername() {
-  const configured = typeof window !== 'undefined'
-    ? window.CCCG_DM_USERNAME
-    : '';
-  if (typeof configured === 'string' && configured.trim()) {
-    return configured.trim();
+async function sha256Hex(input) {
+  const subtle = getSubtleCrypto();
+  if (!subtle) {
+    throw new Error('WebCrypto unavailable');
   }
-  return DM_USERNAME_FALLBACK || DM_USERNAME_DEFAULT;
-}
-
-export function dmHasPasswordSet() {
-  return Boolean(getStoredCredentials());
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const digest = await subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(digest));
+  return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export function dmIsUnlocked() {
-  return dmUnlocked;
+  if (typeof sessionStorage === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function dmUnlockWithPin(pin) {
+  const normalized = validateDmPin(pin);
+  if (!normalized) return false;
+  const expectedHash = readDmPinHash();
+  if (!expectedHash) {
+    throw new Error('DM PIN not configured');
+  }
+  const digest = await sha256Hex(normalized);
+  if (!digest) return false;
+  const matches = digest === expectedHash;
+  if (matches && typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.setItem(DM_LOGIN_FLAG_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  }
+  return matches;
 }
 
 export function dmLock() {
-  dmUnlocked = false;
-}
-
-export async function dmSetPassword(password) {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error('Password must be at least 8 characters.');
-  }
-  const cryptoApi = getCrypto();
-  const saltBytes = new Uint8Array(16);
-  cryptoApi.getRandomValues(saltBytes);
-  const iterations = DEFAULT_ITERATIONS;
-  const hashBytes = await deriveHash(password, saltBytes, iterations);
-  if (typeof localStorage === 'undefined') {
-    throw new Error('localStorage unavailable');
-  }
+  if (typeof sessionStorage === 'undefined') return;
   try {
-    localStorage.setItem(DM_SALT_KEY, toBase64(saltBytes));
-    localStorage.setItem(DM_HASH_KEY, toBase64(hashBytes));
-    localStorage.setItem(DM_ITER_KEY, String(iterations));
+    sessionStorage.removeItem(DM_LOGIN_FLAG_KEY);
   } catch {
-    throw new Error('Failed to store DM password');
+    /* ignore */
   }
-  dmUnlocked = true;
-  return true;
 }
 
-export async function dmVerifyPassword(password) {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
-    return false;
-  }
-  const stored = getStoredCredentials();
-  if (!stored) return false;
-  const saltBytes = fromBase64(stored.salt);
-  const expectedHash = fromBase64(stored.hash);
-  const hashBytes = await deriveHash(password, saltBytes, stored.iterations);
-  if (hashBytes.length !== expectedHash.length) return false;
-  let match = 0;
-  for (let i = 0; i < hashBytes.length; i += 1) {
-    match |= hashBytes[i] ^ expectedHash[i];
-  }
-  const isValid = match === 0;
-  if (isValid) dmUnlocked = true;
-  return isValid;
+export function getDmAuthStatus() {
+  return { unlocked: dmIsUnlocked() };
 }

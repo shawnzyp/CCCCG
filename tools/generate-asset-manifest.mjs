@@ -10,6 +10,8 @@ const EXCLUDED_DIRECTORIES = new Set([
   '.git',
   '.github',
   '__tests__',
+  'tests',
+  'docs',
   'tools',
 ]);
 
@@ -47,6 +49,10 @@ const ALWAYS_INCLUDE = new Set([
 const EXCLUDED_FILES = new Set([
   'package.json',
   'package-lock.json',
+  'jest.config.cjs',
+  'jest.config.js',
+  'jest.config.mjs',
+  'jest.config.json',
 ]);
 
 function normalizePath(filePath) {
@@ -56,6 +62,16 @@ function normalizePath(filePath) {
 function shouldSkipDir(relativeDir) {
   const topLevel = relativeDir.split('/')[0];
   return EXCLUDED_DIRECTORIES.has(topLevel);
+}
+
+function shouldSkipFile(relativePath) {
+  if (EXCLUDED_FILES.has(relativePath)) {
+    return true;
+  }
+  if (/\.test\.[cm]?[jt]s(x)?$/i.test(relativePath)) {
+    return true;
+  }
+  return false;
 }
 
 function collectFiles(dir, base = '') {
@@ -70,7 +86,7 @@ function collectFiles(dir, base = '') {
     if (entry.isDirectory()) {
       if (shouldSkipDir(relativePath)) continue;
       files.push(...collectFiles(fullPath, relativePath));
-    } else if (EXCLUDED_FILES.has(relativePath)) {
+    } else if (shouldSkipFile(relativePath)) {
       continue;
     } else if (ALWAYS_INCLUDE.has(relativePath)) {
       files.push(relativePath);

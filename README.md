@@ -87,7 +87,8 @@ Catalyst Core Character Tracker is a mobile friendly character sheet and campaig
 
 ## DM and Admin Tools
 
-- DM tools require a shared PIN stored as a salted PBKDF2 hash in `scripts/dm-pin.js`.
+- DM tools are unlocked by a shared 4 to 6 digit PIN hashed with SHA-256 in the `cc-dm-pin-sha256` meta tag.
+- The PIN gate is client-side and acts as a deterrent, not a security boundary.
 - Admin users can generate claim tokens, access notifications, and review roster data.
 - DM access does not change character ownership without an explicit claim or import.
 
@@ -227,7 +228,7 @@ Note: Realtime Database rules are configured separately from Firestore rules. If
 
 ### DM tools access
 
-The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash in `scripts/dm-pin.js`.
+The DM tools are protected by a shared PIN hashed with SHA-256 in the `cc-dm-pin-sha256` meta tag. Any signed-in user can unlock them with the PIN, so treat it as a shared secret. For local development, set the meta tag content in `index.html` or run `DM_PIN=1234 node tools/inject-dm-pin-hash.mjs index.html` before loading the page.
 
 ### Discord webhook testing
 
@@ -330,9 +331,10 @@ Placeholder roll patterns are blocked to prevent spam, including `rolled roll = 
 
 #### Rotating the DM PIN
 
-1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash configuration. The optional second argument overrides the default 120000 PBKDF2 iterations.
-2. Replace the `DM_PIN` export in `scripts/dm-pin.js` with the generated JSON.
-3. Commit the change and redeploy the site.
+1. Generate a new SHA-256 hash for the 4 to 6 digit PIN:
+   `node -e "crypto=require('crypto');console.log(crypto.createHash('sha256').update('1234').digest('hex'))"`
+2. Inject the hash into the `cc-dm-pin-sha256` meta tag at deploy time. Prefer a GitHub Actions secret and a build step that replaces `__DM_PIN_SHA256__`.
+3. Redeploy the site without committing the raw PIN or hash to the repo.
 
 ### Audio cues
 
