@@ -13801,6 +13801,23 @@ async function resolveSlotIndexMap(uid) {
   return map;
 }
 
+function applySlotSnapshot({ payload, name }) {
+  if (!payload) return false;
+  try {
+    applyAppSnapshot(payload);
+    applyViewLockState();
+    if (name) {
+      setCurrentCharacter(name);
+      syncMiniGamePlayerName();
+      writeLastSaveName(name);
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to apply slot snapshot', err);
+    return false;
+  }
+}
+
 async function openCharacterList(){
   await renderSlotList();
   show('modal-load-list');
@@ -13975,11 +13992,7 @@ if(charList){
           allowOverwrite: true,
         });
         await saveLocal(displayName || slotId, payload, { characterId: slotId });
-        applyAppSnapshot(payload);
-        applyViewLockState();
-        setCurrentCharacter(displayName);
-        syncMiniGamePlayerName();
-        writeLastSaveName(displayName);
+        applySlotSnapshot({ payload, name: displayName });
         await updateUserProfile(uid, {
           lastLoadedSlotId: slotId,
           lastLoadedAt: Date.now(),
@@ -25475,6 +25488,7 @@ if (authLoginUsername) {
     const normalized = normalizeRosterUsername(username);
     if (!normalized) return;
     try {
+      await primeFirebaseAuth();
       const state = await getRosterLoginState(username);
       rosterLoginState = { ...state, normalized };
       applyRosterLoginStage(state.claimedUid ? 'login' : 'create');
@@ -25833,11 +25847,7 @@ async function bootstrapRosterSession({ preferLegacy = false } = {}) {
         allowOverwrite: true,
       });
       await saveLocal(displayName || slotId, payload, { characterId: slotId });
-      applyAppSnapshot(payload);
-      applyViewLockState();
-      setCurrentCharacter(displayName);
-      syncMiniGamePlayerName();
-      writeLastSaveName(displayName);
+      applySlotSnapshot({ payload, name: displayName });
       await updateUserProfile(uid, {
         lastLoadedSlotId: slotId,
         lastLoadedAt: Date.now(),
