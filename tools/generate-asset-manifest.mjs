@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-const ROOT = process.cwd();
+const ROOT = path.resolve(process.argv[2] || process.cwd());
 const OUTPUT = path.join(ROOT, 'asset-manifest.json');
 
 const EXCLUDED_DIRECTORIES = new Set([
@@ -13,6 +13,7 @@ const EXCLUDED_DIRECTORIES = new Set([
   'tests',
   'docs',
   'tools',
+  'src',
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([

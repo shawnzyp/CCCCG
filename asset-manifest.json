@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-b786dd2b2e73cf09",
-  "generatedAt": "2026-01-11T06:21:39.465Z",
+  "version": "cccg-cache-99ee791cf8ac95b2",
+  "generatedAt": "2026-01-11T06:43:40.588Z",
   "assets": [
     "./",
     "./Augments.txt",
@@ -158,8 +158,6 @@
     "./scripts/virtualized-list.js",
     "./scripts/welcome-utils.js",
     "./shard-of-many-fates.js",
-    "./src/index.js",
-    "./src/useSafeReducedMotion.js",
     "./styles/main.css",
     "./sw.js",
     "./worker.js",

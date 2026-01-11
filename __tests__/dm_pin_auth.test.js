@@ -1,5 +1,5 @@
 import { TextDecoder, TextEncoder } from 'util';
-import { dmUnlockWithPin, validateDmPin } from '../scripts/dm-auth.js';
+import { constantTimeEquals, dmUnlockWithPin, validateDmPin } from '../scripts/dm-auth.js';
 
 const HASH_1234 = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
 const HASH_0000 = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0';
@@ -68,6 +68,12 @@ describe('dm PIN auth', () => {
   it('unlocks with the correct PIN hash', async () => {
     await expect(dmUnlockWithPin('1234')).resolves.toBe(true);
     await expect(dmUnlockWithPin('0000')).resolves.toBe(false);
+  });
+
+  it('compares hashes in constant time', () => {
+    expect(constantTimeEquals('abc123', 'abc123')).toBe(true);
+    expect(constantTimeEquals('abc123', 'abc124')).toBe(false);
+    expect(constantTimeEquals('abc123', 'abc1234')).toBe(false);
   });
 
   it('rejects when the DM PIN meta tag is missing', async () => {

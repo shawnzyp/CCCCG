@@ -1,6 +1,6 @@
 import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
 import { show, hide } from './modal.js';
-import { dmIsUnlocked, dmLock, dmUnlockWithPin, validateDmPin } from './dm-auth.js';
+import { dmIsUnlocked, dmLock, dmUnlockWithPin, isDmPinConfigured, validateDmPin } from './dm-auth.js';
 import {
   listMiniGames,
   getMiniGame,
@@ -850,6 +850,7 @@ function initDMLogin(){
   const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = loginWaitMessageDefault;
+  let loginConfigDisabled = false;
 
   function createLoginEvent(type, detail) {
     if (typeof type !== 'string' || !type) {
@@ -920,6 +921,18 @@ function initDMLogin(){
     if (!loginErrorMessage) return;
     loginErrorMessage.textContent = message || '';
     loginErrorMessage.hidden = !message;
+  }
+  function applyLoginConfigDisabledState() {
+    loginConfigDisabled = true;
+    showLoginError('DM PIN is not configured for this deployment.');
+    if (loginPin) {
+      loginPin.disabled = true;
+      loginPin.setAttribute('aria-disabled', 'true');
+    }
+    if (loginSubmit) {
+      loginSubmit.disabled = true;
+      loginSubmit.setAttribute('aria-disabled', 'true');
+    }
   }
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
@@ -1103,6 +1116,9 @@ function initDMLogin(){
   }
 
   function clearLoginCooldownUI(){
+    if (loginConfigDisabled) {
+      return;
+    }
     if (loginPin) {
       loginPin.disabled = false;
       loginPin.removeAttribute('aria-disabled');
@@ -1181,6 +1197,10 @@ function initDMLogin(){
       try { event.preventDefault(); } catch { /* ignore */ }
     }
     if (!loginPin) return;
+    if (!isDmPinConfigured()) {
+      applyLoginConfigDisabledState();
+      return;
+    }
     const remaining = getLoginCooldownRemainingMs();
     if (remaining > 0) {
       startLoginCooldownCountdown(remaining);
@@ -1212,7 +1232,7 @@ function initDMLogin(){
     } catch (err) {
       console.error('Failed to verify DM PIN', err);
       if (err?.message === 'DM PIN not configured') {
-        showLoginError('DM PIN is not configured for this deployment.');
+        applyLoginConfigDisabledState();
         dispatchLoginEvent('dm-login:failure', { reason: 'config' });
       } else if (err?.message === 'WebCrypto unavailable') {
         showLoginError('PIN verification is unavailable in this browser.');
@@ -8611,6 +8631,9 @@ function initDMLogin(){
     }
     clearLoginError();
     setLoginWaitMessage('');
+    if (!isDmPinConfigured()) {
+      applyLoginConfigDisabledState();
+    }
     dispatchLoginEvent('dm-login:opened');
     queueLoginFocus(loginPin);
   }

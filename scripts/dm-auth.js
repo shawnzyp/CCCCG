@@ -29,6 +29,18 @@ function getSubtleCrypto() {
   return crypto.subtle;
 }
 
+function constantTimeEquals(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const length = Math.max(a.length, b.length);
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < length; i += 1) {
+    const aCode = i < a.length ? a.charCodeAt(i) : 0;
+    const bCode = i < b.length ? b.charCodeAt(i) : 0;
+    mismatch |= aCode ^ bCode;
+  }
+  return mismatch === 0;
+}
+
 async function sha256Hex(input) {
   const subtle = getSubtleCrypto();
   if (!subtle) {
@@ -59,15 +71,7 @@ export async function dmUnlockWithPin(pin) {
   }
   const digest = await sha256Hex(normalized);
   if (!digest) return false;
-  const matches = digest === expectedHash;
-  if (matches && typeof sessionStorage !== 'undefined') {
-    try {
-      sessionStorage.setItem(DM_LOGIN_FLAG_KEY, '1');
-    } catch {
-      /* ignore */
-    }
-  }
-  return matches;
+  return constantTimeEquals(digest, expectedHash);
 }
 
 export function dmLock() {
@@ -82,3 +86,9 @@ export function dmLock() {
 export function getDmAuthStatus() {
   return { unlocked: dmIsUnlocked() };
 }
+
+export function isDmPinConfigured() {
+  return Boolean(readDmPinHash());
+}
+
+export { constantTimeEquals };
