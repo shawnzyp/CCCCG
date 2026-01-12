@@ -23,6 +23,7 @@ const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
 const LAST_SYNCED_PREFIX = 'cc:last-synced:';
 const CONFLICT_SNAPSHOT_PREFIX = 'cc:conflict:';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
+const CLOUD_CHARACTERS_PATH = 'characters';
 let cloudSyncDisabled = false;
 let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
@@ -2105,8 +2106,12 @@ export async function deleteCloudCharacter(uid, characterId) {
   // Remove legacy path in case the character was saved before the migration.
   const legacyPath = buildUserLegacyCharacterPath(uid, characterId);
   if (legacyPath) {
-    const legacyRef = await getDatabaseRef(legacyPath);
-    await legacyRef.remove();
+    try {
+      const legacyRef = await getDatabaseRef(legacyPath);
+      await legacyRef.remove();
+    } catch (err) {
+      console.warn('Failed to remove legacy character payload', err);
+    }
   }
 }
 

@@ -38,7 +38,7 @@ import {
   initFirebaseAuth,
   onAuthStateChanged,
   claimRosterAccount,
-  getRosterLoginState,
+  getRosterLoginStateLocal,
   signInWithRosterPin,
   normalizeRosterUsername,
   checkUsernameAvailability,
@@ -25150,6 +25150,18 @@ const conflictKeepCloud = $('conflict-keep-cloud');
 const conflictKeepLocal = $('conflict-keep-local');
 const conflictMergeLater = $('conflict-merge-later');
 
+if (authLoginOpenCreate) {
+  authLoginOpenCreate.hidden = true;
+  authLoginOpenCreate.disabled = true;
+  authLoginOpenCreate.setAttribute('aria-disabled', 'true');
+}
+
+if (authCreateOpenLogin) {
+  authCreateOpenLogin.hidden = true;
+  authCreateOpenLogin.disabled = true;
+  authCreateOpenLogin.setAttribute('aria-disabled', 'true');
+}
+
 let pendingPostAuthChoice = false;
 const passwordPolicy = { ...PASSWORD_POLICY };
 const syncConflictQueue = [];
@@ -25483,19 +25495,16 @@ if (authLoginUsername) {
     resetRosterLoginState();
     rosterLoginState = null;
   });
-  authLoginUsername.addEventListener('blur', async () => {
+  authLoginUsername.addEventListener('blur', () => {
     const username = authLoginUsername.value || '';
     const normalized = normalizeRosterUsername(username);
     if (!normalized) return;
     try {
-      await primeFirebaseAuth();
-      const state = await getRosterLoginState(username);
+      const state = getRosterLoginStateLocal(username);
       rosterLoginState = { ...state, normalized };
-      applyRosterLoginStage(state.claimedUid ? 'login' : 'create');
+      applyRosterLoginStage('login');
       if (authLoginRosterStatus) {
-        authLoginRosterStatus.textContent = state.claimedUid
-          ? 'Roster entry found. Enter your PIN.'
-          : 'Roster entry found. Create your PIN.';
+        authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
         authLoginRosterStatus.hidden = false;
       }
       writeLastRosterName(username);
@@ -25809,7 +25818,6 @@ function isPinFailureError(error) {
   return [
     'auth/wrong-password',
     'auth/invalid-credential',
-    'auth/user-not-found',
   ].includes(code);
 }
 
@@ -25895,9 +25903,11 @@ async function handleAuthSubmit() {
       return;
     }
     if (!rosterLoginState || rosterLoginState.normalized !== normalizedUsername) {
-      rosterLoginState = await getRosterLoginState(usernameInput);
+      rosterLoginState = getRosterLoginStateLocal(usernameInput);
       rosterLoginState.normalized = normalizedUsername;
-      applyRosterLoginStage(rosterLoginState.claimedUid ? 'login' : 'create');
+      if (rosterLoginStage === 'idle') {
+        applyRosterLoginStage('login');
+      }
     }
     const pin = normalizeRosterPinInput(authLoginPin?.value || '');
     const confirm = normalizeRosterPinInput(authLoginConfirm?.value || '');

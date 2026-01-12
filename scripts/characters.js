@@ -1479,11 +1479,22 @@ export async function renameCharacter(oldName, newName, data) {
     const { payload } = buildCanonicalPayload(migrated);
     let characterId = '';
     if (authUid) {
-      characterId = await ensureCloudCharacterSlotId({
-        uid: authUid,
-        payload,
-        storageName: storageNewName,
-      });
+      const existingId = payload?.character?.characterId || payload?.characterId || readCharacterIdForName(storageOldName);
+      const normalizedId = typeof existingId === 'string' ? existingId.trim() : '';
+      if (!normalizedId || !isCloudSlotId(normalizedId)) {
+        throw new Error('Missing slot id for rename.');
+      }
+      characterId = normalizedId;
+      if (payload.character && typeof payload.character === 'object') {
+        payload.character.characterId = characterId;
+        payload.character.slotId = characterId;
+      }
+      payload.characterId = characterId;
+      payload.meta = {
+        ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+        slotId: characterId,
+      };
+      migrateCharacterIdKey(oldName, newName, characterId);
     } else {
       characterId = ensureCharacterId(payload, storageOldName);
       migrateCharacterIdKey(oldName, newName, characterId);

@@ -830,6 +830,24 @@ function resolveRosterProfileData(canonical, preuser) {
   return { displayName, legacyCharacterName };
 }
 
+export function getRosterLoginStateLocal(username) {
+  const canonical = resolveRosterCanonical(username);
+  if (!canonical) {
+    const err = new Error('Not on roster');
+    err.code = 'preuser-not-found';
+    throw err;
+  }
+  const preuser = PREUSER_ROSTER[canonical] || {};
+  const { displayName, legacyCharacterName } = resolveRosterProfileData(canonical, preuser);
+  return {
+    canonical,
+    claimedUid: '',
+    preuser,
+    displayName,
+    legacyCharacterName,
+  };
+}
+
 async function upsertRosterUserProfile(uid, { canonical, displayName, isNew = false } = {}) {
   if (!uid) return;
   const firestore = await getFirebaseFirestore();
@@ -1037,12 +1055,7 @@ export async function signInWithRosterPin(username, pin) {
   if (authMode === 'local') {
     throw new Error('Roster login unavailable in local auth mode.');
   }
-  const { canonical, claimedUid, preuser, displayName } = await getRosterLoginState(username);
-  if (!claimedUid) {
-    const err = new Error('PIN not set yet.');
-    err.code = 'preuser-unclaimed';
-    throw err;
-  }
+  const { canonical, preuser, displayName } = getRosterLoginStateLocal(username);
   const password = deriveRosterPassword(canonical, pin);
   if (!password) {
     throw new Error('PIN must be a 4-digit number.');
@@ -1052,13 +1065,19 @@ export async function signInWithRosterPin(username, pin) {
   if (!email) {
     throw new Error('Roster login is unavailable.');
   }
-  const credential = await auth.signInWithEmailAndPassword(email, password);
+  let credential;
+  try {
+    credential = await auth.signInWithEmailAndPassword(email, password);
+  } catch (err) {
+    if (err?.code === 'auth/user-not-found') {
+      const unclaimed = new Error('PIN not set yet.');
+      unclaimed.code = 'preuser-unclaimed';
+      throw unclaimed;
+    }
+    throw err;
+  }
   const uid = credential?.user?.uid || '';
   if (!uid) throw new Error('Login failed');
-  if (claimedUid && uid !== claimedUid) {
-    await auth.signOut();
-    throw new Error('Roster entry mismatch.');
-  }
   try {
     await upsertRosterUserProfile(uid, { canonical, displayName, isNew: false });
   } catch (err) {
@@ -1072,10 +1091,7 @@ export async function claimRosterAccount(username, pin) {
   if (authMode === 'local') {
     throw new Error('Roster login unavailable in local auth mode.');
   }
-  const { canonical, preuser, displayName, legacyCharacterName, claimedUid } = await getRosterLoginState(username);
-  if (claimedUid) {
-    throw new Error('This roster entry is already claimed.');
-  }
+  const { canonical, preuser, displayName, legacyCharacterName } = getRosterLoginStateLocal(username);
   const password = deriveRosterPassword(canonical, pin);
   if (!password) {
     throw new Error('PIN must be a 4-digit number.');
