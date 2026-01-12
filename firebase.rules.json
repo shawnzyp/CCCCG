@@ -34,7 +34,7 @@
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".read": false,
         ".write": false,
         "characters": {
           "$slotId": {

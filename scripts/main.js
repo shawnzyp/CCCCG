@@ -2184,14 +2184,6 @@ registerBootTask(() => {
         }
         handleMiniGameReminderAction();
       });
-      miniGameReminderCard.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleMiniGameReminderAction();
-        }
-      });
-      miniGameReminderCard.setAttribute('role', 'button');
-      miniGameReminderCard.setAttribute('tabindex', '0');
     }
     updateMiniGameReminder();
   }
@@ -5003,7 +4995,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
   const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
-  const TICKER_ICON_OPEN_SRC = 'images/caret (1).png';
+  const TICKER_ICON_OPEN_SRC = 'images/caret.png';
   const TICKER_ICON_CLOSED_SRC = 'images/caret.png';
   const sanitizePanelHeight = value => {
     if(typeof value === 'number' && Number.isFinite(value)){
@@ -14027,13 +14019,16 @@ async function renderSlotList(){
     saveBtn.dataset.slotAction = 'save';
     saveBtn.dataset.slotId = slotId;
     saveBtn.textContent = 'Save Here';
-    const createBtn = document.createElement('button');
-    createBtn.className = 'btn-sm';
-    createBtn.dataset.slotAction = 'create';
-    createBtn.dataset.slotId = slotId;
-    createBtn.textContent = 'Create New Here';
-    updateCreateSlotAvailability(createBtn, usedSlots);
-    actions.append(loadBtn, saveBtn, createBtn);
+    actions.append(loadBtn, saveBtn);
+    if (slotId !== 'legacy') {
+      const createBtn = document.createElement('button');
+      createBtn.className = 'btn-sm';
+      createBtn.dataset.slotAction = 'create';
+      createBtn.dataset.slotId = slotId;
+      createBtn.textContent = 'Create New Here';
+      updateCreateSlotAvailability(createBtn, usedSlots);
+      actions.append(createBtn);
+    }
     item.append(title, subtitle, actions);
     list.appendChild(item);
   });
@@ -25671,18 +25666,13 @@ if (authLoginUsername) {
       await primeFirebaseAuth();
       const state = await getRosterLoginState(username);
       rosterLoginState = { ...state, normalized };
-      if (!state.claimedUid) {
-        applyRosterLoginStage('create');
-        if (authLoginRosterStatus) {
-          authLoginRosterStatus.textContent = 'Roster entry found. Create your PIN to claim it.';
-          authLoginRosterStatus.hidden = false;
-        }
-      } else {
-        applyRosterLoginStage('login');
-        if (authLoginRosterStatus) {
-          authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
-          authLoginRosterStatus.hidden = false;
-        }
+      const hasClaimedUid = !!state.claimedUid;
+      applyRosterLoginStage(hasClaimedUid ? 'login' : 'create');
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = hasClaimedUid
+          ? 'Roster entry found. Enter your PIN.'
+          : 'Roster entry found. Create your PIN to claim it.';
+        authLoginRosterStatus.hidden = false;
       }
       writeLastRosterName(username);
       authLoginPin?.focus?.();

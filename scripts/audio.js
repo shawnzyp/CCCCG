@@ -1419,7 +1419,7 @@ export function playCue(name, opts = {}) {
   if (!sfxSettings.enabled) {
     return makeResult({
       status: 'muted',
-      reason: 'muted',
+      reason: 'sfx_disabled',
       cue: resolvedName,
       requestedCue,
       fallbackCue,
@@ -1435,7 +1435,7 @@ export function playCue(name, opts = {}) {
   if (sfxSettings.volume <= 0) {
     return makeResult({
       status: 'muted',
-      reason: 'muted',
+      reason: 'volume_zero',
       cue: resolvedName,
       requestedCue,
       fallbackCue,
