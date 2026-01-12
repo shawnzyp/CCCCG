@@ -321,7 +321,17 @@ const containsBlockedContent = (payload) => {
   return payload.embeds.some((embed) => {
     if (!isPlainObject(embed)) return false;
     const description = typeof embed.description === 'string' ? embed.description : '';
-    return BLOCKED_SUBSTRINGS.some((substr) => description.includes(substr));
+    const title = typeof embed.title === 'string' ? embed.title : '';
+    if (BLOCKED_SUBSTRINGS.some((substr) => description.includes(substr) || title.includes(substr))) {
+      return true;
+    }
+    if (!Array.isArray(embed.fields)) return false;
+    return embed.fields.some((field) => {
+      if (!isPlainObject(field)) return false;
+      const name = typeof field.name === 'string' ? field.name : '';
+      const value = typeof field.value === 'string' ? field.value : '';
+      return BLOCKED_SUBSTRINGS.some((substr) => name.includes(substr) || value.includes(substr));
+    });
   });
 };
 

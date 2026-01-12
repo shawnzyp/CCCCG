@@ -1,6 +1,7 @@
 import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
 import { show, hide } from './modal.js';
 import { dmIsUnlocked, dmLock, dmUnlockWithPin, isDmPinConfigured, validateDmPin } from './dm-auth.js';
+import { playCue } from './audio.js';
 import {
   listMiniGames,
   getMiniGame,
@@ -49,6 +50,8 @@ const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
+const DM_ACTIVE_BODY_CLASS = 'dm-active';
+const DM_BADGE_VISIBLE_ATTR = 'data-dm-active';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
 const DM_IS_JSDOM_ENV = /jsdom/i.test(DM_USER_AGENT);
@@ -829,6 +832,7 @@ function initDMLogin(){
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
   const menu = document.getElementById('dm-tools-menu');
   const dmPortal = document.querySelector('.dm-tools-portal');
+  const dmModeBadge = document.getElementById('dm-mode-badge');
 
   if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
     try {
@@ -853,6 +857,25 @@ function initDMLogin(){
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = loginWaitMessageDefault;
   let loginConfigDisabled = false;
+  const loginInvalidClass = 'dm-login__input--invalid';
+  const loginShakeClass = 'dm-login--shake';
+
+  function setDmModeIndicator(isActive) {
+    if (typeof document === 'undefined') return;
+    const { body } = document;
+    if (body) {
+      body.classList.toggle(DM_ACTIVE_BODY_CLASS, isActive);
+      if (isActive) {
+        body.setAttribute(DM_BADGE_VISIBLE_ATTR, 'true');
+      } else {
+        body.removeAttribute(DM_BADGE_VISIBLE_ATTR);
+      }
+    }
+    if (dmModeBadge) {
+      dmModeBadge.hidden = !isActive;
+      dmModeBadge.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    }
+  }
 
   function createLoginEvent(type, detail) {
     if (typeof type !== 'string' || !type) {
@@ -917,16 +940,33 @@ function initDMLogin(){
     if (!loginErrorMessage) return;
     loginErrorMessage.textContent = '';
     loginErrorMessage.hidden = true;
+    if (loginPin) {
+      loginPin.classList.remove(loginInvalidClass);
+    }
+    if (loginModal) {
+      loginModal.classList.remove(loginShakeClass);
+    }
   }
 
-  function showLoginError(message) {
+  function showLoginError(message, { shake = false } = {}) {
     if (!loginErrorMessage) return;
     loginErrorMessage.textContent = message || '';
     loginErrorMessage.hidden = !message;
+    if (loginPin) {
+      loginPin.classList.toggle(loginInvalidClass, Boolean(message));
+    }
+    if (loginModal && shake) {
+      loginModal.classList.remove(loginShakeClass);
+      void loginModal.offsetWidth;
+      loginModal.classList.add(loginShakeClass);
+      loginModal.addEventListener('animationend', () => {
+        loginModal.classList.remove(loginShakeClass);
+      }, { once: true });
+    }
   }
   function applyLoginConfigDisabledState() {
     loginConfigDisabled = true;
-    showLoginError('DM PIN is not configured for this deployment.');
+    showLoginError('DM tools not available – no PIN set.');
     if (loginPin) {
       loginPin.disabled = true;
       loginPin.setAttribute('aria-disabled', 'true');
@@ -1211,7 +1251,7 @@ function initDMLogin(){
     }
     const normalized = validateDmPin(loginPin.value || '');
     if (!normalized) {
-      showLoginError('Enter a 4-6 digit PIN.');
+      showLoginError('Enter a 4-6 digit PIN.', { shake: true });
       queueLoginFocus(loginPin);
       return;
     }
@@ -1222,13 +1262,14 @@ function initDMLogin(){
     try {
       const unlocked = await dmUnlockWithPin(normalized);
       if (!unlocked) {
-        showLoginError('Incorrect PIN.');
+        showLoginError('Incorrect PIN.', { shake: true });
         dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
         queueLoginFocus(loginPin);
         return;
       }
       onLoginSuccess();
       dispatchLoginEvent('dm-login:success');
+      playCue('unlock-success', { source: 'action' });
       closeLogin();
       toast('DM tools unlocked.', 'success');
     } catch (err) {
@@ -1240,7 +1281,7 @@ function initDMLogin(){
         showLoginError('PIN verification is unavailable in this browser.');
         dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
       } else {
-        showLoginError('Unable to verify PIN. Try again.');
+        showLoginError('Unable to verify PIN. Try again.', { shake: true });
         dispatchLoginEvent('dm-login:failure', { reason: 'error' });
       }
     } finally {
@@ -8573,6 +8614,7 @@ function initDMLogin(){
 
   function updateButtons(){
     const loggedIn = isLoggedIn();
+    const pinConfigured = isDmPinConfigured();
     if (!loggedIn) closeMenu();
     if (!loggedIn) {
       teardownPlayerBroadcastChannels();
@@ -8582,17 +8624,21 @@ function initDMLogin(){
       renderStoredNotifications();
     }
     if (dmBtn){
-      dmBtn.hidden = loggedIn;
+      dmBtn.hidden = loggedIn || !pinConfigured;
       if (loggedIn) {
         dmBtn.style.opacity = '1';
         dmBtn.setAttribute('aria-hidden', 'true');
       } else {
         dmBtn.style.opacity = '';
-        dmBtn.removeAttribute('aria-hidden');
+        if (!pinConfigured) {
+          dmBtn.setAttribute('aria-hidden', 'true');
+        } else {
+          dmBtn.removeAttribute('aria-hidden');
+        }
       }
     }
     if (dmToggleBtn) {
-      dmToggleBtn.hidden = !loggedIn;
+      dmToggleBtn.hidden = !loggedIn || !pinConfigured;
       const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
@@ -8600,6 +8646,7 @@ function initDMLogin(){
       menu.hidden = true;
       menu.setAttribute('aria-hidden', 'true');
     }
+    setDmModeIndicator(loggedIn);
   }
 
   function logDmInitError(error) {
