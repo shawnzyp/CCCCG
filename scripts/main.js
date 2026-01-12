@@ -39,6 +39,7 @@ import {
   onAuthStateChanged,
   claimRosterAccount,
   getRosterLoginStateLocal,
+  getRosterLoginState,
   signInWithRosterPin,
   normalizeRosterUsername,
   checkUsernameAvailability,
@@ -25659,21 +25660,41 @@ if (authLoginUsername) {
     resetRosterLoginState();
     rosterLoginState = null;
   });
-  authLoginUsername.addEventListener('blur', () => {
+  authLoginUsername.addEventListener('blur', async () => {
     const username = authLoginUsername.value || '';
     const normalized = normalizeRosterUsername(username);
     if (!normalized) return;
     try {
-      const state = getRosterLoginStateLocal(username);
+      await primeFirebaseAuth();
+      const state = await getRosterLoginState(username);
       rosterLoginState = { ...state, normalized };
-      applyRosterLoginStage('login');
-      if (authLoginRosterStatus) {
-        authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
-        authLoginRosterStatus.hidden = false;
+      if (!state.claimedUid) {
+        applyRosterLoginStage('create');
+        if (authLoginRosterStatus) {
+          authLoginRosterStatus.textContent = 'Roster entry found. Create your PIN to claim it.';
+          authLoginRosterStatus.hidden = false;
+        }
+      } else {
+        applyRosterLoginStage('login');
+        if (authLoginRosterStatus) {
+          authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
+          authLoginRosterStatus.hidden = false;
+        }
       }
       writeLastRosterName(username);
       authLoginPin?.focus?.();
     } catch (err) {
+      const code = err?.code || '';
+      const isNotFound = code === 'preuser-not-found' || err?.message === 'Not on roster';
+      if (isNotFound) {
+        resetRosterLoginState();
+        rosterLoginState = null;
+        if (authLoginRosterStatus) {
+          authLoginRosterStatus.textContent = 'Not on roster';
+          authLoginRosterStatus.hidden = false;
+        }
+        return;
+      }
       if (authLoginRosterStatus) {
         authLoginRosterStatus.textContent = err?.message || 'Roster lookup failed.';
         authLoginRosterStatus.hidden = false;
@@ -26067,10 +26088,25 @@ async function handleAuthSubmit() {
       return;
     }
     if (!rosterLoginState || rosterLoginState.normalized !== normalizedUsername) {
-      rosterLoginState = getRosterLoginStateLocal(usernameInput);
-      rosterLoginState.normalized = normalizedUsername;
-      if (rosterLoginStage === 'idle') {
-        applyRosterLoginStage('login');
+      try {
+        const state = await getRosterLoginState(usernameInput);
+        rosterLoginState = { ...state, normalized: normalizedUsername };
+        applyRosterLoginStage(state.claimedUid ? 'login' : 'create');
+        if (authLoginRosterStatus) {
+          authLoginRosterStatus.textContent = state.claimedUid
+            ? 'Roster entry found. Enter your PIN.'
+            : 'Roster entry found. Create your PIN to claim it.';
+          authLoginRosterStatus.hidden = false;
+        }
+        writeLastRosterName(usernameInput);
+      } catch (err) {
+        const code = err?.code || '';
+        if (code === 'preuser-not-found' || err?.message === 'Not on roster') {
+          setAuthError('Not on roster', 'login');
+          return;
+        }
+        setAuthError(err?.message || 'Roster lookup failed.', 'login');
+        return;
       }
     }
     const pin = normalizeRosterPinInput(authLoginPin?.value || '');
