@@ -1078,6 +1078,16 @@ export async function signInWithRosterPin(username, pin) {
   }
   const uid = credential?.user?.uid || '';
   if (!uid) throw new Error('Login failed');
+  const { data } = await fetchPreuserDoc(canonical);
+  const claimedUid = typeof data?.claimedUid === 'string' && data.claimedUid.trim()
+    ? data.claimedUid.trim()
+    : '';
+  if (!claimedUid || claimedUid !== uid) {
+    await auth.signOut();
+    const err = new Error('Roster entry mismatch.');
+    err.code = 'preuser-claim-mismatch';
+    throw err;
+  }
   try {
     await upsertRosterUserProfile(uid, { canonical, displayName, isNew: false });
   } catch (err) {
@@ -1106,7 +1116,10 @@ export async function claimRosterAccount(username, pin) {
   if (!uid) throw new Error('Account creation failed');
   try {
     const firestore = await getFirebaseFirestore();
-    const serverTimestamp = firebaseNamespace?.firestore?.FieldValue?.serverTimestamp?.();
+    const timestampFactory = firebaseNamespace?.firestore?.Timestamp?.fromDate;
+    const claimedAt = typeof timestampFactory === 'function'
+      ? timestampFactory(new Date())
+      : new Date();
     const preuserRef = firestore.collection('preusers').doc(canonical);
     await firestore.runTransaction(async transaction => {
       const snapshot = await transaction.get(preuserRef);
@@ -1119,7 +1132,7 @@ export async function claimRosterAccount(username, pin) {
       }
       transaction.set(preuserRef, {
         claimedUid: uid,
-        claimedAt: serverTimestamp || new Date(),
+        claimedAt,
       }, { merge: true });
     });
   } catch (err) {

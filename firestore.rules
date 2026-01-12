@@ -21,8 +21,8 @@ service cloud.firestore {
         && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedUid', 'claimedAt'])
         && request.resource.data.claimedAt is timestamp
-        && request.resource.data.claimedAt <= request.time
-        && request.resource.data.claimedAt >= request.time - duration.value(5, 'minutes');
+        && request.resource.data.claimedAt >= request.time - duration.value(10, 'minutes')
+        && request.resource.data.claimedAt <= request.time + duration.value(10, 'minutes');
     }
 
     match /miniGames/{deploymentId} {

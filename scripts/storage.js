@@ -1944,7 +1944,18 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
   const legacyRef = await getDatabaseRef(legacyPath);
   const legacySnap = await legacyRef.once('value');
   const legacyVal = legacySnap.val();
-  if (legacyVal !== null) return legacyVal;
+  if (legacyVal !== null) {
+    try {
+      const targetPath = buildUserCharacterPath(uid, characterId);
+      if (targetPath) {
+        const targetRef = await getDatabaseRef(targetPath);
+        await targetRef.set(legacyVal);
+      }
+    } catch (err) {
+      console.warn('Failed to migrate legacy character payload', err);
+    }
+    return legacyVal;
+  }
   throw new Error('No character found');
 }
 
