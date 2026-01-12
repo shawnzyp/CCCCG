@@ -19,7 +19,7 @@ import {
   saveCharacterIndexEntry,
   deleteCharacterIndexEntry,
   listCharacterIndex,
-  listCloudCharacters,
+  listCloudCharacterKeys,
   getDeviceId,
   writeLastSyncedAt,
 } from './storage.js';
@@ -153,10 +153,9 @@ function isCloudSlotId(candidate) {
 async function listUsedCloudSlots(uid) {
   if (!uid) return new Set();
   try {
-    const rows = await listCloudCharacters(uid);
+    const keys = await listCloudCharacterKeys(uid);
     const used = new Set();
-    rows.forEach(row => {
-      const slotId = typeof row?.characterId === 'string' ? row.characterId : '';
+    keys.forEach(slotId => {
       if (isCloudSlotId(slotId)) {
         used.add(slotId);
       }

@@ -1951,12 +1951,39 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
         const targetRef = await getDatabaseRef(targetPath);
         await targetRef.set(legacyVal);
       }
+      const name = legacyVal?.meta?.name
+        || legacyVal?.meta?.displayName
+        || legacyVal?.character?.name
+        || legacyVal?.characterId
+        || characterId;
+      const updatedAt = Number(legacyVal?.meta?.updatedAt || legacyVal?.updatedAt) || Date.now();
+      await saveCharacterIndexEntry(uid, characterId, { name, updatedAt });
     } catch (err) {
       console.warn('Failed to migrate legacy character payload', err);
     }
     return legacyVal;
   }
   throw new Error('No character found');
+}
+
+export async function listCloudCharacterKeys(uid) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const indexObj = readLocalCloudIndex(resolvedUid);
+    return Object.keys(indexObj || {});
+  }
+  try {
+    const paths = getUserPaths(uid);
+    if (!paths) return [];
+    const ref = await getDatabaseRef(paths.charactersPath);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
+    if (!val || typeof val !== 'object') return [];
+    return Object.keys(val);
+  } catch (err) {
+    console.warn('Cloud character key list failed', err);
+    return [];
+  }
 }
 
 export async function listCloudCharacters(uid) {

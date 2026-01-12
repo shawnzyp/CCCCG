@@ -13836,6 +13836,44 @@ async function renderSlotList(){
   if(!list) return;
   list.innerHTML = '';
   const { uid } = getAuthState();
+  if (!uid) {
+    const localNames = listLocalSaves();
+    const header = document.createElement('div');
+    header.className = 'catalog-item catalog-item--slot';
+    const headerTitle = document.createElement('div');
+    headerTitle.className = 'catalog-item__title';
+    headerTitle.textContent = 'Local Characters';
+    header.appendChild(headerTitle);
+    list.appendChild(header);
+    if (!localNames.length) {
+      const empty = document.createElement('div');
+      empty.className = 'catalog-item';
+      empty.textContent = 'No local characters found.';
+      list.appendChild(empty);
+      return;
+    }
+    localNames.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'catalog-item';
+      const title = document.createElement('div');
+      title.className = 'catalog-item__title';
+      title.textContent = name;
+      const subtitle = document.createElement('div');
+      subtitle.className = 'catalog-item__subtitle';
+      subtitle.textContent = 'Local character';
+      const actions = document.createElement('div');
+      actions.className = 'catalog-item__actions';
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'btn-sm';
+      loadBtn.dataset.localAction = 'load';
+      loadBtn.dataset.localName = name;
+      loadBtn.textContent = 'Load';
+      actions.appendChild(loadBtn);
+      item.append(title, subtitle, actions);
+      list.appendChild(item);
+    });
+    return;
+  }
   const slotMap = await resolveSlotIndexMap(uid);
   SLOT_ORDER.forEach(slotId => {
     const entry = slotMap.get(slotId);
@@ -13867,12 +13905,6 @@ async function renderSlotList(){
     createBtn.dataset.slotAction = 'create';
     createBtn.dataset.slotId = slotId;
     createBtn.textContent = 'Create New Here';
-    if (!uid) {
-      [loadBtn, saveBtn, createBtn].forEach(btn => {
-        btn.disabled = true;
-        btn.setAttribute('aria-disabled', 'true');
-      });
-    }
     actions.append(loadBtn, saveBtn, createBtn);
     item.append(title, subtitle, actions);
     list.appendChild(item);
@@ -13953,6 +13985,13 @@ let selectedChar = null;
 const charList = $('char-list');
 if(charList){
   charList.addEventListener('click', async e=>{
+    const localBtn = e.target.closest('button[data-local-action="load"]');
+    if (localBtn) {
+      const name = localBtn.dataset.localName || '';
+      if (!name) return;
+      openCharacterModalByName(name);
+      return;
+    }
     const actionBtn = e.target.closest('button[data-slot-action]');
     if(!actionBtn) return;
     const slotId = actionBtn.dataset.slotId || '';
