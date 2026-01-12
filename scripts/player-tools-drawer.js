@@ -1,6 +1,7 @@
 import * as Characters from './characters.js';
 import { getActiveUserId } from './storage.js';
 import { sendEventToDiscordWorker } from './discord-events.js';
+import { playCue } from './audio.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
@@ -582,6 +583,9 @@ function createPlayerToolsDrawer() {
 
     syncTabWithShell();
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });
+    if (!force) {
+      playCue('ui-click', { source: 'action' });
+    }
   };
 
   const toggle = () => setDrawerOpen(!isOpen);

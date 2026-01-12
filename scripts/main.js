@@ -1658,6 +1658,7 @@ function updateMiniGameReminder() {
     miniGameReminderCard.hidden = true;
     miniGameReminderCard.setAttribute('hidden', '');
     miniGameReminderCard.setAttribute('aria-hidden', 'true');
+    miniGameReminderCard.classList.remove('is-pulsing');
     if (miniGameReminderSummary) {
       miniGameReminderSummary.removeAttribute('data-pending');
       miniGameReminderSummary.removeAttribute('data-animate');
@@ -1680,6 +1681,7 @@ function updateMiniGameReminder() {
   miniGameReminderCard.hidden = false;
   miniGameReminderCard.removeAttribute('hidden');
   miniGameReminderCard.setAttribute('aria-hidden', 'false');
+  miniGameReminderCard.classList.toggle('is-pulsing', status === 'active' && !overlayOpen);
   const shouldShowMiniGameBadge = actionAvailable;
   schedulePlayerToolsBadgeSync(() => {
     if (shouldShowMiniGameBadge) {
@@ -1898,6 +1900,10 @@ function populateMiniGameInvite(entry) {
   if (miniGameInviteMessage) {
     miniGameInviteMessage.textContent = `${issuer} just sent you a mission. Tap “Start Mission” to jump in or “Not Now” if you need a moment.`;
   }
+  if (miniGameInviteAccept) {
+    miniGameInviteAccept.textContent = 'Start Mission';
+    miniGameInviteAccept.removeAttribute('data-loading');
+  }
   const game = getMiniGameDefinition(entry.gameId);
   const gameName = entry.gameName || game?.name || 'Mini-game';
   if (miniGameInviteGame) miniGameInviteGame.textContent = gameName;
@@ -2048,6 +2054,15 @@ async function respondToMiniGameInvite(action) {
   if (!player || !id) return;
   const acceptBtn = miniGameInviteAccept;
   const declineBtn = miniGameInviteDecline;
+  if (action === 'accept') {
+    if (miniGameInviteMessage) {
+      miniGameInviteMessage.textContent = 'Loading mission…';
+    }
+    if (acceptBtn) {
+      acceptBtn.textContent = 'Launching…';
+      acceptBtn.setAttribute('data-loading', 'true');
+    }
+  }
   const responseTs = Date.now();
   const updates = { respondedAt: responseTs };
   if (action === 'accept') {
@@ -2108,6 +2123,7 @@ async function respondToMiniGameInvite(action) {
       },
     });
     ensureToastContent('Mini-game accepted');
+    playCue('mission-start', { source: 'action' });
     launchMiniGame(merged);
   } else {
     toast('Mini-game declined', {
@@ -2158,6 +2174,23 @@ registerBootTask(() => {
     setupMiniGamePlayerSync();
     if (miniGameReminderAction) {
       miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+    }
+    if (miniGameReminderCard) {
+      miniGameReminderCard.addEventListener('click', event => {
+        const target = event.target;
+        if (target && target.closest && target.closest('[data-mini-game-reminder-action]')) {
+          return;
+        }
+        handleMiniGameReminderAction();
+      });
+      miniGameReminderCard.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleMiniGameReminderAction();
+        }
+      });
+      miniGameReminderCard.setAttribute('role', 'button');
+      miniGameReminderCard.setAttribute('tabindex', '0');
     }
     updateMiniGameReminder();
   }
@@ -6270,6 +6303,19 @@ function handleToastHistoryDismissed() {
     renderToastHistory();
   }
 }
+
+registerBootTask(() => {
+  const tickerItems = qsa('.news-ticker');
+  if (!tickerItems.length) return;
+  const pause = () => pauseTickerAnimations();
+  const resume = () => resumeTickerAnimations();
+  tickerItems.forEach(item => {
+    item.addEventListener('mouseenter', pause);
+    item.addEventListener('mouseleave', resume);
+    item.addEventListener('focusin', pause);
+    item.addEventListener('focusout', resume);
+  });
+});
 
 function dismissToastHistoryEntry(id) {
   if (!id) return false;
@@ -11302,6 +11348,9 @@ function notifyInsufficientCredits(message = "You don't have enough Credits for 
     toast(message, 'error');
   } catch {}
   try {
+    playCue('error-buzz', { source: 'action' });
+  } catch {}
+  try {
     logAction('Credits spend prevented: insufficient Credits.');
   } catch {}
 }
@@ -11562,6 +11611,9 @@ function randomHpCue(type) {
 function notifyInsufficientSp(message = "You don't have enough SP for that.") {
   try {
     toast(message, 'error');
+  } catch {}
+  try {
+    playCue('error-buzz', { source: 'action' });
   } catch {}
   try {
     logAction('SP spend prevented: insufficient SP.');
@@ -12379,8 +12431,21 @@ function rollWithBonus(name, bonus, out, opts = {}){
     ...(resolution?.breakdown || []),
   ].filter(Boolean);
   const rollSucceeded = dc !== null ? total >= dc : null;
+  const primaryDetail = rollDetails[0];
+  const primaryRoll = primaryDetail
+    ? (Number.isFinite(primaryDetail.chosen) ? primaryDetail.chosen : primaryDetail.rolls?.[0])
+    : null;
+  const isSingleD20 = rollDetails.length === 1 && primaryDetail?.count === 1 && primaryDetail?.sides === 20;
+  const isCriticalSuccess = isSingleD20 && primaryRoll === 20;
+  const isCriticalFailure = isSingleD20 && primaryRoll === 1;
   if (rollSucceeded !== null) {
-    playCue(rollSucceeded ? 'roll-success' : 'roll-failure', { source: 'action' });
+    if (isCriticalSuccess) {
+      playCue('dice-crit-success', { source: 'action' });
+    } else if (isCriticalFailure) {
+      playCue('dice-crit-failure', { source: 'action' });
+    } else {
+      playCue(rollSucceeded ? 'roll-success' : 'roll-failure', { source: 'action' });
+    }
   }
 
   if (out) {
@@ -13775,6 +13840,10 @@ const SLOT_LABELS = {
   slot4: 'Slot 4',
   slot5: 'Slot 5',
 };
+const MAX_CHARACTER_SLOTS = 5;
+const ACTIVE_SLOT_IDS = SLOT_ORDER.filter(slotId => slotId !== 'legacy');
+const characterSlotCountLabel = $('character-slot-count');
+const postAuthSlotCountLabel = $('post-auth-slot-count');
 
 function formatSlotTimestamp(ts) {
   const value = Number(ts);
@@ -13799,6 +13868,57 @@ async function resolveSlotIndexMap(uid) {
     }
   });
   return map;
+}
+
+function normalizeIndexEntries(entries) {
+  if (Array.isArray(entries)) return entries;
+  return Object.entries(entries || {}).map(([characterId, entry]) => ({
+    characterId,
+    ...(entry && typeof entry === 'object' ? entry : {}),
+  }));
+}
+
+function countActiveSlots(entries) {
+  const list = normalizeIndexEntries(entries);
+  return list.reduce((count, entry) => {
+    const slotId = entry?.characterId || '';
+    if (ACTIVE_SLOT_IDS.includes(slotId)) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+}
+
+function updateSlotCountLabel(label, count) {
+  if (!label) return;
+  if (!Number.isFinite(count)) {
+    label.textContent = '';
+    return;
+  }
+  label.textContent = `Slots: ${count}/${MAX_CHARACTER_SLOTS} used`;
+}
+
+function updateCreateSlotAvailability(button, count) {
+  if (!button) return;
+  const maxed = Number.isFinite(count) && count >= MAX_CHARACTER_SLOTS;
+  button.disabled = maxed;
+  button.setAttribute('aria-disabled', maxed ? 'true' : 'false');
+  if (maxed) {
+    button.title = 'Maximum 5 characters reached.';
+  } else {
+    button.removeAttribute('title');
+  }
+}
+
+async function ensureSlotCapacity(uid, message) {
+  if (!uid) return true;
+  const entries = await listCharacterIndex(uid);
+  const usedSlots = countActiveSlots(entries);
+  if (usedSlots >= MAX_CHARACTER_SLOTS) {
+    toast(message || 'Maximum 5 characters reached. Delete a character to free a slot.', 'error');
+    return false;
+  }
+  return true;
 }
 
 function applySlotSnapshot({ payload, name }) {
@@ -13837,6 +13957,7 @@ async function renderSlotList(){
   list.innerHTML = '';
   const { uid } = getAuthState();
   if (!uid) {
+    updateSlotCountLabel(characterSlotCountLabel, NaN);
     const localNames = listLocalSaves();
     const header = document.createElement('div');
     header.className = 'catalog-item catalog-item--slot';
@@ -13875,6 +13996,8 @@ async function renderSlotList(){
     return;
   }
   const slotMap = await resolveSlotIndexMap(uid);
+  const usedSlots = ACTIVE_SLOT_IDS.filter(slotId => slotMap.has(slotId)).length;
+  updateSlotCountLabel(characterSlotCountLabel, usedSlots);
   SLOT_ORDER.forEach(slotId => {
     const entry = slotMap.get(slotId);
     const name = entry?.name || '';
@@ -13905,6 +14028,7 @@ async function renderSlotList(){
     createBtn.dataset.slotAction = 'create';
     createBtn.dataset.slotId = slotId;
     createBtn.textContent = 'Create New Here';
+    updateCreateSlotAvailability(createBtn, usedSlots);
     actions.append(loadBtn, saveBtn, createBtn);
     item.append(title, subtitle, actions);
     list.appendChild(item);
@@ -20617,6 +20741,7 @@ function createCard(kind, pref = {}) {
           if (f.f === 'equipped' && isGearKind(kind)) {
             chk.addEventListener('change', () => {
               const name = qs("[data-f='name']", card)?.value || 'Armor';
+              playCue('ui-click', { source: 'action' });
               playCue(chk.checked ? 'equip' : 'unequip', { source: 'action' });
               if (kind === 'armor') {
                 logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
@@ -26019,6 +26144,9 @@ async function handleClaimTokenSubmit() {
     toast('Login required to claim a token.', 'error');
     return;
   }
+  if (!await ensureSlotCapacity(uid, 'Maximum 5 characters reached. Delete a character before claiming another.')) {
+    return;
+  }
   try {
     const db = await getFirebaseDatabase();
     const tokenData = await consumeClaimToken(db, token, uid);
@@ -26096,9 +26224,13 @@ async function refreshPostAuthCloudList() {
   const { uid } = getAuthState();
   if (!uid) {
     renderEmptyRow(postAuthCloudList, 'Sign in to view cloud characters.');
+    updateSlotCountLabel(postAuthSlotCountLabel, NaN);
     return;
   }
   const entries = await listCharacterIndex(uid);
+  const usedSlots = countActiveSlots(entries);
+  updateSlotCountLabel(postAuthSlotCountLabel, usedSlots);
+  updateCreateSlotAvailability(postAuthCreate, usedSlots);
   renderCloudCharacterList(postAuthCloudList, entries, {
     actionLabel: 'Open',
     emptyMessage: 'No cloud characters found.',
@@ -26124,6 +26256,9 @@ async function refreshPostAuthCloudList() {
 async function handleLegacyClaim({ name, source }) {
   const { uid } = getAuthState();
   if (!uid) return;
+  if (!await ensureSlotCapacity(uid, 'Maximum 5 characters reached. Delete a character before importing another.')) {
+    return;
+  }
   const data = source === 'cloud'
     ? await loadCloud(name)
     : await loadLegacyLocal(name);
@@ -26193,6 +26328,9 @@ async function handleFileImport() {
   }
   const { uid } = getAuthState();
   if (!uid) return;
+  if (!await ensureSlotCapacity(uid, 'Maximum 5 characters reached. Delete a character before importing another.')) {
+    return;
+  }
   const existingOwner = payload?.meta?.ownerUid || payload?.meta?.uid || '';
   if (existingOwner && existingOwner !== uid) {
     toast('This character is already claimed by another account.', 'error');
@@ -26308,9 +26446,13 @@ async function refreshClaimModal() {
   }
 }
 
-function createNewCharacterFromModal() {
-  if (!getAuthState().uid) {
+async function createNewCharacterFromModal() {
+  const { uid } = getAuthState();
+  if (!uid) {
     openLoginModal();
+    return;
+  }
+  if (!await ensureSlotCapacity(uid, 'Maximum 5 characters reached. Delete a character to create a new one.')) {
     return;
   }
   const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';

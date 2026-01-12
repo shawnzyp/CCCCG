@@ -434,6 +434,7 @@
       <span class="theme-toggle__label sr-only">Theme</span>
     </button>
     <span class="tabs-title"><span class="tabs-title__label">Catalyst Core</span></span>
+    <span id="dm-mode-badge" class="dm-mode-badge" hidden aria-hidden="true">DM</span>
     <div class="dropdown">
       <div class="menu-toggle" data-state="closed">
         <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
@@ -1479,6 +1480,7 @@
         </svg>
       </button>
       <h3>Character Slots</h3>
+      <p id="character-slot-count" class="modal--load-save__status" role="status" aria-live="polite"></p>
       <div id="char-list" class="catalog"></div>
       <p id="save-load-auth-note" class="modal--load-save__status" role="status" aria-live="polite"></p>
       <p id="save-load-status" class="modal--load-save__status" role="status" aria-live="polite"></p>
@@ -1671,6 +1673,7 @@
         <button id="post-auth-import" class="cc-btn cc-btn--primary" type="button">Import / Claim</button>
         <button id="post-auth-create" class="cc-btn cc-btn--ghost" type="button">Create New Character</button>
         <button id="post-auth-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
+        <p id="post-auth-slot-count" class="modal__hint" role="status" aria-live="polite"></p>
         <div class="claim-cloud-list" id="post-auth-cloud-list" role="list" aria-label="Cloud characters"></div>
       </div>
     </div>
@@ -1724,11 +1727,17 @@
         </div>
       </section>
       <section class="claim-section">
-        <h3 class="claim-section__title">Found on This Device</h3>
+        <h3 class="claim-section__title">
+          Legacy Local Saves
+          <span class="claim-section__info" role="img" aria-label="Info" title="Legacy characters are from before account creation. Import them to manage under your account.">i</span>
+        </h3>
         <div class="claim-device-list" id="claim-device-list" role="list" aria-label="Local legacy saves"></div>
       </section>
       <section class="claim-section">
-        <h3 class="claim-section__title">Found in Old Cloud</h3>
+        <h3 class="claim-section__title">
+          Legacy Cloud Saves
+          <span class="claim-section__info" role="img" aria-label="Info" title="Legacy characters are from before account creation. Import them to manage under your account.">i</span>
+        </h3>
         <div class="claim-legacy-list" id="claim-legacy-list" role="list" aria-label="Legacy cloud saves"></div>
       </section>
       <section class="claim-section">
