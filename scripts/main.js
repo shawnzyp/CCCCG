@@ -25819,7 +25819,13 @@ async function bootstrapRosterSession({ preferLegacy = false } = {}) {
     if (!uid) return false;
     const profile = await loadUserProfile(uid);
     const slotMap = await resolveSlotIndexMap(uid);
-    const indexEntries = await listCharacterIndex(uid);
+    const rawIndexEntries = await listCharacterIndex(uid);
+    const indexEntries = Array.isArray(rawIndexEntries)
+      ? rawIndexEntries
+      : Object.entries(rawIndexEntries || {}).map(([characterId, entry]) => ({
+        characterId,
+        ...(entry && typeof entry === 'object' ? entry : {}),
+      }));
     const preferredSlotId = !preferLegacy && typeof profile?.lastLoadedSlotId === 'string'
       ? profile.lastLoadedSlotId.trim()
       : '';

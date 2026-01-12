@@ -13,12 +13,16 @@ service cloud.firestore {
     }
 
     match /preusers/{canonical} {
-      allow read: if true;
+      allow list: if false;
+      allow get: if request.auth != null && request.auth.token.admin == true;
       allow create: if false;
       allow update: if request.auth != null
         && request.resource.data.claimedUid == request.auth.uid
         && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedUid', 'claimedAt']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedUid', 'claimedAt'])
+        && request.resource.data.claimedAt is timestamp
+        && request.resource.data.claimedAt <= request.time
+        && request.resource.data.claimedAt >= request.time - duration.value(5, 'minutes');
     }
 
     match /miniGames/{deploymentId} {

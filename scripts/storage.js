@@ -1176,6 +1176,15 @@ function getUserPaths(uid) {
   };
 }
 
+function buildUserLegacyCharacterPath(uid, characterId) {
+  const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
+  if (!normalizedUid) return '';
+  const encodedUid = encodePath(normalizedUid);
+  const encodedCharacterId = encodePath(characterId || '');
+  if (!encodedCharacterId) return '';
+  return `${CLOUD_CHARACTERS_PATH}/${encodedUid}/${encodedCharacterId}`;
+}
+
 function getActiveUserPaths({ notify = false } = {}) {
   if (isLocalAuthMode()) {
     showLocalAuthModeNotice();
@@ -1928,6 +1937,13 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
   const snapshot = await ref.once('value');
   const val = snapshot.val();
   if (val !== null) return val;
+  // Legacy fallback for characters stored under /characters/{uid}/{slotId}.
+  const legacyPath = buildUserLegacyCharacterPath(uid, characterId);
+  if (!legacyPath) throw new Error('No character found');
+  const legacyRef = await getDatabaseRef(legacyPath);
+  const legacySnap = await legacyRef.once('value');
+  const legacyVal = legacySnap.val();
+  if (legacyVal !== null) return legacyVal;
   throw new Error('No character found');
 }
 
@@ -2086,6 +2102,12 @@ export async function deleteCloudCharacter(uid, characterId) {
   if (!targetPath) throw new Error('Missing user id or character id');
   const ref = await getDatabaseRef(targetPath);
   await ref.remove();
+  // Remove legacy path in case the character was saved before the migration.
+  const legacyPath = buildUserLegacyCharacterPath(uid, characterId);
+  if (legacyPath) {
+    const legacyRef = await getDatabaseRef(legacyPath);
+    await legacyRef.remove();
+  }
 }
 
 export async function loadCloud(name, { signal } = {}) {
