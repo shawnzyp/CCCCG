@@ -15,7 +15,7 @@ const resolveAssetUrl = relativePath => {
 
 const TAB_ICON_SOURCE_OVERRIDES = new Map([
   ['combat', resolveAssetUrl('../images/sword (2).png')],
-  ['abilities', resolveAssetUrl('../images/skills (1).png')],
+  ['abilities', resolveAssetUrl('../images/skills.png')],
 ]);
 
 const TAB_ICONS_USE_ORIGINAL_SOURCE = new Set(['combat', 'abilities']);

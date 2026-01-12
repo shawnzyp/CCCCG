@@ -4995,7 +4995,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
   const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
-  const TICKER_ICON_OPEN_SRC = 'images/caret (1).png';
+  const TICKER_ICON_OPEN_SRC = 'images/caret.png';
   const TICKER_ICON_CLOSED_SRC = 'images/caret.png';
   const sanitizePanelHeight = value => {
     if(typeof value === 'number' && Number.isFinite(value)){

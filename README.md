@@ -234,15 +234,6 @@ The DM tools are protected by a shared PIN hashed with SHA-256 in the `cc-dm-pin
 
 Use an absolute Discord webhook URL. A placeholder like `YOUR_DISCORD_WEBHOOK_URL_HERE` becomes a relative URL and will post to GitHub Pages.
 
-Browser console test (localhost only):
-
-```
-await import('./scripts/discord-webhook-dev.js');
-await window.__CCCG_TEST_DISCORD_WEBHOOK__('https://discord.com/api/webhooks/123/abc', {
-  content: 'CCCG roll test from browser.',
-});
-```
-
 curl test:
 
 ```
