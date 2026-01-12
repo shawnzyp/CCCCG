@@ -2184,14 +2184,6 @@ registerBootTask(() => {
         }
         handleMiniGameReminderAction();
       });
-      miniGameReminderCard.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleMiniGameReminderAction();
-        }
-      });
-      miniGameReminderCard.setAttribute('role', 'button');
-      miniGameReminderCard.setAttribute('tabindex', '0');
     }
     updateMiniGameReminder();
   }
@@ -14027,13 +14019,16 @@ async function renderSlotList(){
     saveBtn.dataset.slotAction = 'save';
     saveBtn.dataset.slotId = slotId;
     saveBtn.textContent = 'Save Here';
-    const createBtn = document.createElement('button');
-    createBtn.className = 'btn-sm';
-    createBtn.dataset.slotAction = 'create';
-    createBtn.dataset.slotId = slotId;
-    createBtn.textContent = 'Create New Here';
-    updateCreateSlotAvailability(createBtn, usedSlots);
-    actions.append(loadBtn, saveBtn, createBtn);
+    actions.append(loadBtn, saveBtn);
+    if (slotId !== 'legacy') {
+      const createBtn = document.createElement('button');
+      createBtn.className = 'btn-sm';
+      createBtn.dataset.slotAction = 'create';
+      createBtn.dataset.slotId = slotId;
+      createBtn.textContent = 'Create New Here';
+      updateCreateSlotAvailability(createBtn, usedSlots);
+      actions.append(createBtn);
+    }
     item.append(title, subtitle, actions);
     list.appendChild(item);
   });
