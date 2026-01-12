@@ -25671,18 +25671,13 @@ if (authLoginUsername) {
       await primeFirebaseAuth();
       const state = await getRosterLoginState(username);
       rosterLoginState = { ...state, normalized };
-      if (!state.claimedUid) {
-        applyRosterLoginStage('create');
-        if (authLoginRosterStatus) {
-          authLoginRosterStatus.textContent = 'Roster entry found. Create your PIN to claim it.';
-          authLoginRosterStatus.hidden = false;
-        }
-      } else {
-        applyRosterLoginStage('login');
-        if (authLoginRosterStatus) {
-          authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
-          authLoginRosterStatus.hidden = false;
-        }
+      const hasClaimedUid = !!state.claimedUid;
+      applyRosterLoginStage(hasClaimedUid ? 'login' : 'create');
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = hasClaimedUid
+          ? 'Roster entry found. Enter your PIN.'
+          : 'Roster entry found. Create your PIN to claim it.';
+        authLoginRosterStatus.hidden = false;
       }
       writeLastRosterName(username);
       authLoginPin?.focus?.();
