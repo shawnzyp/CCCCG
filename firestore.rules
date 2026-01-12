@@ -12,6 +12,20 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null && request.auth.uid == userId;
     }
 
+    match /preusers/{canonical} {
+      allow list: if false;
+      allow get: if request.auth != null
+        && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid);
+      allow create: if false;
+      allow update: if request.auth != null
+        && request.resource.data.claimedUid == request.auth.uid
+        && (resource.data.claimedUid == null || resource.data.claimedUid == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedUid', 'claimedAt'])
+        && request.resource.data.claimedAt is timestamp
+        && request.resource.data.claimedAt >= request.time - duration.value(10, 'minutes')
+        && request.resource.data.claimedAt <= request.time + duration.value(10, 'minutes');
+    }
+
     match /miniGames/{deploymentId} {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null && request.auth.token.admin == true;

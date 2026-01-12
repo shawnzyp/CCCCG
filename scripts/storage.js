@@ -23,6 +23,7 @@ const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
 const LAST_SYNCED_PREFIX = 'cc:last-synced:';
 const CONFLICT_SNAPSHOT_PREFIX = 'cc:conflict:';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
+const CLOUD_CHARACTERS_PATH = 'characters';
 let cloudSyncDisabled = false;
 let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
@@ -523,7 +524,6 @@ const CLOUD_SAVES_PATH = 'saves';
 const CLOUD_HISTORY_PATH = 'history';
 const CLOUD_AUTOSAVES_PATH = 'autosaves';
 const CLOUD_CAMPAIGN_LOG_PATH = 'campaignLogs';
-const CLOUD_CHARACTERS_PATH = 'characters';
 const CLOUD_USERS_PATH = 'users';
 
 let lastHistoryTimestamp = 0;
@@ -1166,7 +1166,7 @@ function getUserPaths(uid) {
   if (!normalizedUid) return null;
   const encodedUid = encodePath(normalizedUid);
   return {
-    charactersPath: `${CLOUD_CHARACTERS_PATH}/${encodedUid}`,
+    charactersPath: `${CLOUD_USERS_PATH}/${encodedUid}/characters`,
     autosavesPath: `${CLOUD_AUTOSAVES_PATH}/${encodedUid}`,
     historyPath: `${CLOUD_HISTORY_PATH}/${encodedUid}`,
     savesPath: `${CLOUD_SAVES_PATH}/${encodedUid}`,
@@ -1175,6 +1175,15 @@ function getUserPaths(uid) {
     charactersIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/charactersIndex`,
     autosaveIndexPath: `${CLOUD_USERS_PATH}/${encodedUid}/autosaves`,
   };
+}
+
+function buildUserLegacyCharacterPath(uid, characterId) {
+  const normalizedUid = typeof uid === 'string' ? uid.trim() : '';
+  if (!normalizedUid) return '';
+  const encodedUid = encodePath(normalizedUid);
+  const encodedCharacterId = encodePath(characterId || '');
+  if (!encodedCharacterId) return '';
+  return `${CLOUD_CHARACTERS_PATH}/${encodedUid}/${encodedCharacterId}`;
 }
 
 function getActiveUserPaths({ notify = false } = {}) {
@@ -1929,7 +1938,52 @@ export async function loadCloudCharacter(uid, characterId, { signal } = {}) {
   const snapshot = await ref.once('value');
   const val = snapshot.val();
   if (val !== null) return val;
+  // Legacy fallback for characters stored under /characters/{uid}/{slotId}.
+  const legacyPath = buildUserLegacyCharacterPath(uid, characterId);
+  if (!legacyPath) throw new Error('No character found');
+  const legacyRef = await getDatabaseRef(legacyPath);
+  const legacySnap = await legacyRef.once('value');
+  const legacyVal = legacySnap.val();
+  if (legacyVal !== null) {
+    try {
+      const targetPath = buildUserCharacterPath(uid, characterId);
+      if (targetPath) {
+        const targetRef = await getDatabaseRef(targetPath);
+        await targetRef.set(legacyVal);
+      }
+      const name = legacyVal?.meta?.name
+        || legacyVal?.meta?.displayName
+        || legacyVal?.character?.name
+        || legacyVal?.characterId
+        || characterId;
+      const updatedAt = Number(legacyVal?.meta?.updatedAt || legacyVal?.updatedAt) || Date.now();
+      await saveCharacterIndexEntry(uid, characterId, { name, updatedAt });
+    } catch (err) {
+      console.warn('Failed to migrate legacy character payload', err);
+    }
+    return legacyVal;
+  }
   throw new Error('No character found');
+}
+
+export async function listCloudCharacterKeys(uid) {
+  if (isLocalAuthMode()) {
+    const resolvedUid = uid || activeAuthUserId || 'local';
+    const indexObj = readLocalCloudIndex(resolvedUid);
+    return Object.keys(indexObj || {});
+  }
+  try {
+    const paths = getUserPaths(uid);
+    if (!paths) return [];
+    const ref = await getDatabaseRef(paths.charactersPath);
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
+    if (!val || typeof val !== 'object') return [];
+    return Object.keys(val);
+  } catch (err) {
+    console.warn('Cloud character key list failed', err);
+    return [];
+  }
 }
 
 export async function listCloudCharacters(uid) {
@@ -1949,13 +2003,16 @@ export async function listCloudCharacters(uid) {
   try {
     const paths = getUserPaths(uid);
     if (!paths) return [];
-    const ref = await getDatabaseRef(paths.charactersPath);
+    const ref = await getDatabaseRef(paths.charactersIndexPath);
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (!val || typeof val !== 'object') return [];
-    return Object.entries(val).map(([characterId, payload]) => ({
+    return Object.entries(val).map(([characterId, entry]) => ({
       characterId,
-      payload,
+      payload: null,
+      name: entry?.name || '',
+      updatedAt: Number(entry?.updatedAt) || 0,
+      updatedAtServer: Number(entry?.updatedAtServer) || 0,
     }));
   } catch (e) {
     console.error('Cloud character list failed', e);
@@ -1975,6 +2032,24 @@ export async function saveUserProfile(uid, profile) {
   }
   const ref = await getDatabaseRef(paths.profilePath);
   await ref.set(serialized.value);
+}
+
+export async function loadUserProfile(uid) {
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
+  const ref = await getDatabaseRef(paths.profilePath);
+  const snapshot = await ref.once('value');
+  const val = snapshot.val();
+  return val && typeof val === 'object' ? val : {};
+}
+
+export async function updateUserProfile(uid, patch) {
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
+  if (!patch || typeof patch !== 'object') return false;
+  const ref = await getDatabaseRef(paths.profilePath);
+  await ref.update(patch);
+  return true;
 }
 
 export async function saveCharacterIndexEntry(uid, characterId, entry) {
@@ -2066,6 +2141,16 @@ export async function deleteCloudCharacter(uid, characterId) {
   if (!targetPath) throw new Error('Missing user id or character id');
   const ref = await getDatabaseRef(targetPath);
   await ref.remove();
+  // Remove legacy path in case the character was saved before the migration.
+  const legacyPath = buildUserLegacyCharacterPath(uid, characterId);
+  if (legacyPath) {
+    try {
+      const legacyRef = await getDatabaseRef(legacyPath);
+      await legacyRef.remove();
+    } catch (err) {
+      console.warn('Failed to remove legacy character payload', err);
+    }
+  }
 }
 
 export async function loadCloud(name, { signal } = {}) {

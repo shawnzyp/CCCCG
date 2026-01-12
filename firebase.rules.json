@@ -5,7 +5,7 @@
     "characters": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+        ".write": false
       }
     },
     "history": {
@@ -35,7 +35,23 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        "characters": {
+          "$slotId": {
+            ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+            ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+          }
+        },
+        "charactersIndex": {
+          "$slotId": {
+            ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+            ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+          }
+        },
+        "profile": {
+          ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+          ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+        }
       }
     },
     "usernames": {

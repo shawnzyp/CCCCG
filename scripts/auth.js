@@ -3,6 +3,50 @@ const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
+const PREUSER_ROSTER = {
+  nick: {
+    displayName: 'Nick',
+    aliases: ['nick', 'nicholas'],
+    legacyCharacterName: 'Nico “Specter” Alvarez',
+  },
+  chris: {
+    displayName: 'Chris',
+    aliases: ['chris', 'christopher'],
+    legacyCharacterName: 'Surge',
+  },
+  brendan: {
+    displayName: 'Brendan',
+    aliases: ['brendan'],
+    legacyCharacterName: 'Voidwrought',
+  },
+  tyler: {
+    displayName: 'Tyler',
+    aliases: ['tyler'],
+    legacyCharacterName: 'Plover',
+  },
+  josh: {
+    displayName: 'Josh',
+    aliases: ['josh', 'joshua'],
+    legacyCharacterName: 'Flex',
+  },
+  doug: {
+    displayName: 'Doug',
+    aliases: ['doug', 'douglas'],
+    legacyCharacterName: 'Hank',
+  },
+};
+const PREUSER_ALIAS_MAP = new Map();
+Object.entries(PREUSER_ROSTER).forEach(([canonical, entry]) => {
+  const aliases = Array.isArray(entry?.aliases) ? entry.aliases : [];
+  aliases.concat(canonical).forEach(alias => {
+    const normalized = typeof alias === 'string'
+      ? alias.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      : '';
+    if (normalized) {
+      PREUSER_ALIAS_MAP.set(normalized, canonical);
+    }
+  });
+});
 
 function readPreferredAuthMode() {
   try {
@@ -547,6 +591,17 @@ export function normalizeUsername(username) {
   return normalized;
 }
 
+export function normalizeRosterUsername(username) {
+  if (typeof username !== 'string') return '';
+  return username.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function resolveRosterCanonical(username) {
+  const normalized = normalizeRosterUsername(username);
+  if (!normalized) return '';
+  return PREUSER_ALIAS_MAP.get(normalized) || '';
+}
+
 export function normalizeUsernameLocal(username) {
   if (typeof username !== 'string') return '';
   const trimmed = username.trim().toLowerCase();
@@ -561,6 +616,25 @@ export function usernameToEmail(username) {
   const normalized = normalizeUsername(username);
   if (!normalized) return '';
   return `${normalized}@ccccg.local`;
+}
+
+function deriveRosterEmail(canonical) {
+  const safe = typeof canonical === 'string' ? canonical.trim().toLowerCase() : '';
+  if (!safe) return '';
+  return `${safe}@cccg.local`;
+}
+
+function normalizeRosterPin(pin) {
+  if (typeof pin !== 'string') return '';
+  const digits = pin.replace(/\D/g, '');
+  return digits.length === 4 ? digits : '';
+}
+
+function deriveRosterPassword(canonical, pin) {
+  const safeCanonical = typeof canonical === 'string' ? canonical.trim().toLowerCase() : '';
+  const safePin = normalizeRosterPin(pin);
+  if (!safeCanonical || !safePin) return '';
+  return `CCCG|${safeCanonical}|${safePin}`;
 }
 
 export function waitForAuthReady() {
@@ -733,6 +807,97 @@ export async function getFirebaseFirestore() {
   return firebaseFirestore;
 }
 
+async function fetchPreuserDoc(canonical) {
+  const safeCanonical = typeof canonical === 'string' ? canonical.trim().toLowerCase() : '';
+  if (!safeCanonical) return { canonical: '', ref: null, data: null };
+  const firestore = await getFirebaseFirestore();
+  const ref = firestore.collection('preusers').doc(safeCanonical);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) {
+    return { canonical: safeCanonical, ref, data: null };
+  }
+  return { canonical: safeCanonical, ref, data: snapshot.data() || {} };
+}
+
+function resolveRosterProfileData(canonical, preuser) {
+  const defaults = PREUSER_ROSTER[canonical] || {};
+  const displayName = typeof preuser?.displayName === 'string' && preuser.displayName.trim()
+    ? preuser.displayName.trim()
+    : (defaults.displayName || canonical);
+  const legacyCharacterName = typeof preuser?.legacyCharacterName === 'string' && preuser.legacyCharacterName.trim()
+    ? preuser.legacyCharacterName.trim()
+    : (defaults.legacyCharacterName || '');
+  return { displayName, legacyCharacterName };
+}
+
+export function getRosterLoginStateLocal(username) {
+  const canonical = resolveRosterCanonical(username);
+  if (!canonical) {
+    const err = new Error('Not on roster');
+    err.code = 'preuser-not-found';
+    throw err;
+  }
+  const preuser = PREUSER_ROSTER[canonical] || {};
+  const { displayName, legacyCharacterName } = resolveRosterProfileData(canonical, preuser);
+  return {
+    canonical,
+    claimedUid: '',
+    preuser,
+    displayName,
+    legacyCharacterName,
+  };
+}
+
+async function upsertRosterUserProfile(uid, { canonical, displayName, isNew = false } = {}) {
+  if (!uid) return;
+  const firestore = await getFirebaseFirestore();
+  const ref = firestore.collection('users').doc(uid);
+  const serverTimestamp = firebaseNamespace?.firestore?.FieldValue?.serverTimestamp?.();
+  const payload = {
+    canonical: canonical || '',
+    displayName: displayName || '',
+    lastLoginAt: serverTimestamp || new Date(),
+    updatedAt: serverTimestamp || new Date(),
+  };
+  if (isNew) {
+    payload.createdAt = serverTimestamp || new Date();
+  }
+  await ref.set(payload, { merge: true });
+}
+
+async function createLegacyRosterCharacter(uid, legacyCharacterName) {
+  if (!uid || !legacyCharacterName) return;
+  const db = await getFirebaseDatabase();
+  const updatedAt = Date.now();
+  const payload = {
+    legacyCharacterName,
+    isLegacy: true,
+    character: {
+      name: legacyCharacterName,
+      characterId: 'legacy',
+      isLegacy: true,
+    },
+    meta: {
+      name: legacyCharacterName,
+      displayName: legacyCharacterName,
+      ownerUid: uid,
+      uid,
+      isLegacy: true,
+      legacyCharacterName,
+      slotId: 'legacy',
+      updatedAt,
+    },
+    updatedAt,
+  };
+  await db.ref(`users/${uid}/characters/legacy`).set(payload);
+  const serverTimestamp = firebaseNamespace?.database?.ServerValue?.TIMESTAMP ?? updatedAt;
+  await db.ref(`users/${uid}/charactersIndex/legacy`).set({
+    name: legacyCharacterName,
+    updatedAt,
+    updatedAtServer: serverTimestamp,
+  });
+}
+
 export async function getAuthToken() {
   const auth = await initFirebaseAuth();
   const user = auth?.currentUser;
@@ -853,6 +1018,142 @@ export async function checkUsernameAvailability(username) {
     return { available: true, normalized };
   }
   return { available: false, normalized, reason: 'taken' };
+}
+
+export async function getRosterLoginState(username) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('Roster login unavailable in local auth mode.');
+  }
+  const canonical = resolveRosterCanonical(username);
+  if (!canonical) {
+    const err = new Error('Not on roster');
+    err.code = 'preuser-not-found';
+    throw err;
+  }
+  const { data } = await fetchPreuserDoc(canonical);
+  if (!data) {
+    const err = new Error('Not on roster');
+    err.code = 'preuser-not-found';
+    throw err;
+  }
+  const claimedUid = typeof data.claimedUid === 'string' && data.claimedUid.trim()
+    ? data.claimedUid.trim()
+    : '';
+  const { displayName, legacyCharacterName } = resolveRosterProfileData(canonical, data);
+  return {
+    canonical,
+    claimedUid,
+    preuser: data,
+    displayName,
+    legacyCharacterName,
+  };
+}
+
+export async function signInWithRosterPin(username, pin) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('Roster login unavailable in local auth mode.');
+  }
+  const { canonical, preuser, displayName } = getRosterLoginStateLocal(username);
+  const password = deriveRosterPassword(canonical, pin);
+  if (!password) {
+    throw new Error('PIN must be a 4-digit number.');
+  }
+  const auth = await initFirebaseAuth();
+  const email = deriveRosterEmail(canonical);
+  if (!email) {
+    throw new Error('Roster login is unavailable.');
+  }
+  let credential;
+  try {
+    credential = await auth.signInWithEmailAndPassword(email, password);
+  } catch (err) {
+    if (err?.code === 'auth/user-not-found') {
+      const unclaimed = new Error('PIN not set yet.');
+      unclaimed.code = 'preuser-unclaimed';
+      throw unclaimed;
+    }
+    throw err;
+  }
+  const uid = credential?.user?.uid || '';
+  if (!uid) throw new Error('Login failed');
+  const { data } = await fetchPreuserDoc(canonical);
+  const claimedUid = typeof data?.claimedUid === 'string' && data.claimedUid.trim()
+    ? data.claimedUid.trim()
+    : '';
+  if (!claimedUid || claimedUid !== uid) {
+    await auth.signOut();
+    const err = new Error('Roster entry mismatch.');
+    err.code = 'preuser-claim-mismatch';
+    throw err;
+  }
+  try {
+    await upsertRosterUserProfile(uid, { canonical, displayName, isNew: false });
+  } catch (err) {
+    console.warn('Failed to update roster profile on login', err);
+  }
+  return { credential, canonical, preuser };
+}
+
+export async function claimRosterAccount(username, pin) {
+  await initFirebaseAuth();
+  if (authMode === 'local') {
+    throw new Error('Roster login unavailable in local auth mode.');
+  }
+  const { canonical, preuser, displayName, legacyCharacterName } = getRosterLoginStateLocal(username);
+  const password = deriveRosterPassword(canonical, pin);
+  if (!password) {
+    throw new Error('PIN must be a 4-digit number.');
+  }
+  const auth = await initFirebaseAuth();
+  const email = deriveRosterEmail(canonical);
+  if (!email) {
+    throw new Error('Roster login is unavailable.');
+  }
+  const credential = await auth.createUserWithEmailAndPassword(email, password);
+  const uid = credential?.user?.uid || '';
+  if (!uid) throw new Error('Account creation failed');
+  try {
+    const firestore = await getFirebaseFirestore();
+    const timestampFactory = firebaseNamespace?.firestore?.Timestamp?.fromDate;
+    const claimedAt = typeof timestampFactory === 'function'
+      ? timestampFactory(new Date())
+      : new Date();
+    const preuserRef = firestore.collection('preusers').doc(canonical);
+    await firestore.runTransaction(async transaction => {
+      const snapshot = await transaction.get(preuserRef);
+      if (!snapshot.exists) {
+        throw new Error('Not on roster');
+      }
+      const data = snapshot.data() || {};
+      if (data?.claimedUid) {
+        throw new Error('This roster entry is already claimed.');
+      }
+      transaction.set(preuserRef, {
+        claimedUid: uid,
+        claimedAt,
+      }, { merge: true });
+    });
+  } catch (err) {
+    try {
+      await credential?.user?.delete?.();
+    } catch (cleanupErr) {
+      console.error('Failed to clean up auth user after claim failure', cleanupErr);
+    }
+    throw err;
+  }
+  try {
+    await upsertRosterUserProfile(uid, { canonical, displayName, isNew: true });
+  } catch (err) {
+    console.warn('Failed to save roster profile after claim', err);
+  }
+  try {
+    await createLegacyRosterCharacter(uid, legacyCharacterName);
+  } catch (err) {
+    console.warn('Failed to create legacy roster slot after claim', err);
+  }
+  return { credential, canonical, preuser };
 }
 
 export async function signInWithUsernamePassword(username, password) {

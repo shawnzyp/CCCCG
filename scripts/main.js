@@ -5,7 +5,6 @@ import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOp
 import {
   currentCharacter,
   setCurrentCharacter,
-  listCharacters,
   loadCharacter,
   loadBackup,
   listBackups,
@@ -23,6 +22,7 @@ import {
   calculateSnapshotChecksum,
   persistLocalAutosaveSnapshot,
   ensureCharacterId,
+  ensureCloudCharacterSlotId,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -37,8 +37,10 @@ import { buildImportedCopyName } from './import-utils.js';
 import {
   initFirebaseAuth,
   onAuthStateChanged,
-  signInWithUsernamePassword,
-  createAccountWithUsernamePassword,
+  claimRosterAccount,
+  getRosterLoginStateLocal,
+  signInWithRosterPin,
+  normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
   getAuthState,
@@ -63,13 +65,14 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
-  saveUserProfile,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
   readLastSyncedAt,
   writeLastSyncedAt,
   listLocalSaves,
+  loadUserProfile,
+  updateUserProfile,
   storeConflictSnapshot,
   saveCloudConflictBackup,
   getDeviceId,
@@ -13763,8 +13766,60 @@ registerBootTask(() => {
   }
 });
 const btnLoad = $('btn-load');
+const SLOT_ORDER = ['legacy', 'slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const SLOT_LABELS = {
+  legacy: 'Legacy Slot',
+  slot1: 'Slot 1',
+  slot2: 'Slot 2',
+  slot3: 'Slot 3',
+  slot4: 'Slot 4',
+  slot5: 'Slot 5',
+};
+
+function formatSlotTimestamp(ts) {
+  const value = Number(ts);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return new Date(value).toLocaleString();
+}
+
+async function resolveSlotIndexMap(uid) {
+  if (!uid) return new Map();
+  const entries = await listCharacterIndex(uid);
+  const map = new Map();
+  const list = Array.isArray(entries)
+    ? entries
+    : Object.entries(entries || {}).map(([characterId, entry]) => ({
+      characterId,
+      ...(entry && typeof entry === 'object' ? entry : {}),
+    }));
+  list.forEach(entry => {
+    const slotId = entry?.characterId || '';
+    if (slotId) {
+      map.set(slotId, entry);
+    }
+  });
+  return map;
+}
+
+function applySlotSnapshot({ payload, name }) {
+  if (!payload) return false;
+  try {
+    applyAppSnapshot(payload);
+    applyViewLockState();
+    if (name) {
+      setCurrentCharacter(name);
+      syncMiniGamePlayerName();
+      writeLastSaveName(name);
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to apply slot snapshot', err);
+    return false;
+  }
+}
+
 async function openCharacterList(){
-  await renderCharacterList();
+  await renderSlotList();
   show('modal-load-list');
   updateSaveLoadAuthState();
   setSaveLoadStatus('');
@@ -13776,42 +13831,89 @@ registerBootTask(() => {
 });
 window.openCharacterList = openCharacterList;
 
-async function renderCharacterList(){
+async function renderSlotList(){
   const list = $('char-list');
   if(!list) return;
-  let names = [];
-  try { names = await listCharacters(); }
-  catch (e) { console.error('Failed to list characters', e); }
-  const current = currentCharacter();
   list.innerHTML = '';
-  names.forEach(c => {
-    const item = document.createElement('div');
-    item.className = `catalog-item${c===current ? ' active' : ''}`;
-    const link = document.createElement('a');
-    link.href = '#';
-    link.dataset.char = c;
-    link.textContent = c;
-    item.appendChild(link);
-    if(c !== 'The DM'){
-      const lock = document.createElement('button');
-      lock.className = 'btn-sm';
-      lock.dataset.lock = c;
-      item.appendChild(lock);
-      const btn = document.createElement('button');
-      btn.className = 'btn-sm';
-      btn.dataset.del = c;
-      item.appendChild(btn);
+  const { uid } = getAuthState();
+  if (!uid) {
+    const localNames = listLocalSaves();
+    const header = document.createElement('div');
+    header.className = 'catalog-item catalog-item--slot';
+    const headerTitle = document.createElement('div');
+    headerTitle.className = 'catalog-item__title';
+    headerTitle.textContent = 'Local Characters';
+    header.appendChild(headerTitle);
+    list.appendChild(header);
+    if (!localNames.length) {
+      const empty = document.createElement('div');
+      empty.className = 'catalog-item';
+      empty.textContent = 'No local characters found.';
+      list.appendChild(empty);
+      return;
     }
+    localNames.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'catalog-item';
+      const title = document.createElement('div');
+      title.className = 'catalog-item__title';
+      title.textContent = name;
+      const subtitle = document.createElement('div');
+      subtitle.className = 'catalog-item__subtitle';
+      subtitle.textContent = 'Local character';
+      const actions = document.createElement('div');
+      actions.className = 'catalog-item__actions';
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'btn-sm';
+      loadBtn.dataset.localAction = 'load';
+      loadBtn.dataset.localName = name;
+      loadBtn.textContent = 'Load';
+      actions.appendChild(loadBtn);
+      item.append(title, subtitle, actions);
+      list.appendChild(item);
+    });
+    return;
+  }
+  const slotMap = await resolveSlotIndexMap(uid);
+  SLOT_ORDER.forEach(slotId => {
+    const entry = slotMap.get(slotId);
+    const name = entry?.name || '';
+    const updatedAt = formatSlotTimestamp(entry?.updatedAtServer || entry?.updatedAt);
+    const item = document.createElement('div');
+    item.className = 'catalog-item catalog-item--slot';
+    item.dataset.slotId = slotId;
+    const title = document.createElement('div');
+    title.className = 'catalog-item__title';
+    title.textContent = SLOT_LABELS[slotId] || slotId;
+    const subtitle = document.createElement('div');
+    subtitle.className = 'catalog-item__subtitle';
+    subtitle.textContent = name ? `${name}${updatedAt ? ` • ${updatedAt}` : ''}` : 'Empty';
+    const actions = document.createElement('div');
+    actions.className = 'catalog-item__actions';
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn-sm';
+    loadBtn.dataset.slotAction = 'load';
+    loadBtn.dataset.slotId = slotId;
+    loadBtn.textContent = 'Load';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-sm';
+    saveBtn.dataset.slotAction = 'save';
+    saveBtn.dataset.slotId = slotId;
+    saveBtn.textContent = 'Save Here';
+    const createBtn = document.createElement('button');
+    createBtn.className = 'btn-sm';
+    createBtn.dataset.slotAction = 'create';
+    createBtn.dataset.slotId = slotId;
+    createBtn.textContent = 'Create New Here';
+    actions.append(loadBtn, saveBtn, createBtn);
+    item.append(title, subtitle, actions);
     list.appendChild(item);
   });
-  applyLockIcons(list);
-  applyDeleteIcons(list);
-  selectedChar = current;
 }
 
 registerBootTask(() => {
-  document.addEventListener('character-saved', renderCharacterList);
-  document.addEventListener('character-deleted', renderCharacterList);
+  document.addEventListener('character-saved', renderSlotList);
+  document.addEventListener('character-deleted', renderSlotList);
   document.addEventListener('character-cloud-update', event => {
     const detail = event?.detail || {};
     const name = detail.name;
@@ -13830,7 +13932,7 @@ registerBootTask(() => {
   });
 });
 registerBootTask(() => {
-  window.addEventListener('storage', renderCharacterList);
+  window.addEventListener('storage', renderSlotList);
 });
 
 async function renderRecoverCharList(){
@@ -13883,64 +13985,171 @@ let selectedChar = null;
 const charList = $('char-list');
 if(charList){
   charList.addEventListener('click', async e=>{
-    const loadBtn = e.target.closest('[data-char]');
-    const delBtn = e.target.closest('button[data-del]');
-    const lockBtn = e.target.closest('button[data-lock]');
-    if(loadBtn){
-      e.preventDefault();
-      selectedChar = loadBtn.dataset.char;
-      qsa('#char-list .catalog-item').forEach(ci=> ci.classList.remove('active'));
-      const item = loadBtn.closest('.catalog-item');
-      if(item) item.classList.add('active');
-      pendingLoad = { name: selectedChar };
-      const text = $('load-confirm-text');
-      if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
-      show('modal-load');
-    } else if(lockBtn){
-      const ch = lockBtn.dataset.lock;
-      const status = await ensureAuthoritativePinState(ch, { force: true });
-      if(status.pinned){
-        const pin = await pinPrompt('Enter PIN to disable protection');
-        if(pin !== null){
-          const ok = await verifyStoredPin(ch, pin);
-          if(ok){
-            const cleared = await clearPin(ch);
-            if(cleared){
-              applyLockIcon(lockBtn);
-              toast('PIN disabled','info');
-            }else{
-              toast('Failed to disable PIN','error');
-            }
-          }else{
-            toast('Invalid PIN','error');
-          }
-        }
-      }else{
-        const pin1 = await pinPrompt('Set PIN');
-        if(pin1){
-          const pin2 = await pinPrompt('Confirm PIN');
-          if(pin1 === pin2){
-            const stored = await setPin(ch, pin1);
-            if(stored){
-              applyLockIcon(lockBtn);
-              toast('PIN enabled','success');
-            }else{
-              toast('Failed to enable PIN','error');
-            }
-          }else if(pin2 !== null){
-            toast('PINs did not match','error');
-          }
-        }
+    const localBtn = e.target.closest('button[data-local-action="load"]');
+    if (localBtn) {
+      const name = localBtn.dataset.localName || '';
+      if (!name) return;
+      openCharacterModalByName(name);
+      return;
+    }
+    const actionBtn = e.target.closest('button[data-slot-action]');
+    if(!actionBtn) return;
+    const slotId = actionBtn.dataset.slotId || '';
+    const action = actionBtn.dataset.slotAction || '';
+    const { uid } = getAuthState();
+    if (!uid) {
+      toast('Sign in to manage cloud slots.', 'info');
+      return;
+    }
+    const slotMap = await resolveSlotIndexMap(uid);
+    const entry = slotMap.get(slotId);
+    const slotName = entry?.name || '';
+    if (action === 'load') {
+      if (!slotName) {
+        toast('This slot is empty.', 'info');
+        return;
       }
-    } else if(delBtn){
-      const ch = delBtn.dataset.del;
-      if(ch === 'The DM'){
-        toast('Cannot delete The DM','error');
-      }else if(confirm(`Delete ${ch}?`) && confirm('This cannot be undone. Are you sure?')){
-        deleteCharacter(ch).then(()=>{
-          renderCharacterList();
-          toast('Deleted','info');
-        }).catch(e=> toast(e.message || 'Delete failed','error'));
+      try {
+        const payload = await loadCloudCharacter(uid, slotId);
+        const displayName = slotName || payload?.meta?.name || payload?.character?.name || slotId;
+        payload.meta = {
+          ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+          name: displayName,
+          displayName,
+          slotId,
+        };
+        payload.character = {
+          ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+          name: displayName,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload,
+          storageName: displayName,
+          requestedSlotId: slotId,
+          allowOverwrite: true,
+        });
+        await saveLocal(displayName || slotId, payload, { characterId: slotId });
+        applySlotSnapshot({ payload, name: displayName });
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
+        hide('modal-load-list');
+      } catch (err) {
+        console.error('Failed to load slot', err);
+        toast('Failed to load slot.', 'error');
+      }
+      return;
+    }
+    if (action === 'save') {
+      const targetName = resolveSaveTargetName();
+      if (!targetName) {
+        toast('Enter a character name before saving.', 'error');
+        return;
+      }
+      let boundSlotId = '';
+      try {
+        const stored = await loadLocal(targetName, {});
+        boundSlotId = stored?.meta?.slotId || stored?.character?.characterId || '';
+      } catch {}
+      const slotOccupied = !!slotName;
+      if (boundSlotId && SLOT_ORDER.includes(boundSlotId)) {
+        await saveCharacter(createAppSnapshot(), targetName);
+        toast(`Saved to ${SLOT_LABELS[boundSlotId] || boundSlotId}.`, 'success');
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: boundSlotId,
+          lastLoadedAt: Date.now(),
+        });
+        await renderSlotList();
+        return;
+      }
+      if (slotOccupied) {
+        const confirmOverwrite = confirm(`${slotName} already occupies ${SLOT_LABELS[slotId] || slotId}. Overwrite it?`);
+        if (!confirmOverwrite) return;
+      }
+      try {
+        const snapshot = createAppSnapshot();
+        snapshot.meta = {
+          ...(snapshot.meta && typeof snapshot.meta === 'object' ? snapshot.meta : {}),
+          name: targetName,
+          displayName: targetName,
+          slotId,
+        };
+        snapshot.character = {
+          ...(snapshot.character && typeof snapshot.character === 'object' ? snapshot.character : {}),
+          name: targetName,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload: snapshot,
+          storageName: targetName,
+          requestedSlotId: slotId,
+          allowOverwrite: slotOccupied,
+        });
+        await saveCharacter(snapshot, targetName);
+        toast(`Saved to ${SLOT_LABELS[slotId] || slotId}.`, 'success');
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
+        await renderSlotList();
+      } catch (err) {
+        console.error('Failed to save to slot', err);
+        toast(err?.message || 'Failed to save slot.', 'error');
+      }
+      return;
+    }
+    if (action === 'create') {
+      const name = typeof prompt === 'function' ? prompt('Enter new character name:') : '';
+      const clean = name ? name.trim() : '';
+      if (!clean) {
+        toast('Name required to create a character.', 'error');
+        return;
+      }
+      if (slotName) {
+        const confirmOverwrite = confirm(`${slotName} already occupies ${SLOT_LABELS[slotId] || slotId}. Overwrite it?`);
+        if (!confirmOverwrite) return;
+      }
+      try {
+        const snapshot = createDefaultSnapshot();
+        snapshot.meta = {
+          ...(snapshot.meta && typeof snapshot.meta === 'object' ? snapshot.meta : {}),
+          name: clean,
+          displayName: clean,
+          slotId,
+        };
+        snapshot.character = {
+          ...(snapshot.character && typeof snapshot.character === 'object' ? snapshot.character : {}),
+          name: clean,
+          characterId: slotId,
+        };
+        await ensureCloudCharacterSlotId({
+          uid,
+          payload: snapshot,
+          storageName: clean,
+          requestedSlotId: slotId,
+          allowOverwrite: !!slotName,
+        });
+        await saveCharacter(snapshot, clean);
+        setCurrentCharacter(clean);
+        syncMiniGamePlayerName();
+        setPinInteractionGuard('', { locked: false });
+        applyAppSnapshot(snapshot);
+        setMode('edit');
+        writeLastSaveName(clean);
+        await updateUserProfile(uid, {
+          lastLoadedSlotId: slotId,
+          lastLoadedAt: Date.now(),
+        });
+        queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
+        toast(`Created ${clean} in ${SLOT_LABELS[slotId] || slotId}.`, 'success');
+        hide('modal-load-list');
+      } catch (err) {
+        console.error('Failed to create slot character', err);
+        toast(err?.message || 'Failed to create character.', 'error');
       }
     }
   });
@@ -24936,7 +25145,11 @@ const welcomeCreate = $('welcome-create');
 const authLoginModal = $('modal-auth-login');
 const authCreateModal = $('modal-auth-create');
 const authLoginUsername = $('auth-login-username');
-const authLoginPassword = $('auth-login-password');
+const authLoginPin = $('auth-login-pin');
+const authLoginConfirm = $('auth-login-confirm');
+const authLoginSubtitle = $('auth-login-subtitle');
+const authLoginRosterStatus = $('auth-login-roster-status');
+const authLoginShowPin = $('auth-login-showpin');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
@@ -24976,6 +25189,18 @@ const conflictKeepCloud = $('conflict-keep-cloud');
 const conflictKeepLocal = $('conflict-keep-local');
 const conflictMergeLater = $('conflict-merge-later');
 
+if (authLoginOpenCreate) {
+  authLoginOpenCreate.hidden = true;
+  authLoginOpenCreate.disabled = true;
+  authLoginOpenCreate.setAttribute('aria-disabled', 'true');
+}
+
+if (authCreateOpenLogin) {
+  authCreateOpenLogin.hidden = true;
+  authCreateOpenLogin.disabled = true;
+  authCreateOpenLogin.setAttribute('aria-disabled', 'true');
+}
+
 let pendingPostAuthChoice = false;
 const passwordPolicy = { ...PASSWORD_POLICY };
 const syncConflictQueue = [];
@@ -24985,6 +25210,38 @@ let firebaseInitErrorMessage = '';
 let usernameAvailabilityState = 'idle';
 let lastUsernameCheckToken = 0;
 let offlineBlankActive = false;
+let rosterLoginState = null;
+let rosterLoginStage = 'idle';
+let rosterLoginCooldownTimer = null;
+let rosterLoginLockUntil = 0;
+let rosterLoginFailures = 0;
+let pendingRosterBootstrap = false;
+let rosterBootstrapPreferLegacy = false;
+
+const ROSTER_PIN_LENGTH = 4;
+const ROSTER_PIN_FAILURE_LIMIT = 5;
+const ROSTER_PIN_LOCK_MS = 30000;
+const ROSTER_LAST_NAME_KEY = 'cc:roster:lastName';
+
+function readLastRosterName() {
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  if (!storage) return '';
+  try {
+    return storage.getItem(ROSTER_LAST_NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeLastRosterName(name) {
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  if (!storage) return;
+  const value = typeof name === 'string' ? name.trim() : '';
+  if (!value) return;
+  try {
+    storage.setItem(ROSTER_LAST_NAME_KEY, value);
+  } catch {}
+}
 
 function setAuthError(message, mode) {
   const text = typeof message === 'string' ? message.trim() : '';
@@ -25002,12 +25259,142 @@ function clearAuthErrors() {
 function setAuthBusy(busy) {
   authBusy = !!busy;
   const disabled = !!busy;
+  [authLoginUsername, authLoginPin, authLoginConfirm].forEach(input => {
+    if (!input) return;
+    input.disabled = disabled;
+    input.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
   [authLoginSubmit, authLoginOpenCreate, authLoginCancel, authCreateOpenLogin, authCreateCancel].forEach(btn => {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   });
   updateCreateSubmitState();
+}
+
+function resetRosterLoginState() {
+  rosterLoginState = null;
+  rosterLoginStage = 'idle';
+  if (authLoginConfirm) {
+    authLoginConfirm.hidden = true;
+    authLoginConfirm.value = '';
+    authLoginConfirm.required = false;
+  }
+  if (authLoginPin) {
+    authLoginPin.value = '';
+    authLoginPin.type = authLoginShowPin?.checked ? 'text' : 'password';
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.textContent = 'Log In';
+  }
+  if (authLoginSubtitle) {
+    authLoginSubtitle.textContent = 'Enter your roster name and PIN.';
+  }
+  if (authLoginRosterStatus) {
+    authLoginRosterStatus.textContent = '';
+    authLoginRosterStatus.hidden = true;
+  }
+}
+
+function applyRosterLoginStage(stage) {
+  rosterLoginStage = stage;
+  if (authLoginConfirm) {
+    authLoginConfirm.hidden = stage !== 'create';
+    if (stage !== 'create') {
+      authLoginConfirm.value = '';
+    }
+    authLoginConfirm.required = stage === 'create';
+  }
+  if (authLoginPin) {
+    authLoginPin.required = true;
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.textContent = stage === 'create' ? 'Create PIN' : 'Log In';
+  }
+  if (authLoginSubtitle) {
+    authLoginSubtitle.textContent = stage === 'create'
+      ? 'Create a 4-digit PIN to claim your roster entry.'
+      : 'Enter your roster name and PIN.';
+  }
+}
+
+function normalizeRosterPinInput(pin) {
+  if (typeof pin !== 'string') return '';
+  return pin.replace(/\D/g, '').slice(0, ROSTER_PIN_LENGTH);
+}
+
+function clearRosterLoginCooldown() {
+  if (rosterLoginCooldownTimer !== null) {
+    clearInterval(rosterLoginCooldownTimer);
+    rosterLoginCooldownTimer = null;
+  }
+}
+
+function updateRosterLoginLockout() {
+  const now = Date.now();
+  if (rosterLoginLockUntil > now) {
+    const seconds = Math.ceil((rosterLoginLockUntil - now) / 1000);
+    if (authLoginSubmit) {
+      authLoginSubmit.disabled = true;
+      authLoginSubmit.setAttribute('aria-disabled', 'true');
+      authLoginSubmit.textContent = `Try again in ${seconds}s`;
+    }
+    if (authLoginPin) {
+      authLoginPin.disabled = true;
+      authLoginPin.setAttribute('aria-disabled', 'true');
+    }
+    if (authLoginConfirm && rosterLoginStage === 'create') {
+      authLoginConfirm.disabled = true;
+      authLoginConfirm.setAttribute('aria-disabled', 'true');
+    }
+    return true;
+  }
+  if (authLoginSubmit) {
+    authLoginSubmit.disabled = authBusy;
+    authLoginSubmit.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+    authLoginSubmit.textContent = rosterLoginStage === 'create' ? 'Create PIN' : 'Log In';
+  }
+  if (authLoginPin) {
+    authLoginPin.disabled = authBusy;
+    authLoginPin.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+  }
+  if (authLoginConfirm && rosterLoginStage === 'create') {
+    authLoginConfirm.disabled = authBusy;
+    authLoginConfirm.setAttribute('aria-disabled', authBusy ? 'true' : 'false');
+  }
+  return false;
+}
+
+function scheduleRosterLoginLockout() {
+  clearRosterLoginCooldown();
+  if (!rosterLoginLockUntil) return;
+  rosterLoginCooldownTimer = setInterval(() => {
+    if (!updateRosterLoginLockout()) {
+      clearRosterLoginCooldown();
+      setAuthError('', 'login');
+    }
+  }, 250);
+  updateRosterLoginLockout();
+}
+
+function recordRosterLoginFailure(message) {
+  rosterLoginFailures += 1;
+  if (rosterLoginFailures >= ROSTER_PIN_FAILURE_LIMIT) {
+    rosterLoginFailures = 0;
+    rosterLoginLockUntil = Date.now() + ROSTER_PIN_LOCK_MS;
+    setAuthError('Too many failed PIN attempts. Please wait 30 seconds.', 'login');
+    scheduleRosterLoginLockout();
+    return;
+  }
+  if (message) {
+    setAuthError(message, 'login');
+  }
+}
+
+function resetRosterLoginFailures() {
+  rosterLoginFailures = 0;
+  rosterLoginLockUntil = 0;
+  clearRosterLoginCooldown();
 }
 
 function setUsernameAvailabilityStatus({ state = 'idle', message = '' } = {}) {
@@ -25138,6 +25525,67 @@ if (authCreateUsername) {
   });
   authCreateUsername.addEventListener('blur', () => {
     refreshUsernameAvailability();
+  });
+}
+
+if (authLoginUsername) {
+  authLoginUsername.addEventListener('input', () => {
+    setAuthError('', 'login');
+    resetRosterLoginState();
+    rosterLoginState = null;
+  });
+  authLoginUsername.addEventListener('blur', () => {
+    const username = authLoginUsername.value || '';
+    const normalized = normalizeRosterUsername(username);
+    if (!normalized) return;
+    try {
+      const state = getRosterLoginStateLocal(username);
+      rosterLoginState = { ...state, normalized };
+      applyRosterLoginStage('login');
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = 'Roster entry found. Enter your PIN.';
+        authLoginRosterStatus.hidden = false;
+      }
+      writeLastRosterName(username);
+      authLoginPin?.focus?.();
+    } catch (err) {
+      if (authLoginRosterStatus) {
+        authLoginRosterStatus.textContent = err?.message || 'Roster lookup failed.';
+        authLoginRosterStatus.hidden = false;
+      }
+    }
+  });
+}
+
+if (authLoginPin) {
+  authLoginPin.addEventListener('input', () => {
+    authLoginPin.value = normalizeRosterPinInput(authLoginPin.value || '');
+    setAuthError('', 'login');
+  });
+  authLoginPin.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      handleAuthSubmit();
+    }
+  });
+}
+
+if (authLoginConfirm) {
+  authLoginConfirm.addEventListener('input', () => {
+    authLoginConfirm.value = normalizeRosterPinInput(authLoginConfirm.value || '');
+    setAuthError('', 'login');
+  });
+  authLoginConfirm.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      handleAuthSubmit();
+    }
+  });
+}
+
+if (authLoginShowPin) {
+  authLoginShowPin.addEventListener('change', () => {
+    const type = authLoginShowPin.checked ? 'text' : 'password';
+    if (authLoginPin) authLoginPin.type = type;
+    if (authLoginConfirm) authLoginConfirm.type = type;
   });
 }
 
@@ -25341,8 +25789,15 @@ async function primeFirebaseAuth() {
 function openLoginModal() {
   if (!authLoginModal) return;
   clearAuthErrors();
+  resetRosterLoginState();
   hide(WELCOME_MODAL_ID);
   show('modal-auth-login');
+  if (authLoginUsername) {
+    const saved = readLastRosterName();
+    if (saved && !authLoginUsername.value) {
+      authLoginUsername.value = saved;
+    }
+  }
   if (firebaseInitErrorMessage) {
     setAuthError(firebaseInitErrorMessage, 'login');
   } else {
@@ -25350,6 +25805,7 @@ function openLoginModal() {
       setAuthError(err?.message || 'Firebase failed to initialize.', 'login');
     });
   }
+  scheduleRosterLoginLockout();
 }
 
 function openCreateModal() {
@@ -25396,95 +25852,153 @@ function closeClaimModal() {
   hide('modal-claim-characters');
 }
 
-async function handleAuthSubmit(mode) {
+function isPinFailureError(error) {
+  const code = error?.code || '';
+  return [
+    'auth/wrong-password',
+    'auth/invalid-credential',
+  ].includes(code);
+}
+
+async function bootstrapRosterSession({ preferLegacy = false } = {}) {
   try {
+    const { uid } = getAuthState();
+    if (!uid) return false;
+    const profile = await loadUserProfile(uid);
+    const slotMap = await resolveSlotIndexMap(uid);
+    const rawIndexEntries = await listCharacterIndex(uid);
+    const indexEntries = Array.isArray(rawIndexEntries)
+      ? rawIndexEntries
+      : Object.entries(rawIndexEntries || {}).map(([characterId, entry]) => ({
+        characterId,
+        ...(entry && typeof entry === 'object' ? entry : {}),
+      }));
+    const preferredSlotId = !preferLegacy && typeof profile?.lastLoadedSlotId === 'string'
+      ? profile.lastLoadedSlotId.trim()
+      : '';
+    const loadSlot = async (slotId) => {
+      const entry = slotMap.get(slotId);
+      if (!entry?.name) return false;
+      const payload = await loadCloudCharacter(uid, slotId);
+      const displayName = entry?.name || payload?.meta?.name || payload?.character?.name || slotId;
+      payload.meta = {
+        ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+        name: displayName,
+        displayName,
+        slotId,
+      };
+      payload.character = {
+        ...(payload.character && typeof payload.character === 'object' ? payload.character : {}),
+        name: displayName,
+        characterId: slotId,
+      };
+      await ensureCloudCharacterSlotId({
+        uid,
+        payload,
+        storageName: displayName,
+        requestedSlotId: slotId,
+        allowOverwrite: true,
+      });
+      await saveLocal(displayName || slotId, payload, { characterId: slotId });
+      applySlotSnapshot({ payload, name: displayName });
+      await updateUserProfile(uid, {
+        lastLoadedSlotId: slotId,
+        lastLoadedAt: Date.now(),
+      });
+      restoreUiAfterWelcome();
+      return true;
+    };
+
+    if (preferLegacy) {
+      if (await loadSlot('legacy')) return true;
+    } else {
+      if (preferredSlotId && await loadSlot(preferredSlotId)) return true;
+      if (await loadSlot('legacy')) return true;
+      for (const entry of indexEntries) {
+        const slotId = entry?.characterId || '';
+        if (!slotId || slotId === 'legacy') continue;
+        if (await loadSlot(slotId)) return true;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to bootstrap roster session', err);
+  }
+  restoreUiAfterWelcome();
+  return false;
+}
+
+async function handleAuthSubmit() {
+  try {
+    if (updateRosterLoginLockout()) {
+      return;
+    }
     clearAuthErrors();
     setAuthBusy(true);
     await primeFirebaseAuth();
-    if (mode === 'create') {
-      const username = authCreateUsername?.value?.trim() || '';
-      const password = authCreatePassword?.value || '';
-      const confirm = authCreateConfirm?.value || '';
-      const normalized = normalizeUsername(username);
-      if (!username || !password) {
-        setAuthError('Enter a username and password to continue.', 'create');
-        return;
-      }
-      if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'create');
-        return;
-      }
-      if (!['available', 'unchecked'].includes(usernameAvailabilityState)) {
-        setAuthError('That username is not available yet.', 'create');
-        return;
-      }
-      if (password !== confirm) {
-        setAuthError('Passwords do not match.', 'create');
-        return;
-      }
-      const lengthError = getPasswordLengthError(password, passwordPolicy);
-      if (lengthError) {
-        updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
-        setAuthError(lengthError, 'create');
-        return;
-      }
-      const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
-      if (unmetRules.length) {
-        setAuthError('Password does not meet requirements.', 'create');
-        return;
-      }
-      pendingPostAuthChoice = true;
-      const credential = await createAccountWithUsernamePassword(username, password);
-      const uid = credential?.user?.uid || getAuthState().uid;
-      if (uid) {
-        try {
-          await saveUserProfile(uid, {
-            username: normalized,
-            displayName: username,
-            createdAt: Date.now(),
-          });
-        } catch (profileErr) {
-          console.error('Failed to save user profile to cloud', profileErr);
-        }
-      }
-    } else {
-      const username = authLoginUsername?.value?.trim() || '';
-      const password = authLoginPassword?.value || '';
-      const normalized = normalizeUsername(username);
-      if (!username || !password) {
-        setAuthError('Enter your username and password to continue.', 'login');
-        return;
-      }
-      if (!normalized) {
-        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.', 'login');
-        return;
-      }
-      pendingPostAuthChoice = true;
-      await signInWithUsernamePassword(username, password);
+    const usernameInput = authLoginUsername?.value?.trim() || '';
+    const normalizedUsername = normalizeRosterUsername(usernameInput);
+    if (!usernameInput || !normalizedUsername) {
+      setAuthError('Enter your roster name to continue.', 'login');
+      return;
     }
+    if (!rosterLoginState || rosterLoginState.normalized !== normalizedUsername) {
+      rosterLoginState = getRosterLoginStateLocal(usernameInput);
+      rosterLoginState.normalized = normalizedUsername;
+      if (rosterLoginStage === 'idle') {
+        applyRosterLoginStage('login');
+      }
+    }
+    const pin = normalizeRosterPinInput(authLoginPin?.value || '');
+    const confirm = normalizeRosterPinInput(authLoginConfirm?.value || '');
+    if (!pin || pin.length !== ROSTER_PIN_LENGTH) {
+      setAuthError(`Enter a ${ROSTER_PIN_LENGTH}-digit PIN to continue.`, 'login');
+      return;
+    }
+    pendingPostAuthChoice = true;
+    if (rosterLoginStage === 'create') {
+      if (!confirm || confirm.length !== ROSTER_PIN_LENGTH) {
+        setAuthError('Confirm your PIN to continue.', 'login');
+        return;
+      }
+      if (pin !== confirm) {
+        setAuthError('PIN entries do not match.', 'login');
+        return;
+      }
+      pendingRosterBootstrap = true;
+      rosterBootstrapPreferLegacy = true;
+      await claimRosterAccount(usernameInput, pin);
+    } else {
+      pendingRosterBootstrap = true;
+      rosterBootstrapPreferLegacy = false;
+      await signInWithRosterPin(usernameInput, pin);
+    }
+    resetRosterLoginFailures();
     hide('modal-auth-login');
     hide('modal-auth-create');
+    pendingPostAuthChoice = false;
   } catch (err) {
     console.error('Auth failed', err);
-    if (mode === 'create') {
-      const password = authCreatePassword?.value || '';
-      const policyFeedback = applyPasswordPolicyError({
-        container: authPasswordPolicy,
-        password,
-        policy: passwordPolicy,
-        error: err,
-      });
-      if (policyFeedback) {
-        setAuthError(policyFeedback.message, 'create');
-      } else {
-        const friendly = getFriendlySignupError(err);
-        setAuthError(`${friendly} (${formatAuthErrorDetails(err)})`, 'create');
-      }
-    } else {
-      setAuthError(err?.message || 'Unable to sign in.', 'login');
+    if (err?.code === 'preuser-unclaimed') {
+      applyRosterLoginStage('create');
+      setAuthError('Create your PIN to claim this roster entry.', 'login');
+      return;
     }
+    if (err?.message === 'Not on roster') {
+      setAuthError('Not on roster', 'login');
+      return;
+    }
+    if (isPinFailureError(err)) {
+      recordRosterLoginFailure('Incorrect PIN. Please try again.');
+      return;
+    }
+    setAuthError(err?.message || 'Unable to sign in.', 'login');
   } finally {
     setAuthBusy(false);
+    updateRosterLoginLockout();
+    if (pendingRosterBootstrap && !getAuthState().uid) {
+      pendingRosterBootstrap = false;
+      rosterBootstrapPreferLegacy = false;
+    }
   }
 }
 
@@ -25516,21 +26030,29 @@ async function handleClaimTokenSubmit() {
     const cloudPayload = await loadCloudCharacter(sourceUid, characterId);
     const migrated = migrateSavePayload(cloudPayload);
     const { payload } = buildCanonicalPayload(migrated);
+    const displayName = payload?.meta?.name || payload?.character?.name || characterId;
     payload.meta = {
       ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
       ownerUid: uid,
       uid,
       deviceId: getDeviceId(),
+      name: displayName,
+      displayName,
       updatedAt: Date.now(),
     };
     payload.updatedAt = payload.meta.updatedAt;
-    await saveCloudCharacter(uid, characterId, payload);
-    await saveCharacterIndexEntry(uid, characterId, {
-      name: payload?.meta?.name || payload?.character?.name || characterId,
+    const slotId = await ensureCloudCharacterSlotId({
+      uid,
+      payload,
+      storageName: displayName,
+    });
+    await saveCloudCharacter(uid, slotId, payload);
+    await saveCharacterIndexEntry(uid, slotId, {
+      name: displayName,
       updatedAt: payload.meta.updatedAt,
     });
-    writeLastSyncedAt(characterId, payload.meta.updatedAt);
-    await saveLocal(payload?.meta?.name || characterId, payload, { characterId });
+    writeLastSyncedAt(slotId, payload.meta.updatedAt);
+    await saveLocal(displayName || slotId, payload, { characterId: slotId });
     toast('Character claimed from token.', 'success');
     claimTokenInput.value = '';
     await refreshClaimModal();
@@ -25612,7 +26134,11 @@ async function handleLegacyClaim({ name, source }) {
     toast('This character is already claimed by another account.', 'error');
     return;
   }
-  const characterId = ensureCharacterId(payload, name);
+  const characterId = await ensureCloudCharacterSlotId({
+    uid,
+    payload,
+    storageName: name,
+  });
   try {
     const db = await getFirebaseDatabase();
     await claimCharacterLock(db, characterId, uid);
@@ -25672,7 +26198,11 @@ async function handleFileImport() {
     toast('This character is already claimed by another account.', 'error');
     return;
   }
-  const characterId = ensureCharacterId(payload, name);
+  const characterId = await ensureCloudCharacterSlotId({
+    uid,
+    payload,
+    storageName: name,
+  });
   try {
     const db = await getFirebaseDatabase();
     await claimCharacterLock(db, characterId, uid);
@@ -25840,6 +26370,15 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
       .then(({ hadLocal, restoredCount, updatedCount, totalCloud } = {}) => {
+        if (pendingRosterBootstrap) {
+          pendingPostAuthChoice = false;
+          bootstrapRosterSession({ preferLegacy: rosterBootstrapPreferLegacy })
+            .finally(() => {
+              pendingRosterBootstrap = false;
+              rosterBootstrapPreferLegacy = false;
+            });
+          return;
+        }
         restoreLastLoadedCharacter().catch(err => {
           console.error('Failed to restore last loaded character', err);
         });
@@ -25885,7 +26424,7 @@ registerBootTask(() => {
     welcomeLogin.addEventListener('click', () => openLoginModal());
   }
   if (welcomeCreate) {
-    welcomeCreate.addEventListener('click', () => openCreateModal());
+    welcomeCreate.addEventListener('click', () => openLoginModal());
   }
   if (welcomeContinue) {
     welcomeContinue.addEventListener('click', async () => {
@@ -25915,10 +26454,7 @@ registerBootTask(() => {
     });
   }
   if (authLoginSubmit) {
-    authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
-  }
-  if (authCreateSubmit) {
-    authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
+    authLoginSubmit.addEventListener('click', () => handleAuthSubmit());
   }
   if (authLoginCancel) {
     authLoginCancel.addEventListener('click', () => {
