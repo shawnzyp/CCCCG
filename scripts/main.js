@@ -6306,6 +6306,9 @@ function handleToastHistoryDismissed() {
 }
 
 registerBootTask(() => {
+  if (typeof pauseTickerAnimations !== 'function' || typeof resumeTickerAnimations !== 'function') {
+    return;
+  }
   const tickerItems = qsa('.news-ticker');
   if (!tickerItems.length) return;
   const pause = () => pauseTickerAnimations();
