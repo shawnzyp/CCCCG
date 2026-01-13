@@ -5518,23 +5518,31 @@
     const missing = missingSelectors(DM_REQUIRED_SELECTORS);
     if (missing.length) {
       warnMissing('DM', missing);
-      return null;
+      return false;
     }
-    return runtime.ensureDM();
+    runtime.ensureDM();
+    return true;
   };
 
-  let somfInitialized = false;
+  let playerAttached = false;
+  let dmAttached = false;
+  let initAttempted = false;
   function initSomf() {
-    if (somfInitialized) return;
-    somfInitialized = true;
+    initAttempted = true;
     runtime.setFirebase(window._somf_db || null);
-    ensurePlayerUi();
+    if (!playerAttached && ensurePlayerUi()) {
+      playerAttached = true;
+    }
     if (
-      document.getElementById('somfDM-playerCard') ||
-      document.getElementById('modal-somf-dm') ||
-      document.querySelector('.somf-dm__toggles')
+      !dmAttached
+      && (
+        document.getElementById('somfDM-playerCard')
+        || document.getElementById('modal-somf-dm')
+        || document.querySelector('.somf-dm__toggles')
+      )
+      && ensureDmUi()
     ) {
-      ensureDmUi();
+      dmAttached = true;
     }
   }
 
@@ -5544,10 +5552,20 @@
     initSomf();
   }
 
+  const initSomfOnInteraction = event => {
+    const target = event.target;
+    if (!target) return;
+    if (target.closest('#somf-min-draw') || target.closest('#somf-min-modal')) {
+      initSomf();
+    }
+  };
+
+  document.addEventListener('click', initSomfOnInteraction);
+
   window.initSomfDM = () => ensureDmUi();
   window.openSomfDM = opts => {
-    const controller = ensureDmUi();
-    if (controller) controller.open(opts || {});
+    ensureDmUi();
+    runtime.openDM(opts || {});
   };
 
 })();
