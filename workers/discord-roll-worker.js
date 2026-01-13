@@ -103,10 +103,27 @@ async function handleRequest(request, env) {
     if (!isAuthorized(request, env.CCCG_SECRET)) {
       return jsonResponse({ ok: false, service: SERVICE_NAME, error: 'unauthorized' }, 401, origin);
     }
+    if (request.headers.get(DEBUG_HEADER)) {
+      return jsonResponse({
+        ok: true,
+        service: SERVICE_NAME,
+        hasWebhookConfigured: !!env.DISCORD_WEBHOOK_URL,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
+      }, 200, origin);
+    }
+    if (!env.DISCORD_WEBHOOK_URL) {
+      return jsonResponse({
+        ok: false,
+        code: 'webhook_not_configured',
+        service: SERVICE_NAME,
+        hasWebhookConfigured: false,
+      }, 503, origin);
+    }
     return jsonResponse({
       ok: true,
       service: SERVICE_NAME,
-      hasWebhookConfigured: !!env.DISCORD_WEBHOOK_URL,
+      hasWebhookConfigured: true,
       version: env.VERSION || env.BUILD_ID || 'unknown',
       now: new Date().toISOString(),
     }, 200, origin);

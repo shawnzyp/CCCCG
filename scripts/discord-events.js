@@ -2,7 +2,8 @@ import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
 import { toastOnce } from './ui-notify.js';
 
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
-const PROXY_URL_OVERRIDE_KEY = 'cc.discord.proxyUrl';
+const PROXY_URL_OVERRIDE_KEY = 'cc:discord:proxyUrl';
+const LEGACY_PROXY_URL_OVERRIDE_KEY = 'cc.discord.proxyUrl';
 const DEBUG_HEADER = 'X-CCCG-Proxy-Debug';
 const MAX_RETRY_ATTEMPTS = 4;
 const BASE_RETRY_DELAY_MS = 500;
@@ -36,10 +37,26 @@ const readLocalStorageValue = (key) => {
   }
 };
 
+const migrateLegacyProxyUrlOverride = () => {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const current = localStorage.getItem(PROXY_URL_OVERRIDE_KEY);
+    if (current && current.trim()) return;
+    const legacy = localStorage.getItem(LEGACY_PROXY_URL_OVERRIDE_KEY);
+    if (legacy && legacy.trim()) {
+      localStorage.setItem(PROXY_URL_OVERRIDE_KEY, legacy.trim());
+      localStorage.removeItem(LEGACY_PROXY_URL_OVERRIDE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+};
+
 const readGlobalProxyUrl = () => {
   if (typeof window === 'undefined') return null;
   const candidate = window.DISCORD_PROXY_URL
     || window.CCCG_DISCORD_PROXY_URL
+    || window.__CCCG_DISCORD_PROXY_URL__
     || window.discordProxyUrl;
   return typeof candidate === 'string' ? candidate : null;
 };
@@ -73,6 +90,7 @@ const normalizeProxyBaseUrl = (value) => {
 };
 
 export const resolveDiscordProxyConfig = () => {
+  migrateLegacyProxyUrlOverride();
   const candidates = [
     readLocalStorageValue(PROXY_URL_OVERRIDE_KEY),
     readMeta('discord-proxy-url'),

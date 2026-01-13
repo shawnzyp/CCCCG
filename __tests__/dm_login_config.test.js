@@ -146,13 +146,15 @@ describe('discord relay configuration', () => {
     document.head.appendChild(meta);
     window.DISCORD_PROXY_URL = 'https://global.example/relay/';
 
-    localStorage.setItem('cc.discord.proxyUrl', 'https://override.example/relay/');
+    localStorage.setItem('cc:discord:proxyUrl', 'https://override.example/relay/');
     const overrideConfig = resolveDiscordProxyConfig();
     expect(overrideConfig.baseUrl).toBe('https://override.example/relay');
 
-    localStorage.removeItem('cc.discord.proxyUrl');
+    localStorage.removeItem('cc:discord:proxyUrl');
+    localStorage.setItem('cc.discord.proxyUrl', 'https://legacy.example/relay/');
     const fallbackConfig = resolveDiscordProxyConfig();
-    expect(fallbackConfig.baseUrl).toBe('https://global.example/relay');
+    expect(fallbackConfig.baseUrl).toBe('https://legacy.example/relay');
+    expect(localStorage.getItem('cc:discord:proxyUrl')).toBe('https://legacy.example/relay');
 
     expect(__test__.isPlaceholderValue('REPLACE_ME')).toBe(true);
     delete window.DISCORD_PROXY_URL;
@@ -160,7 +162,7 @@ describe('discord relay configuration', () => {
 
   it('tests relay health via /health without posting to /roll', async () => {
     await import('../scripts/dm.js');
-    localStorage.setItem('cc.discord.proxyUrl', 'https://relay.example');
+    localStorage.setItem('cc:discord:proxyUrl', 'https://relay.example');
     sessionStorage.setItem('cc:discord:proxy-key', 'abc123');
 
     const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
@@ -174,7 +176,8 @@ describe('discord relay configuration', () => {
     expect(calls[0]).toBe('https://relay.example/health');
     expect(calls.some(url => String(url).includes('/roll'))).toBe(false);
     const headers = fetchMock.mock.calls[0][1].headers;
-    expect(headers.Authorization).toBe('Bearer abc123');
+    const authHeader = typeof headers?.get === 'function' ? headers.get('Authorization') : headers.Authorization;
+    expect(authHeader).toBe('Bearer abc123');
   });
 
   it('toastOnce emits only once across multiple calls', async () => {

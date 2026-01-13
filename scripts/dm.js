@@ -10718,7 +10718,7 @@ function initDMLogin(){
 
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
-      reconcileDiscordSessionState();
+      reconcileDiscordSessionState({ warn: false });
       syncDiscordSettingsUi();
     });
 
