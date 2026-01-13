@@ -2484,6 +2484,8 @@
       <header class="dm-discord__header">
         <p class="dm-discord__eyebrow">Discord Relay</p>
         <h3 id="dm-discord-title">Discord Broadcast</h3>
+        <p class="dm-discord__intro">Add the relay key, then send a test event.</p>
+        <p id="dm-discord-status" class="dm-discord__status" role="status" aria-live="polite">Disconnected</p>
         <p class="dm-discord__intro">Add the relay URL and key, then run a test.</p>
       </header>
       <div class="dm-discord__grid">
@@ -2503,6 +2505,7 @@
         </label>
         <div class="dm-discord__field dm-discord__actions" role="group" aria-label="Discord telemetry actions">
           <button type="button" id="dm-discord-test" class="btn-sm">Test Discord Relay</button>
+          <p class="dm-discord__hint">Runs a health check to verify the relay.</p>
           <p class="dm-discord__hint">Runs a health check or debug event to verify the relay.</p>
         </div>
       </div>

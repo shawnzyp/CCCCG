@@ -77,6 +77,16 @@ const normalizeWorkerUrl = (url) => {
   return `${url.replace(/\/$/, '')}/roll`;
 };
 
+const normalizeWorkerHealthUrl = (url) => {
+  if (!url) return null;
+  if (url.endsWith('/health')) return url;
+  const trimmed = url.replace(/\/$/, '');
+  if (trimmed.endsWith('/roll')) {
+    return `${trimmed.slice(0, -5)}/health`;
+  }
+  return `${trimmed}/health`;
+};
+
 const parseTotalValue = (value) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
@@ -315,4 +325,31 @@ export const sendEventToDiscordWorker = async (payload) => {
   }
 
   return false;
+};
+
+export const testDiscordRelay = async () => {
+  if (!isDiscordEnabled()) return { ok: false, reason: 'missing-key', status: 0 };
+  const metaUrl = readMeta('discord-proxy-url') || DEFAULT_WORKER_URL;
+  if (!metaUrl) return { ok: false, reason: 'missing-url', status: 0 };
+  const workerUrl = normalizeWorkerHealthUrl(metaUrl);
+  if (!isValidWorkerUrl(workerUrl)) return { ok: false, reason: 'invalid-url', status: 0 };
+  const key = getDiscordProxyKey();
+  if (!key || typeof fetch !== 'function') return { ok: false, reason: 'missing-key', status: 0 };
+
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'X-CCCG-Secret': key,
+      },
+    });
+    if (!res.ok) {
+      return { ok: false, reason: 'bad-status', status: res.status };
+    }
+    return { ok: true, status: res.status };
+  } catch (err) {
+    console.warn('Discord relay health check failed', err);
+    return { ok: false, reason: 'network-error', status: 0 };
+  }
 };
