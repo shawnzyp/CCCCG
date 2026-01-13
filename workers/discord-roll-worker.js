@@ -1,9 +1,14 @@
 const PRIMARY_ORIGIN = 'https://shawnzyp.github.io';
-const LOCALHOST_ORIGINS = new Set(['http://localhost', 'http://127.0.0.1']);
-
 function resolveCorsOrigin(origin) {
-  if (origin && LOCALHOST_ORIGINS.has(origin)) {
-    return origin;
+  try {
+    if (!origin) return PRIMARY_ORIGIN;
+    const { hostname } = new URL(origin);
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return origin;
+    }
+    if (origin === PRIMARY_ORIGIN) return PRIMARY_ORIGIN;
+  } catch {
+    /* ignore origin parse errors */
   }
   return PRIMARY_ORIGIN;
 }
@@ -13,7 +18,7 @@ function buildCorsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-CCCG-Secret, X-CCCG-Debug',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Debug',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -83,7 +88,7 @@ async function handleRequest(request, env) {
   const origin = request.headers.get('Origin') || '';
   const corsHeaders = buildCorsHeaders(origin);
 
-  if (url.pathname === '/roll' && request.method === 'OPTIONS') {
+  if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 

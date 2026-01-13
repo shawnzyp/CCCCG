@@ -5167,6 +5167,9 @@ function initDMLogin(){
       if (discordTestBtn) {
         discordTestBtn.disabled = !relayReady || !enabled;
       }
+      if (relayReady) {
+        discordEnableWarningShown = false;
+      }
     }
 
     function openDiscordSettings() {
@@ -10765,6 +10768,7 @@ function initDMLogin(){
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
+      syncDiscordSettingsUi();
     });
 
     discordTestBtn?.addEventListener('click', () => {
