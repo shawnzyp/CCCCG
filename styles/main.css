@@ -10691,6 +10691,10 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .dm-discord__header{display:flex;flex-direction:column;gap:6px}
 .dm-discord__eyebrow{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0}
 .dm-discord__intro{margin:0;color:var(--muted)}
+.dm-discord__status{margin:0;font-weight:600;font-size:.95rem}
+.dm-discord__status--connected{color:var(--success)}
+.dm-discord__status--disabled{color:var(--warning)}
+.dm-discord__status--disconnected{color:var(--danger)}
 .dm-discord__grid{display:flex;flex-direction:column;gap:12px}
 .dm-discord__field{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .dm-discord__label{font-weight:600}

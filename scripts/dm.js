@@ -27,12 +27,11 @@ import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
 import {
   getDiscordProxyKey,
-  isDiscordEnabled,
+  reconcileDiscordSessionState,
   setDiscordEnabled,
   setDiscordProxyKey,
 } from './discord-settings.js';
-import { sendEventToDiscordWorker } from './discord-events.js';
-import { getActiveUserId } from './storage.js';
+import { testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -1567,6 +1566,7 @@ function initDMLogin(){
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
   const discordKeyInput = document.getElementById('dm-discord-key');
   const discordTestBtn = document.getElementById('dm-discord-test');
+  const discordStatus = document.getElementById('dm-discord-status');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -5147,21 +5147,38 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
-      const enabled = isDiscordEnabled();
-      const relayReady = enabled && !!getDiscordProxyKey();
+      const { enabled, hasKey } = reconcileDiscordSessionState({ warn: false });
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
       if (discordKeyInput) {
         discordKeyInput.value = getDiscordProxyKey();
       }
+      if (discordStatus) {
+        discordStatus.classList.remove(
+          'dm-discord__status--connected',
+          'dm-discord__status--disabled',
+          'dm-discord__status--disconnected'
+        );
+        if (!hasKey) {
+          discordStatus.textContent = 'Disconnected';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!enabled) {
+          discordStatus.textContent = 'Disabled';
+          discordStatus.classList.add('dm-discord__status--disabled');
+        } else {
+          discordStatus.textContent = 'Connected';
+          discordStatus.classList.add('dm-discord__status--connected');
+        }
+      }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !relayReady || !enabled;
+        discordTestBtn.disabled = !hasKey;
       }
     }
 
     function openDiscordSettings() {
       if (!discordModal) return;
+      reconcileDiscordSessionState();
       syncDiscordSettingsUi();
       show('dm-discord-modal');
       if (typeof discordModal.scrollTo === 'function') {
@@ -5183,28 +5200,20 @@ function initDMLogin(){
     }
 
     async function sendDiscordTestMessage() {
-      if (!isDiscordEnabled()) {
-        toast('Enable Discord relay before sending a test.', 'warn');
-        return;
-      }
       if (!getDiscordProxyKey()) {
-        toast('Discord relay is not fully configured.', 'warn');
+        toast('Discord relay key is required to test the relay.', 'warn');
         return;
       }
-      const actorName = $('superhero')?.value?.trim() || currentCharacter() || 'System';
-      const uid = getActiveUserId();
-      const ok = await sendEventToDiscordWorker({
-        type: 'character.update',
-        actor: { vigilanteName: actorName, uid },
-        detail: {
-          updateType: 'note',
-          before: { message: 'Discord relay test' },
-          after: { message: 'Discord relay test' },
-          reason: 'Relay test event',
-        },
-        ts: Date.now(),
-      });
-      toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
+      const result = await testDiscordRelay();
+      if (result.ok) {
+        toast('Discord relay health check passed.', 'success');
+        return;
+      }
+      if (result.code === 'unauthorized' || result.code === 'forbidden') {
+        toast('Discord relay rejected the key. Re-enter the key and try again.', 'warn');
+        return;
+      }
+      toast('Discord relay health check failed.', 'warn');
     }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
@@ -10709,15 +10718,20 @@ function initDMLogin(){
 
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
+      reconcileDiscordSessionState();
       syncDiscordSettingsUi();
     });
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
+      reconcileDiscordSessionState({ warn: false });
+      syncDiscordSettingsUi();
     });
 
     discordTestBtn?.addEventListener('click', () => {
-      sendDiscordTestMessage();
+      sendDiscordTestMessage().catch(err => {
+        console.error('Failed to send discord relay test', err);
+      });
     });
 
     syncDiscordSettingsUi();

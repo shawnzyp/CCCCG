@@ -5484,22 +5484,112 @@
 
   document.addEventListener('click', handleSomfArtLinkClick);
 
-  function initSomf() {
+  const SOMF_PLAYER_SELECTORS = [
+    '#somf-min',
+    '#somf-min-count',
+    '#somf-min-draw',
+    '#somf-min-modal',
+    '#somf-min-close',
+    '#somf-min-image',
+    '#somf-min-details',
+  ];
+  const SOMF_DM_SELECTORS = [
+    '#modal-somf-dm',
+    '#somfDM-close',
+    '#somfDM-inviteTargets',
+    '#somfDM-sendInvite',
+  ];
+  const SOMF_TOAST_ONCE_PREFIX = 'cc:somf:toast-once:';
+  let playerAttached = false;
+  let dmAttached = false;
+  let lazyInitScheduled = false;
+
+  function getMissingSelectors(selectors) {
+    if (!selectors || !selectors.length || typeof document === 'undefined') return [];
+    return selectors.filter(selector => !document.querySelector(selector));
+  }
+
+  function dispatchUiNotify(detail) {
+    if (typeof document === 'undefined') return;
+    try {
+      document.dispatchEvent(new CustomEvent('cc:ui-notify', { detail }));
+    } catch {}
+  }
+
+  function toastOnce(id, message, level) {
+    if (!id || typeof message !== 'string') return;
+    const key = `${SOMF_TOAST_ONCE_PREFIX}${id}`;
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') return;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, '1');
+      }
+    } catch {}
+    dispatchUiNotify({ id, message, level });
+  }
+
+  function warnMissingSelectors(scope, selectors) {
+    if (!selectors.length) return;
+    console.warn(`SOMF ${scope} UI missing required selectors:`, selectors);
+    if (isDmSessionActive()) {
+      toastOnce(
+        `somf-${scope}-missing`,
+        'Shards of Many Fates UI is missing required elements. Reload or sync the deployment.',
+        'warning'
+      );
+    }
+  }
+
+  function scheduleLazyInit() {
+    if (lazyInitScheduled || typeof document === 'undefined') return;
+    lazyInitScheduled = true;
+    const handler = () => {
+      lazyInitScheduled = false;
+      initSomf('lazy');
+    };
+    document.addEventListener('click', handler, { once: true, capture: true });
+    document.addEventListener('keydown', handler, { once: true, capture: true });
+  }
+
+  function initSomf(reason) {
     runtime.setFirebase(window._somf_db || null);
-    runtime.attachPlayer();
-    if (
-      document.getElementById('somfDM-playerCard') ||
+    if (!playerAttached) {
+      const missingPlayer = getMissingSelectors(SOMF_PLAYER_SELECTORS);
+      if (missingPlayer.length) {
+        warnMissingSelectors('player', missingPlayer);
+        scheduleLazyInit();
+      } else {
+        runtime.attachPlayer();
+        playerAttached = true;
+      }
+    }
+
+    const dmUiPresent = !!(
       document.getElementById('modal-somf-dm') ||
       document.querySelector('.somf-dm__toggles')
-    ) {
-      runtime.ensureDM();
+    );
+    if (dmUiPresent && !dmAttached) {
+      const missingDm = getMissingSelectors(SOMF_DM_SELECTORS);
+      if (missingDm.length) {
+        warnMissingSelectors('dm', missingDm);
+        scheduleLazyInit();
+      } else {
+        runtime.ensureDM();
+        dmAttached = true;
+      }
     }
   }
 
   document.addEventListener('DOMContentLoaded', initSomf);
-  if (document.readyState !== 'loading') initSomf();
+  if (document.readyState !== 'loading') initSomf('ready');
 
-  window.initSomfDM = () => runtime.ensureDM();
-  window.openSomfDM = opts => runtime.openDM(opts || {});
+  window.initSomfDM = () => {
+    initSomf('manual');
+    return dmAttached ? runtime.dm : null;
+  };
+  window.openSomfDM = opts => {
+    initSomf('manual');
+    return runtime.openDM(opts || {});
+  };
 
 })();

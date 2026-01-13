@@ -1,33 +1,22 @@
 import { getDiscordProxyKey, getDiscordRoute, isDiscordEnabled } from './discord-settings.js';
+import { resolveDiscordProxyConfig } from './discord-events.js';
 
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
 
-const readMeta = (name) => {
-  try {
-    const el = typeof document !== 'undefined'
-      ? document.querySelector(`meta[name="${name}"]`)
-      : null;
-    const value = el?.content?.trim();
-    return value?.length ? value : null;
-  } catch (_) {
-    return null;
-  }
-};
-
-const isValidProxyUrl = (url) =>
-  typeof url === 'string'
-  && /^https:\/\//i.test(url)
-  && !/YOUR-WORKER/i.test(url);
-
 const getProxyConfig = () => {
-  const proxyUrl = readMeta('discord-proxy-url');
+  const proxyConfig = resolveDiscordProxyConfig();
   const proxyKey = getDiscordProxyKey();
 
   const headers = proxyKey
-    ? { ...DEFAULT_HEADERS, 'X-App-Key': proxyKey }
+    ? {
+      ...DEFAULT_HEADERS,
+      Authorization: `Bearer ${proxyKey}`,
+      'X-Proxy-Key': proxyKey,
+      'X-CCCG-Secret': proxyKey,
+    }
     : DEFAULT_HEADERS;
 
-  return { proxyUrl, headers };
+  return { proxyConfig, headers };
 };
 
 const asEventEnvelope = (event, payload = {}) => ({
@@ -90,8 +79,8 @@ const clampFieldValue = (value) => {
 const sendWebhook = async (event, payloadBuilder) => {
   if (!isDiscordEnabled()) return false;
 
-  const { proxyUrl, headers } = getProxyConfig();
-  if (!isValidProxyUrl(proxyUrl) || typeof fetch !== 'function') return false;
+  const { proxyConfig, headers } = getProxyConfig();
+  if (!proxyConfig?.rollUrl || typeof fetch !== 'function') return false;
   const body = typeof payloadBuilder === 'function'
     ? payloadBuilder()
     : payloadBuilder;
@@ -106,7 +95,7 @@ const sendWebhook = async (event, payloadBuilder) => {
   lastDispatchByEvent.set(throttleKey, now);
 
   try {
-    const res = await fetch(proxyUrl, {
+    const res = await fetch(proxyConfig.rollUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(asEventEnvelope(event, body)),
