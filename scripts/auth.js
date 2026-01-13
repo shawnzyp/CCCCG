@@ -1,5 +1,16 @@
-const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
-const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
+const DEFAULT_CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const DEFAULT_EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
+const WINDOW_FIREBASE_CONFIG = (() => {
+  if (typeof window === 'undefined') return null;
+  const config = window.__CCCG_FIREBASE_CONFIG__;
+  return config && typeof config === 'object' ? config : null;
+})();
+const CLOUD_BASE_URL = typeof WINDOW_FIREBASE_CONFIG?.databaseURL === 'string' && WINDOW_FIREBASE_CONFIG.databaseURL.trim()
+  ? WINDOW_FIREBASE_CONFIG.databaseURL.trim()
+  : DEFAULT_CLOUD_BASE_URL;
+const EXPECTED_PROJECT_ID = typeof WINDOW_FIREBASE_CONFIG?.projectId === 'string' && WINDOW_FIREBASE_CONFIG.projectId.trim()
+  ? WINDOW_FIREBASE_CONFIG.projectId.trim()
+  : DEFAULT_EXPECTED_PROJECT_ID;
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
@@ -379,10 +390,17 @@ function getFirebaseConfig() {
     };
   }
   if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
+    const windowConfig = window.__CCCG_FIREBASE_CONFIG__;
     return {
       source: 'window',
       config: {
-        ...window.__CCCG_FIREBASE_CONFIG__,
+        ...windowConfig,
+        databaseURL: typeof windowConfig?.databaseURL === 'string' && windowConfig.databaseURL.trim()
+          ? windowConfig.databaseURL.trim()
+          : CLOUD_BASE_URL,
+        projectId: typeof windowConfig?.projectId === 'string' && windowConfig.projectId.trim()
+          ? windowConfig.projectId.trim()
+          : EXPECTED_PROJECT_ID,
       },
     };
   }
