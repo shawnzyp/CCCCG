@@ -1,9 +1,14 @@
 const PRIMARY_ORIGIN = 'https://shawnzyp.github.io';
-const LOCALHOST_ORIGINS = new Set(['http://localhost', 'http://127.0.0.1']);
-
 function resolveCorsOrigin(origin) {
-  if (origin && LOCALHOST_ORIGINS.has(origin)) {
-    return origin;
+  try {
+    if (!origin) return PRIMARY_ORIGIN;
+    const { hostname } = new URL(origin);
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return origin;
+    }
+    if (origin === PRIMARY_ORIGIN) return PRIMARY_ORIGIN;
+  } catch {
+    /* ignore origin parse errors */
   }
   return PRIMARY_ORIGIN;
 }
@@ -13,7 +18,7 @@ function buildCorsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-CCCG-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Debug',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -83,12 +88,15 @@ async function handleRequest(request, env) {
   const origin = request.headers.get('Origin') || '';
   const corsHeaders = buildCorsHeaders(origin);
 
-  if (url.pathname === '/roll' && request.method === 'OPTIONS') {
+  if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (url.pathname === '/health' && request.method === 'GET') {
-    return new Response('ok', { status: 200, headers: corsHeaders });
+    if (!isAuthorized(request, env.CCCG_SECRET)) {
+      return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+    }
+    return jsonResponse({ ok: true, service: 'discord-relay', ts: Date.now() }, 200, origin);
   }
 
   if (url.pathname !== '/roll') {
@@ -99,12 +107,15 @@ async function handleRequest(request, env) {
     return jsonResponse({ ok: false, status: 405, body: 'Method not allowed' }, 405, origin);
   }
 
-  if (!env.DISCORD_WEBHOOK_URL) {
-    return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
-  }
-
   if (!isAuthorized(request, env.CCCG_SECRET)) {
     return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+  }
+
+  const isDebug = url.searchParams.get('debug') === '1'
+    || request.headers.get('X-CCCG-Debug') === '1';
+
+  if (!env.DISCORD_WEBHOOK_URL && !isDebug) {
+    return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
   }
 
   let payload = null;
@@ -117,6 +128,10 @@ async function handleRequest(request, env) {
   const normalizedPayload = normalizePayload(payload);
   if (!normalizedPayload) {
     return jsonResponse({ ok: false, status: 400, body: 'Unsupported payload format' }, 400, origin);
+  }
+
+  if (isDebug) {
+    return jsonResponse({ ok: true, debug: true, payload: normalizedPayload }, 200, origin);
   }
 
   const result = await forwardToDiscord(env.DISCORD_WEBHOOK_URL, normalizedPayload);

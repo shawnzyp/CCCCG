@@ -18,7 +18,7 @@
 <meta name="color-scheme" content="dark light"/>
 <meta
   name="discord-proxy-url"
-  content="https://YOUR-WORKER.yourdomain.workers.dev"
+  content="__DISCORD_PROXY_URL__"
 />
 <meta name="cc-dm-pin-sha256" content="__DM_PIN_SHA256__"/>
 <!-- Inject the hash at deploy time with a secret value such as a GitHub Actions secret. -->
@@ -2486,11 +2486,17 @@
         <h3 id="dm-discord-title">Discord Broadcast</h3>
         <p class="dm-discord__intro">Add the relay key, then send a test event.</p>
         <p id="dm-discord-status" class="dm-discord__status" role="status" aria-live="polite">Disconnected</p>
+        <p class="dm-discord__intro">Add the relay URL and key, then run a test.</p>
       </header>
       <div class="dm-discord__grid">
         <label class="dm-discord__field">
           <span class="dm-discord__label">Enable Discord telemetry</span>
           <input type="checkbox" id="dm-discord-enabled" />
+        </label>
+        <label class="dm-discord__field" for="dm-discord-proxy-url">
+          <span class="dm-discord__label">Discord Proxy URL</span>
+          <input type="url" id="dm-discord-proxy-url" placeholder="https://your-worker.example.workers.dev" autocomplete="off" spellcheck="false" />
+          <p class="dm-discord__hint">Paste the worker base URL (no /roll needed).</p>
         </label>
         <label class="dm-discord__field" for="dm-discord-key">
           <span class="dm-discord__label">Discord Relay Key</span>
@@ -2500,6 +2506,7 @@
         <div class="dm-discord__field dm-discord__actions" role="group" aria-label="Discord telemetry actions">
           <button type="button" id="dm-discord-test" class="btn-sm">Test Discord Relay</button>
           <p class="dm-discord__hint">Runs a health check to verify the relay.</p>
+          <p class="dm-discord__hint">Runs a health check or debug event to verify the relay.</p>
         </div>
       </div>
     </section>

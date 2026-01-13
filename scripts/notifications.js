@@ -419,6 +419,30 @@ function ensureGlobalFunction(name, fn) {
   });
 }
 
+function normalizeUiNotifyLevel(level) {
+  if (typeof level !== 'string') return 'info';
+  const normalized = level.trim().toLowerCase();
+  if (normalized === 'warning') return 'warn';
+  if (normalized === 'warn' || normalized === 'error' || normalized === 'success' || normalized === 'info') {
+    return normalized;
+  }
+  return 'info';
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('cc:ui-notify', (event) => {
+    try {
+      const detail = event?.detail || {};
+      const message = typeof detail.message === 'string' ? detail.message.trim() : '';
+      if (!message) return;
+      const level = normalizeUiNotifyLevel(detail.level);
+      toast(message, level);
+    } catch {
+      /* ignore toast failures */
+    }
+  });
+}
+
 ensureGlobalFunction('toast', toast);
 ensureGlobalFunction('dismissToast', dismissToast);
 ensureGlobalFunction('playTone', playTone);
