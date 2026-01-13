@@ -1570,6 +1570,7 @@ function initDMLogin(){
   const discordKeyInput = document.getElementById('dm-discord-key');
   const discordTestBtn = document.getElementById('dm-discord-test');
   let discordEnableWarningShown = false;
+  let discordUrlDebounceId = null;
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -10743,7 +10744,23 @@ function initDMLogin(){
     });
 
     discordUrlInput?.addEventListener('input', () => {
+      if (discordUrlDebounceId) {
+        clearTimeout(discordUrlDebounceId);
+      }
+      discordUrlDebounceId = setTimeout(() => {
+        discordUrlDebounceId = null;
+        setDiscordProxyUrl(discordUrlInput.value);
+        syncDiscordSettingsUi();
+      }, 300);
+    });
+
+    discordUrlInput?.addEventListener('blur', () => {
+      if (discordUrlDebounceId) {
+        clearTimeout(discordUrlDebounceId);
+        discordUrlDebounceId = null;
+      }
       setDiscordProxyUrl(discordUrlInput.value);
+      syncDiscordSettingsUi();
     });
 
     discordKeyInput?.addEventListener('input', () => {
