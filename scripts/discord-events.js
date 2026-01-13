@@ -1,13 +1,36 @@
 import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
+import { toast } from './notifications.js';
 
 const DEFAULT_WORKER_URL = '';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
 const RETRY_DELAY_MS = 500;
+let proxyWarningShown = false;
 
 const isValidWorkerUrl = (url) =>
   typeof url === 'string'
   && /^https:\/\//i.test(url)
   && !/YOUR-WORKER/i.test(url);
+
+const readBuildTimeProxyUrl = () => {
+  try {
+    if (typeof __DISCORD_PROXY_URL__ !== 'undefined') {
+      const value = String(__DISCORD_PROXY_URL__).trim();
+      return value.length ? value : null;
+    }
+  } catch {
+    /* ignore missing build-time constant */
+  }
+  try {
+    const value = typeof globalThis !== 'undefined'
+      ? globalThis.__DISCORD_PROXY_URL__ || globalThis.DISCORD_PROXY_URL
+      : null;
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed.length ? trimmed : null;
+  } catch {
+    return null;
+  }
+  return null;
+};
 
 const readMeta = (name) => {
   try {
@@ -20,6 +43,12 @@ const readMeta = (name) => {
     return null;
   }
 };
+
+const resolveDiscordProxyUrl = () => (
+  readMeta('discord-proxy-url')
+  || readBuildTimeProxyUrl()
+  || DEFAULT_WORKER_URL
+);
 
 const normalizeWorkerUrl = (url) => {
   if (!url) return null;
@@ -89,11 +118,28 @@ const buildDiscordPayload = (payload = {}) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const warnMissingProxy = (url) => {
+  if (proxyWarningShown) return;
+  proxyWarningShown = true;
+  const message = url
+    ? 'Discord relay URL is invalid. Update the proxy URL before sending telemetry.'
+    : 'Discord relay URL is missing. Configure the proxy URL before sending telemetry.';
+  try {
+    toast(message, 'warn');
+  } catch {
+    /* ignore toast failures */
+  }
+  console.warn(message);
+};
+
 export const sendEventToDiscordWorker = async (payload) => {
   if (!isDiscordEnabled()) return false;
-  const metaUrl = readMeta('discord-proxy-url') || DEFAULT_WORKER_URL;
+  const metaUrl = resolveDiscordProxyUrl();
   const workerUrl = normalizeWorkerUrl(metaUrl);
-  if (!isValidWorkerUrl(workerUrl)) return false;
+  if (!isValidWorkerUrl(workerUrl)) {
+    warnMissingProxy(metaUrl);
+    return false;
+  }
   const key = getDiscordProxyKey();
   if (!key || typeof fetch !== 'function') return false;
   const body = buildDiscordPayload(payload);
