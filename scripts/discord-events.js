@@ -1,4 +1,4 @@
-import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
+import { getDiscordProxyKey, getDiscordProxyUrl, isDiscordEnabled } from './discord-settings.js';
 
 const DEFAULT_WORKER_URL = '';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
@@ -35,6 +35,18 @@ const readBuildTimeProxyUrl = () => {
   return null;
 };
 
+const readStoredProxyUrl = () => {
+  try {
+    const value = getDiscordProxyUrl();
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed || isPlaceholderUrl(trimmed)) return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+};
+
 const readMeta = (name) => {
   try {
     const el = typeof document !== 'undefined'
@@ -51,7 +63,8 @@ const readMeta = (name) => {
 };
 
 const resolveDiscordProxyUrl = () => (
-  readMeta('discord-proxy-url')
+  readStoredProxyUrl()
+  || readMeta('discord-proxy-url')
   || readBuildTimeProxyUrl()
   || DEFAULT_WORKER_URL
 );
@@ -124,6 +137,30 @@ const buildDiscordPayload = (payload = {}) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const classifyRelayStatus = (status) => {
+  if (status === 401) return 'unauthorized';
+  if (status === 403) return 'forbidden';
+  if (status >= 500) return 'server-error';
+  return 'bad-response';
+};
+
+const buildDebugPayload = () => ({
+  event: 'debug.test',
+  payload: {
+    source: 'cccg',
+    mode: 'debug',
+    ts: Date.now(),
+  },
+});
+
+const normalizeBaseUrl = (url) => {
+  if (!url) return null;
+  if (url.endsWith('/roll')) {
+    return url.slice(0, -'/roll'.length) || null;
+  }
+  return url;
+};
+
 const dispatchUiNotify = (message, level = 'warning') => {
   if (!message) return;
   const detail = { message, level, source: 'discord' };
@@ -148,10 +185,61 @@ const warnMissingProxy = (url) => {
   if (proxyWarningShown) return;
   proxyWarningShown = true;
   const message = url
-    ? 'Discord relay URL is invalid. Update the proxy URL before sending telemetry.'
-    : 'Discord relay URL is missing. Configure the proxy URL before sending telemetry.';
+    ? 'Discord relay not configured. Open DM Tools → Discord to add the Proxy URL and Relay Key.'
+    : 'Discord relay URL missing. Open DM Tools → Discord to add the Proxy URL and Relay Key.';
   dispatchUiNotify(message, 'warning');
   console.warn(message);
+};
+
+export const testDiscordRelay = async () => {
+  const metaUrl = resolveDiscordProxyUrl();
+  if (!metaUrl) {
+    warnMissingProxy(metaUrl);
+    return { ok: false, reason: 'missing-url' };
+  }
+  const workerUrl = normalizeWorkerUrl(metaUrl);
+  if (!isValidWorkerUrl(workerUrl)) {
+    warnMissingProxy(metaUrl);
+    return { ok: false, reason: 'invalid-url' };
+  }
+  const key = getDiscordProxyKey();
+  if (!key || typeof fetch !== 'function') {
+    return { ok: false, reason: 'missing-key' };
+  }
+
+  const baseUrl = normalizeBaseUrl(workerUrl);
+  const healthUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/health` : null;
+  const headers = {
+    ...DEFAULT_HEADERS,
+    Authorization: `Bearer ${key}`,
+    'X-CCCG-Secret': key,
+  };
+
+  if (healthUrl) {
+    try {
+      const res = await fetch(healthUrl, { method: 'GET', headers });
+      if (res.ok) return { ok: true, status: res.status };
+      if (res.status === 404) {
+        // fall through to debug payload
+      } else {
+        return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
+      }
+    } catch (err) {
+      return { ok: false, reason: 'network-error', detail: err };
+    }
+  }
+
+  try {
+    const res = await fetch(`${workerUrl}?debug=1`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(buildDebugPayload()),
+    });
+    if (res.ok) return { ok: true, status: res.status };
+    return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
+  } catch (err) {
+    return { ok: false, reason: 'network-error', detail: err };
+  }
 };
 
 export const sendEventToDiscordWorker = async (payload) => {
