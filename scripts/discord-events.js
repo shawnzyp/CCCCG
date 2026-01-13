@@ -7,9 +7,12 @@ const RETRY_DELAY_CAP_MS = 2500;
 const RETRY_JITTER_RATIO = 0.15;
 let proxyWarningShown = false;
 
-const isPlaceholderUrl = (url) =>
-  typeof url === 'string'
-  && (/__DISCORD_PROXY_URL__/i.test(url) || /YOUR-WORKER/i.test(url));
+const isPlaceholderUrl = (url) => {
+  if (typeof url !== 'string') return false;
+  if (/YOUR-WORKER/i.test(url)) return true;
+  if (/__[^_]+__/.test(url)) return true;
+  return /__/.test(url);
+};
 
 const isValidWorkerUrl = (url) =>
   typeof url === 'string'
