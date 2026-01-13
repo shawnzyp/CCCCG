@@ -54,9 +54,7 @@ function resolveAuthToken(request) {
   if (authHeader.toLowerCase().startsWith('bearer ')) {
     return authHeader.slice(7).trim();
   }
-  return request.headers.get('X-Proxy-Key')
-    || request.headers.get('X-CCCG-Secret')
-    || '';
+  return request.headers.get('X-CCCG-Secret') || '';
 }
 
 function isAuthorized(request, secret) {
@@ -101,7 +99,14 @@ async function handleRequest(request, env) {
 
   if (url.pathname === '/health' && request.method === 'GET') {
     if (!isAuthorized(request, env.CCCG_SECRET)) {
-      return jsonResponse({ ok: false, service: SERVICE_NAME, error: 'unauthorized' }, 401, origin);
+      return jsonResponse({
+        ok: false,
+        service: SERVICE_NAME,
+        hasWebhookConfigured: !!env.DISCORD_WEBHOOK_URL,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
+        error: 'unauthorized',
+      }, 401, origin);
     }
     if (request.headers.get(DEBUG_HEADER)) {
       return jsonResponse({
@@ -118,6 +123,8 @@ async function handleRequest(request, env) {
         code: 'webhook_not_configured',
         service: SERVICE_NAME,
         hasWebhookConfigured: false,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
       }, 503, origin);
     }
     return jsonResponse({

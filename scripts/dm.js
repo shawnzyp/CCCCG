@@ -48,6 +48,9 @@ const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
+const DISCORD_HEALTH_AT_KEY = 'cc:discord:lastHealthCheckedAt';
+const DISCORD_HEALTH_OK_KEY = 'cc:discord:lastHealthOk';
+const DISCORD_HEALTH_WINDOW_MS = 10 * 60 * 1000;
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const DM_ACTIVE_BODY_CLASS = 'dm-active';
 const DM_BADGE_VISIBLE_ATTR = 'data-dm-active';
@@ -198,6 +201,47 @@ let dmNotificationsBaseLabel = '';
 let dmNotificationsHadExplicitAriaLabel = false;
 let notifyModalRef = null;
 let notifyExportFormatRef = null;
+let lastDiscordHealthCheckedAt = null;
+let lastDiscordHealthOk = null;
+
+loadDiscordHealthStatus();
+
+function loadDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const rawAt = sessionStorage.getItem(DISCORD_HEALTH_AT_KEY);
+    const rawOk = sessionStorage.getItem(DISCORD_HEALTH_OK_KEY);
+    const parsedAt = rawAt ? Number(rawAt) : NaN;
+    if (Number.isFinite(parsedAt)) {
+      lastDiscordHealthCheckedAt = parsedAt;
+    }
+    if (rawOk === 'true') {
+      lastDiscordHealthOk = true;
+    } else if (rawOk === 'false') {
+      lastDiscordHealthOk = false;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (Number.isFinite(lastDiscordHealthCheckedAt)) {
+      sessionStorage.setItem(DISCORD_HEALTH_AT_KEY, String(lastDiscordHealthCheckedAt));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_AT_KEY);
+    }
+    if (typeof lastDiscordHealthOk === 'boolean') {
+      sessionStorage.setItem(DISCORD_HEALTH_OK_KEY, String(lastDiscordHealthOk));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_OK_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 function persistUnreadCount() {
   if (typeof sessionStorage === 'undefined') return;
@@ -5167,7 +5211,16 @@ function initDMLogin(){
           discordStatus.textContent = 'Disabled';
           discordStatus.classList.add('dm-discord__status--disabled');
         } else {
-          discordStatus.textContent = 'Connected';
+          const now = Date.now();
+          const recentCheck = Number.isFinite(lastDiscordHealthCheckedAt)
+            && now - lastDiscordHealthCheckedAt <= DISCORD_HEALTH_WINDOW_MS;
+          let suffix = 'Unverified';
+          if (recentCheck && lastDiscordHealthOk === false) {
+            suffix = 'Last check failed';
+          } else if (recentCheck && lastDiscordHealthOk === true) {
+            suffix = 'Verified';
+          }
+          discordStatus.textContent = `Connected • ${suffix}`;
           discordStatus.classList.add('dm-discord__status--connected');
         }
       }
@@ -5205,6 +5258,10 @@ function initDMLogin(){
         return;
       }
       const result = await testDiscordRelay();
+      lastDiscordHealthCheckedAt = Date.now();
+      lastDiscordHealthOk = !!result.ok;
+      persistDiscordHealthStatus();
+      syncDiscordSettingsUi();
       if (result.ok) {
         toast('Discord relay health check passed.', 'success');
         return;

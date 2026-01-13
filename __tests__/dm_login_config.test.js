@@ -160,6 +160,14 @@ describe('discord relay configuration', () => {
     delete window.DISCORD_PROXY_URL;
   });
 
+  it('validates proxy URLs for https and localhost http only', async () => {
+    const { __test__ } = await import('../scripts/discord-events.js');
+    expect(__test__.normalizeProxyBaseUrl('https://relay.example')).toBe('https://relay.example');
+    expect(__test__.normalizeProxyBaseUrl('http://localhost:8787/roll')).toBe('http://localhost:8787');
+    expect(__test__.normalizeProxyBaseUrl('http://example.com')).toBe(null);
+    expect(__test__.normalizeProxyBaseUrl('__DISCORD_PROXY_URL__')).toBe(null);
+  });
+
   it('tests relay health via /health without posting to /roll', async () => {
     await import('../scripts/dm.js');
     localStorage.setItem('cc:discord:proxyUrl', 'https://relay.example');

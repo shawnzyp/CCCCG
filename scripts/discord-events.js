@@ -83,7 +83,12 @@ const normalizeProxyBaseUrl = (value) => {
   } catch {
     return null;
   }
-  if (!['https:', 'http:'].includes(url.protocol)) return null;
+  if (url.protocol === 'http:') {
+    const host = url.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return null;
+  } else if (url.protocol !== 'https:') {
+    return null;
+  }
   let base = trimmed.replace(/\/+$/, '');
   base = base.replace(/\/(roll|health)$/i, '');
   return base;
@@ -229,13 +234,17 @@ const fetchWithRetry = async (requestFactory) => {
   return { error: lastError, attempt: MAX_RETRY_ATTEMPTS };
 };
 
-const buildDiscordHeaders = (key, extraHeaders = {}) => ({
-  ...DEFAULT_HEADERS,
-  Authorization: `Bearer ${key}`,
-  'X-Proxy-Key': key,
-  'X-CCCG-Secret': key,
-  ...extraHeaders,
-});
+const buildDiscordHeaders = (key, extraHeaders = {}, includeFallback = false) => {
+  const headers = {
+    ...DEFAULT_HEADERS,
+    Authorization: `Bearer ${key}`,
+    ...extraHeaders,
+  };
+  if (includeFallback) {
+    headers['X-CCCG-Secret'] = key;
+  }
+  return headers;
+};
 
 export const testDiscordRelay = async ({ debug = false } = {}) => {
   const config = getDiscordProxyConfig({ warnOnMissing: true });
@@ -249,7 +258,7 @@ export const testDiscordRelay = async ({ debug = false } = {}) => {
   if (typeof fetch !== 'function') {
     return { ok: false, code: 'fetch_unavailable', status: 0, detail: 'Fetch unavailable.' };
   }
-  const headers = buildDiscordHeaders(key, debug ? { [DEBUG_HEADER]: '1' } : {});
+  const headers = buildDiscordHeaders(key, debug ? { [DEBUG_HEADER]: '1' } : {}, true);
   const requestInit = { method: 'GET', headers };
 
   const result = await fetchWithRetry(() => fetch(config.healthUrl, requestInit));
