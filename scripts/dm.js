@@ -1569,6 +1569,7 @@ function initDMLogin(){
   const discordUrlInput = document.getElementById('dm-discord-proxy-url');
   const discordKeyInput = document.getElementById('dm-discord-key');
   const discordTestBtn = document.getElementById('dm-discord-test');
+  let discordEnableWarningShown = false;
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -5150,15 +5151,17 @@ function initDMLogin(){
 
     function syncDiscordSettingsUi() {
       const enabled = isDiscordEnabled();
-      const relayReady = enabled && !!getDiscordProxyKey();
+      const url = (getDiscordProxyUrl() || '').trim();
+      const key = (getDiscordProxyKey() || '').trim();
+      const relayReady = enabled && !!url && !!key;
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
       if (discordUrlInput) {
-        discordUrlInput.value = getDiscordProxyUrl();
+        discordUrlInput.value = url;
       }
       if (discordKeyInput) {
-        discordKeyInput.value = getDiscordProxyKey();
+        discordKeyInput.value = key;
       }
       if (discordTestBtn) {
         discordTestBtn.disabled = !relayReady || !enabled;
@@ -10726,6 +10729,14 @@ function initDMLogin(){
 
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
+      if (discordEnabledInput.checked) {
+        const url = (getDiscordProxyUrl() || '').trim();
+        const key = (getDiscordProxyKey() || '').trim();
+        if ((!url || !key) && !discordEnableWarningShown) {
+          discordEnableWarningShown = true;
+          toast('Discord enabled, but Proxy URL and Relay Key are required.', 'warn');
+        }
+      }
       syncDiscordSettingsUi();
     });
 
