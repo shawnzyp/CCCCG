@@ -226,15 +226,10 @@ export const testDiscordRelay = async () => {
 
   const baseUrl = normalizeBaseUrl(workerUrl);
   const healthUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/health` : null;
-  const headers = {
-    ...DEFAULT_HEADERS,
-    Authorization: `Bearer ${key}`,
-    'X-CCCG-Secret': key,
-  };
-
   if (healthUrl) {
     try {
-      const res = await fetch(healthUrl, { method: 'GET', headers });
+      const healthHeaders = { 'X-CCCG-Secret': key };
+      const res = await fetch(healthUrl, { method: 'GET', headers: healthHeaders });
       if (res.ok) return { ok: true, status: res.status };
       if (res.status === 404) {
         return { ok: false, status: res.status, reason: 'missing-health-endpoint' };
