@@ -5495,7 +5495,7 @@
     '#somf-min-visual',
     '#somf-min-effects',
   ];
-  const DM_REQUIRED_SELECTORS = ['#modal-somf-dm'];
+  const DM_REQUIRED_SELECTORS = ['#modal-somf-dm', '#somfDM-playerCard', '.somf-dm__toggles'];
 
   const missingSelectors = selectors => selectors.filter(selector => !document.querySelector(selector));
 
@@ -5520,15 +5520,16 @@
       warnMissing('DM', missing);
       return false;
     }
-    runtime.ensureDM();
+    if (!dmAttached) {
+      runtime.ensureDM();
+      dmAttached = true;
+    }
     return true;
   };
 
   let playerAttached = false;
   let dmAttached = false;
-  let initAttempted = false;
   function initSomf() {
-    initAttempted = true;
     runtime.setFirebase(window._somf_db || null);
     if (!playerAttached && ensurePlayerUi()) {
       playerAttached = true;
@@ -5553,9 +5554,11 @@
   }
 
   const initSomfOnInteraction = event => {
-    const target = event.target;
-    if (!target) return;
-    if (target.closest('#somf-min-draw') || target.closest('#somf-min-modal')) {
+    if (playerAttached && dmAttached) return;
+    const raw = event.target;
+    const el = raw && typeof raw.closest === 'function' ? raw : raw?.parentElement;
+    if (!el) return;
+    if (el.closest('#somf-min-draw') || el.closest('#somf-min-modal')) {
       initSomf();
     }
   };
