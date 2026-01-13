@@ -93,6 +93,9 @@ async function handleRequest(request, env) {
   }
 
   if (url.pathname === '/health' && request.method === 'GET') {
+    if (!isAuthorized(request, env.CCCG_SECRET)) {
+      return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+    }
     return jsonResponse({ ok: true, service: 'discord-relay', ts: Date.now() }, 200, origin);
   }
 

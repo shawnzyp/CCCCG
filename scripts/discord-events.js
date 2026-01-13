@@ -7,12 +7,9 @@ const RETRY_DELAY_CAP_MS = 2500;
 const RETRY_JITTER_RATIO = 0.15;
 let proxyWarningShown = false;
 
-const isPlaceholderUrl = (url) => {
-  if (typeof url !== 'string') return false;
-  if (/YOUR-WORKER/i.test(url)) return true;
-  if (/__[^_]+__/.test(url)) return true;
-  return /__/.test(url);
-};
+const isPlaceholderUrl = (url) =>
+  typeof url === 'string'
+  && (/__DISCORD_PROXY_URL__/.test(url) || /YOUR-WORKER/i.test(url));
 
 const isValidWorkerUrl = (url) =>
   typeof url === 'string'
@@ -231,15 +228,26 @@ export const testDiscordRelay = async () => {
       const healthHeaders = { 'X-CCCG-Secret': key };
       const res = await fetch(healthUrl, { method: 'GET', headers: healthHeaders });
       if (res.ok) return { ok: true, status: res.status };
-      if (res.status === 404) {
-        return { ok: false, status: res.status, reason: 'missing-health-endpoint' };
+      if (res.status !== 404) {
+        return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
       }
-      return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
     } catch (err) {
       return { ok: false, reason: 'network-error', detail: err };
     }
   }
-  return { ok: false, reason: 'missing-health-endpoint' };
+
+  try {
+    const debugHeaders = { 'X-CCCG-Secret': key, 'X-CCCG-Debug': '1' };
+    const res = await fetch(`${workerUrl}?debug=1`, {
+      method: 'POST',
+      headers: debugHeaders,
+      body: JSON.stringify({ roll: { who: 'Relay', expr: 'Health', total: 1 } }),
+    });
+    if (res.ok) return { ok: true, status: res.status };
+    return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
+  } catch (err) {
+    return { ok: false, reason: 'network-error', detail: err };
+  }
 };
 
 export const sendEventToDiscordWorker = async (payload) => {
@@ -259,7 +267,6 @@ export const sendEventToDiscordWorker = async (payload) => {
     method: 'POST',
     headers: {
       ...DEFAULT_HEADERS,
-      Authorization: `Bearer ${key}`,
       'X-CCCG-Secret': key,
     },
     body: JSON.stringify(body),
