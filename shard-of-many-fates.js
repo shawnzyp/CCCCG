@@ -5484,22 +5484,70 @@
 
   document.addEventListener('click', handleSomfArtLinkClick);
 
-  function initSomf() {
-    runtime.setFirebase(window._somf_db || null);
+  const PLAYER_REQUIRED_SELECTORS = [
+    '#somf-min',
+    '#somf-min-draw',
+    '#somf-min-modal',
+    '#somf-min-count',
+    '#somf-min-image',
+    '#somf-min-details',
+    '#somf-min-name',
+    '#somf-min-visual',
+    '#somf-min-effects',
+  ];
+  const DM_REQUIRED_SELECTORS = ['#modal-somf-dm'];
+
+  const missingSelectors = selectors => selectors.filter(selector => !document.querySelector(selector));
+
+  const warnMissing = (scope, missing) => {
+    if (!missing.length) return;
+    console.warn(`[SOMF] ${scope} UI missing required elements: ${missing.join(', ')}`);
+  };
+
+  const ensurePlayerUi = () => {
+    const missing = missingSelectors(PLAYER_REQUIRED_SELECTORS);
+    if (missing.length) {
+      warnMissing('Player', missing);
+      return false;
+    }
     runtime.attachPlayer();
+    return true;
+  };
+
+  const ensureDmUi = () => {
+    const missing = missingSelectors(DM_REQUIRED_SELECTORS);
+    if (missing.length) {
+      warnMissing('DM', missing);
+      return null;
+    }
+    return runtime.ensureDM();
+  };
+
+  let somfInitialized = false;
+  function initSomf() {
+    if (somfInitialized) return;
+    somfInitialized = true;
+    runtime.setFirebase(window._somf_db || null);
+    ensurePlayerUi();
     if (
       document.getElementById('somfDM-playerCard') ||
       document.getElementById('modal-somf-dm') ||
       document.querySelector('.somf-dm__toggles')
     ) {
-      runtime.ensureDM();
+      ensureDmUi();
     }
   }
 
-  document.addEventListener('DOMContentLoaded', initSomf);
-  if (document.readyState !== 'loading') initSomf();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSomf, { once: true });
+  } else {
+    initSomf();
+  }
 
-  window.initSomfDM = () => runtime.ensureDM();
-  window.openSomfDM = opts => runtime.openDM(opts || {});
+  window.initSomfDM = () => ensureDmUi();
+  window.openSomfDM = opts => {
+    const controller = ensureDmUi();
+    if (controller) controller.open(opts || {});
+  };
 
 })();
