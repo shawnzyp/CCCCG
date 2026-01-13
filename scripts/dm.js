@@ -1,4 +1,4 @@
-import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
+import { listCharacters, loadCharacter } from './characters.js';
 import { show, hide } from './modal.js';
 import { dmIsUnlocked, dmLock, dmUnlockWithPin, isDmPinConfigured, validateDmPin } from './dm-auth.js';
 import { playCue } from './audio.js';
@@ -32,8 +32,7 @@ import {
   setDiscordEnabled,
   setDiscordProxyKey,
 } from './discord-settings.js';
-import { sendEventToDiscordWorker } from './discord-events.js';
-import { getActiveUserId } from './storage.js';
+import { testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -5150,12 +5149,8 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
-      let enabled = isDiscordEnabled();
+      const { enabled } = reconcileDiscordSessionState();
       const proxyKey = getDiscordProxyKey();
-      if (enabled && !proxyKey) {
-        setDiscordEnabled(false);
-        enabled = false;
-      }
       const relayReady = enabled && !!proxyKey;
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
@@ -5167,8 +5162,8 @@ function initDMLogin(){
         discordTestBtn.disabled = !relayReady || !enabled;
       }
       if (discordStatus) {
-        let statusText = 'Ready';
-        let statusState = 'ready';
+        let statusText = 'Disabled';
+        let statusState = 'disabled';
         if (!proxyKey) {
           statusText = 'Disconnected';
           statusState = 'disconnected';
@@ -5205,27 +5200,20 @@ function initDMLogin(){
 
     async function sendDiscordTestMessage() {
       if (!isDiscordEnabled()) {
-        toast('Enable Discord relay before sending a test.', 'warn');
+        toast('Enable Discord relay before running a test.', 'warn');
         return;
       }
       if (!getDiscordProxyKey()) {
         toast('Discord relay is not fully configured.', 'warn');
         return;
       }
-      const actorName = $('superhero')?.value?.trim() || currentCharacter() || 'System';
-      const uid = getActiveUserId();
-      const ok = await sendEventToDiscordWorker({
-        type: 'character.update',
-        actor: { vigilanteName: actorName, uid },
-        detail: {
-          updateType: 'note',
-          before: { message: 'Discord relay test' },
-          after: { message: 'Discord relay test' },
-          reason: 'Relay test event',
-        },
-        ts: Date.now(),
-      });
-      toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
+      const result = await testDiscordRelay();
+      if (result.ok) {
+        toast('Discord relay is reachable.', 'success');
+      } else {
+        const detail = result.status ? ` (status ${result.status})` : '';
+        toast(`Discord relay health check failed${detail}.`, 'warn');
+      }
     }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));

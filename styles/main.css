@@ -10694,6 +10694,7 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .dm-discord__status{margin:0;font-size:.95rem;font-weight:600;color:var(--muted)}
 .dm-discord__status[data-state="connected"]{color:var(--success)}
 .dm-discord__status[data-state="disconnected"]{color:var(--error)}
+.dm-discord__status[data-state="disabled"]{color:var(--muted)}
 .dm-discord__grid{display:flex;flex-direction:column;gap:12px}
 .dm-discord__field{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .dm-discord__label{font-weight:600}
