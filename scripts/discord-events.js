@@ -6,16 +6,20 @@ const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
 const RETRY_DELAY_MS = 500;
 let proxyWarningShown = false;
 
+const isPlaceholderUrl = (url) =>
+  typeof url === 'string'
+  && (/__DISCORD_PROXY_URL__/i.test(url) || /YOUR-WORKER/i.test(url));
+
 const isValidWorkerUrl = (url) =>
   typeof url === 'string'
   && /^https:\/\//i.test(url)
-  && !/YOUR-WORKER/i.test(url);
+  && !isPlaceholderUrl(url);
 
 const readBuildTimeProxyUrl = () => {
   try {
     if (typeof __DISCORD_PROXY_URL__ !== 'undefined') {
       const value = String(__DISCORD_PROXY_URL__).trim();
-      return value.length ? value : null;
+      return value.length && !isPlaceholderUrl(value) ? value : null;
     }
   } catch {
     /* ignore missing build-time constant */
@@ -25,7 +29,7 @@ const readBuildTimeProxyUrl = () => {
       ? globalThis.__DISCORD_PROXY_URL__ || globalThis.DISCORD_PROXY_URL
       : null;
     const trimmed = typeof value === 'string' ? value.trim() : '';
-    return trimmed.length ? trimmed : null;
+    return trimmed.length && !isPlaceholderUrl(trimmed) ? trimmed : null;
   } catch {
     return null;
   }
@@ -38,7 +42,10 @@ const readMeta = (name) => {
       ? document.querySelector(`meta[name="${name}"]`)
       : null;
     const value = el?.content?.trim();
-    return value?.length ? value : null;
+    if (!value?.length || isPlaceholderUrl(value)) {
+      return null;
+    }
+    return value;
   } catch {
     return null;
   }
