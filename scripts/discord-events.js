@@ -2,7 +2,9 @@ import { getDiscordProxyKey, getDiscordProxyUrl, isDiscordEnabled } from './disc
 
 const DEFAULT_WORKER_URL = '';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
-const RETRY_DELAY_MS = 500;
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+const RETRY_DELAY_CAP_MS = 2500;
+const RETRY_JITTER_RATIO = 0.15;
 let proxyWarningShown = false;
 
 const isPlaceholderUrl = (url) =>
@@ -137,6 +139,27 @@ const buildDiscordPayload = (payload = {}) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const jitterDelay = (ms) => {
+  const jitter = ms * RETRY_JITTER_RATIO;
+  const offset = (Math.random() * (jitter * 2)) - jitter;
+  return Math.max(0, Math.round(ms + offset));
+};
+
+const parseRetryAfterMs = (value) => {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.round(seconds * 1000));
+  }
+  const dateMs = Date.parse(trimmed);
+  if (Number.isFinite(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+  return null;
+};
+
 const classifyRelayStatus = (status) => {
   if (status === 401) return 'unauthorized';
   if (status === 403) return 'forbidden';
@@ -267,27 +290,45 @@ export const sendEventToDiscordWorker = async (payload) => {
 
   const attempt = async () => {
     const res = await fetch(workerUrl, requestInit);
-    return { ok: res.ok, status: res.status };
+    const retryAfter = res.headers ? res.headers.get('retry-after') : null;
+    return { ok: res.ok, status: res.status, retryAfter };
   };
 
-  try {
-    const result = await attempt();
-    if (result.ok) return true;
-    console.warn('Discord relay returned', result.status);
-  } catch (err) {
-    console.warn('Discord relay request failed', err);
-  }
+  for (let attemptIndex = 0; attemptIndex <= RETRY_DELAYS_MS.length; attemptIndex += 1) {
+    try {
+      const result = await attempt();
+      if (result.ok) return true;
 
-  await sleep(RETRY_DELAY_MS);
+      const status = result.status;
+      if (status === 401 || status === 403) {
+        console.warn('Discord relay authorization failed', status);
+        return false;
+      }
 
-  try {
-    const result = await attempt();
-    if (!result.ok) {
-      console.warn('Discord relay retry returned', result.status);
+      const canRetry = status === 429 || (status >= 500 && status <= 599);
+      if (!canRetry) {
+        console.warn('Discord relay returned', status);
+        return false;
+      }
+
+      const retryAfterMs = status === 429 ? parseRetryAfterMs(result.retryAfter) : null;
+      const baseDelay = RETRY_DELAYS_MS[Math.min(attemptIndex, RETRY_DELAYS_MS.length - 1)];
+      const delay = Math.min(RETRY_DELAY_CAP_MS, retryAfterMs ?? baseDelay);
+      if (attemptIndex >= RETRY_DELAYS_MS.length) {
+        console.warn('Discord relay retry limit reached', status);
+        return false;
+      }
+      await sleep(jitterDelay(delay));
+    } catch (err) {
+      if (attemptIndex >= RETRY_DELAYS_MS.length) {
+        console.warn('Discord relay retry failed', err);
+        return false;
+      }
+      const baseDelay = RETRY_DELAYS_MS[Math.min(attemptIndex, RETRY_DELAYS_MS.length - 1)];
+      const delay = Math.min(RETRY_DELAY_CAP_MS, baseDelay);
+      await sleep(jitterDelay(delay));
     }
-    return result.ok;
-  } catch (err) {
-    console.warn('Discord relay retry failed', err);
-    return false;
   }
+
+  return false;
 };
