@@ -3,6 +3,14 @@ const ROUTE_KEY = 'cc:discord:route';
 const PROXY_KEY = 'cc:discord:proxy-key';
 const PROXY_URL_KEY = 'cc:discord:proxy-url';
 
+function normalizeProxyUrl(url) {
+  if (!url) return '';
+  const trimmed = String(url).trim();
+  if (!trimmed) return '';
+  const withoutRoll = trimmed.endsWith('/roll') ? trimmed.slice(0, -'/roll'.length) : trimmed;
+  return withoutRoll.replace(/\/$/, '');
+}
+
 export function isDiscordEnabled() {
   try {
     return localStorage.getItem(ENABLE_KEY) === '1';
@@ -53,7 +61,7 @@ export function getDiscordProxyKey() {
 
 export function getDiscordProxyUrl() {
   try {
-    return (localStorage.getItem(PROXY_URL_KEY) || '').trim();
+    return normalizeProxyUrl(localStorage.getItem(PROXY_URL_KEY));
   } catch {
     return '';
   }
@@ -74,7 +82,7 @@ export function setDiscordProxyKey(key) {
 
 export function setDiscordProxyUrl(url) {
   try {
-    const value = String(url || '').trim();
+    const value = normalizeProxyUrl(url);
     if (!value) {
       localStorage.removeItem(PROXY_URL_KEY);
       return;
