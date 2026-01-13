@@ -62,3 +62,13 @@ export function setDiscordProxyKey(key) {
     /* ignore */
   }
 }
+
+export function reconcileDiscordSessionState() {
+  const enabled = isDiscordEnabled();
+  const proxyKey = getDiscordProxyKey();
+  if (enabled && !proxyKey) {
+    setDiscordEnabled(false);
+    return { cleared: true, enabled: false };
+  }
+  return { cleared: false, enabled };
+}

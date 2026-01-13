@@ -58,6 +58,7 @@ jest.unstable_mockModule('../scripts/last-save.js', () => ({
 jest.unstable_mockModule('../scripts/discord-settings.js', () => ({
   getDiscordProxyKey: jest.fn(),
   isDiscordEnabled: jest.fn().mockReturnValue(false),
+  reconcileDiscordSessionState: jest.fn().mockReturnValue({ cleared: false, enabled: false }),
   setDiscordEnabled: jest.fn(),
   setDiscordProxyKey: jest.fn(),
 }));

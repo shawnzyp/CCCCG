@@ -28,6 +28,7 @@ import { readLastSaveName } from './last-save.js';
 import {
   getDiscordProxyKey,
   isDiscordEnabled,
+  reconcileDiscordSessionState,
   setDiscordEnabled,
   setDiscordProxyKey,
 } from './discord-settings.js';
@@ -199,6 +200,7 @@ let dmNotificationsBaseLabel = '';
 let dmNotificationsHadExplicitAriaLabel = false;
 let notifyModalRef = null;
 let notifyExportFormatRef = null;
+let discordMissingKeyToastShown = false;
 
 function persistUnreadCount() {
   if (typeof sessionStorage === 'undefined') return;
@@ -1567,6 +1569,7 @@ function initDMLogin(){
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
   const discordKeyInput = document.getElementById('dm-discord-key');
   const discordTestBtn = document.getElementById('dm-discord-test');
+  const discordStatus = document.getElementById('dm-discord-status');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -5147,16 +5150,34 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
-      const enabled = isDiscordEnabled();
-      const relayReady = enabled && !!getDiscordProxyKey();
+      let enabled = isDiscordEnabled();
+      const proxyKey = getDiscordProxyKey();
+      if (enabled && !proxyKey) {
+        setDiscordEnabled(false);
+        enabled = false;
+      }
+      const relayReady = enabled && !!proxyKey;
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
       if (discordKeyInput) {
-        discordKeyInput.value = getDiscordProxyKey();
+        discordKeyInput.value = proxyKey;
       }
       if (discordTestBtn) {
         discordTestBtn.disabled = !relayReady || !enabled;
+      }
+      if (discordStatus) {
+        let statusText = 'Ready';
+        let statusState = 'ready';
+        if (!proxyKey) {
+          statusText = 'Disconnected';
+          statusState = 'disconnected';
+        } else if (enabled) {
+          statusText = 'Connected';
+          statusState = 'connected';
+        }
+        discordStatus.textContent = statusText;
+        discordStatus.dataset.state = statusState;
       }
     }
 
@@ -10714,11 +10735,20 @@ function initDMLogin(){
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
+      syncDiscordSettingsUi();
     });
 
     discordTestBtn?.addEventListener('click', () => {
       sendDiscordTestMessage();
     });
+
+    if (!discordMissingKeyToastShown) {
+      const { cleared } = reconcileDiscordSessionState();
+      if (cleared) {
+        discordMissingKeyToastShown = true;
+        toast('Discord relay was enabled, but the relay key is missing. Re-enter your key to reconnect.', 'warn');
+      }
+    }
 
     syncDiscordSettingsUi();
 
