@@ -177,4 +177,30 @@ describe('discord ui status and warnings', () => {
     expect(status.textContent).toBe('Connected');
     expect(status.dataset.state).toBe('connected');
   });
+
+  it('runs a health check and shows success toast', async () => {
+    localStorage.setItem('cc:discord:enabled', '1');
+    sessionStorage.setItem('cc:discord:proxy-key', 'test-key');
+    const { toast } = await import('../scripts/notifications.js');
+    const { testDiscordRelay } = await import('../scripts/discord-events.js');
+    testDiscordRelay.mockResolvedValue({ ok: true, status: 200 });
+    await import('../scripts/dm.js');
+    document.getElementById('dm-discord-test').click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(testDiscordRelay).toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith('Discord relay is reachable.', 'success');
+  });
+
+  it('shows status code when the health check fails', async () => {
+    localStorage.setItem('cc:discord:enabled', '1');
+    sessionStorage.setItem('cc:discord:proxy-key', 'test-key');
+    const { toast } = await import('../scripts/notifications.js');
+    const { testDiscordRelay } = await import('../scripts/discord-events.js');
+    testDiscordRelay.mockResolvedValue({ ok: false, reason: 'bad-status', status: 404 });
+    await import('../scripts/dm.js');
+    document.getElementById('dm-discord-test').click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(testDiscordRelay).toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith('Discord relay health check failed (status 404).', 'warn');
+  });
 });

@@ -147,12 +147,13 @@ export const sendEventToDiscordWorker = async (payload) => {
 };
 
 export const testDiscordRelay = async () => {
-  if (!isDiscordEnabled()) return { ok: false, status: 0 };
+  if (!isDiscordEnabled()) return { ok: false, reason: 'missing-key', status: 0 };
   const metaUrl = readMeta('discord-proxy-url') || DEFAULT_WORKER_URL;
+  if (!metaUrl) return { ok: false, reason: 'missing-url', status: 0 };
   const workerUrl = normalizeWorkerHealthUrl(metaUrl);
-  if (!isValidWorkerUrl(workerUrl)) return { ok: false, status: 0 };
+  if (!isValidWorkerUrl(workerUrl)) return { ok: false, reason: 'invalid-url', status: 0 };
   const key = getDiscordProxyKey();
-  if (!key || typeof fetch !== 'function') return { ok: false, status: 0 };
+  if (!key || typeof fetch !== 'function') return { ok: false, reason: 'missing-key', status: 0 };
 
   try {
     const res = await fetch(workerUrl, {
@@ -162,9 +163,12 @@ export const testDiscordRelay = async () => {
         'X-CCCG-Secret': key,
       },
     });
-    return { ok: res.ok, status: res.status };
+    if (!res.ok) {
+      return { ok: false, reason: 'bad-status', status: res.status };
+    }
+    return { ok: true, status: res.status };
   } catch (err) {
     console.warn('Discord relay health check failed', err);
-    return { ok: false, status: 0 };
+    return { ok: false, reason: 'network-error', status: 0 };
   }
 };
