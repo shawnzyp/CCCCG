@@ -1,5 +1,4 @@
 import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
-import { toast } from './notifications.js';
 
 const DEFAULT_WORKER_URL = '';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
@@ -125,17 +124,33 @@ const buildDiscordPayload = (payload = {}) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const dispatchUiNotify = (message, level = 'warning') => {
+  if (!message) return;
+  const detail = { message, level, source: 'discord' };
+  try {
+    if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+      document.dispatchEvent(new CustomEvent('cc:ui-notify', { detail }));
+      return;
+    }
+  } catch {
+    /* ignore dispatch failures */
+  }
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('cc:ui-notify', { detail }));
+    }
+  } catch {
+    /* ignore dispatch failures */
+  }
+};
+
 const warnMissingProxy = (url) => {
   if (proxyWarningShown) return;
   proxyWarningShown = true;
   const message = url
     ? 'Discord relay URL is invalid. Update the proxy URL before sending telemetry.'
     : 'Discord relay URL is missing. Configure the proxy URL before sending telemetry.';
-  try {
-    toast(message, 'warn');
-  } catch {
-    /* ignore toast failures */
-  }
+  dispatchUiNotify(message, 'warning');
   console.warn(message);
 };
 
