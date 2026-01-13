@@ -5199,6 +5199,8 @@ function initDMLogin(){
           return 'Discord relay URL is invalid. Check the Proxy URL in Discord settings.';
         case 'missing-key':
           return 'Discord relay key is missing. Add the Relay Key in Discord settings.';
+        case 'missing-health-endpoint':
+          return 'Discord relay health check not found. Deploy the latest relay worker.';
         case 'unauthorized':
           return 'Discord relay rejected the key (401 unauthorized). Verify the Relay Key.';
         case 'forbidden':

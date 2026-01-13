@@ -167,15 +167,6 @@ const classifyRelayStatus = (status) => {
   return 'bad-response';
 };
 
-const buildDebugPayload = () => ({
-  event: 'debug.test',
-  payload: {
-    source: 'cccg',
-    mode: 'debug',
-    ts: Date.now(),
-  },
-});
-
 const normalizeBaseUrl = (url) => {
   if (!url) return null;
   if (url.endsWith('/roll')) {
@@ -243,26 +234,14 @@ export const testDiscordRelay = async () => {
       const res = await fetch(healthUrl, { method: 'GET', headers });
       if (res.ok) return { ok: true, status: res.status };
       if (res.status === 404) {
-        // fall through to debug payload
-      } else {
-        return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
+        return { ok: false, status: res.status, reason: 'missing-health-endpoint' };
       }
+      return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
     } catch (err) {
       return { ok: false, reason: 'network-error', detail: err };
     }
   }
-
-  try {
-    const res = await fetch(`${workerUrl}?debug=1`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(buildDebugPayload()),
-    });
-    if (res.ok) return { ok: true, status: res.status };
-    return { ok: false, status: res.status, reason: classifyRelayStatus(res.status) };
-  } catch (err) {
-    return { ok: false, reason: 'network-error', detail: err };
-  }
+  return { ok: false, reason: 'missing-health-endpoint' };
 };
 
 export const sendEventToDiscordWorker = async (payload) => {
