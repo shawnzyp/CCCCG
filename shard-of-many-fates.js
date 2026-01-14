@@ -5577,6 +5577,91 @@
   window.openSomfDM = opts => {
     initSomf('manual');
     return runtime.openDM(opts || {});
+  const PLAYER_REQUIRED_SELECTORS = [
+    '#somf-min',
+    '#somf-min-draw',
+    '#somf-min-modal',
+    '#somf-min-count',
+    '#somf-min-image',
+    '#somf-min-details',
+    '#somf-min-name',
+    '#somf-min-visual',
+    '#somf-min-effects',
+  ];
+  const DM_REQUIRED_SELECTORS = ['#modal-somf-dm', '#somfDM-playerCard', '.somf-dm__toggles'];
+
+  const missingSelectors = selectors => selectors.filter(selector => !document.querySelector(selector));
+
+  const warnMissing = (scope, missing) => {
+    if (!missing.length) return;
+    console.warn(`[SOMF] ${scope} UI missing required elements: ${missing.join(', ')}`);
+  };
+
+  const ensurePlayerUi = () => {
+    const missing = missingSelectors(PLAYER_REQUIRED_SELECTORS);
+    if (missing.length) {
+      warnMissing('Player', missing);
+      return false;
+    }
+    runtime.attachPlayer();
+    return true;
+  };
+
+  const ensureDmUi = () => {
+    const missing = missingSelectors(DM_REQUIRED_SELECTORS);
+    if (missing.length) {
+      warnMissing('DM', missing);
+      return false;
+    }
+    if (!dmAttached) {
+      runtime.ensureDM();
+      dmAttached = true;
+    }
+    return true;
+  };
+
+  let playerAttached = false;
+  let dmAttached = false;
+  function initSomf() {
+    runtime.setFirebase(window._somf_db || null);
+    if (!playerAttached && ensurePlayerUi()) {
+      playerAttached = true;
+    }
+    if (
+      !dmAttached
+      && (
+        document.getElementById('somfDM-playerCard')
+        || document.getElementById('modal-somf-dm')
+        || document.querySelector('.somf-dm__toggles')
+      )
+      && ensureDmUi()
+    ) {
+      dmAttached = true;
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSomf, { once: true });
+  } else {
+    initSomf();
+  }
+
+  const initSomfOnInteraction = event => {
+    if (playerAttached && dmAttached) return;
+    const raw = event.target;
+    const el = raw && typeof raw.closest === 'function' ? raw : raw?.parentElement;
+    if (!el) return;
+    if (el.closest('#somf-min-draw') || el.closest('#somf-min-modal')) {
+      initSomf();
+    }
+  };
+
+  document.addEventListener('click', initSomfOnInteraction);
+
+  window.initSomfDM = () => ensureDmUi();
+  window.openSomfDM = opts => {
+    ensureDmUi();
+    runtime.openDM(opts || {});
   };
 
 })();

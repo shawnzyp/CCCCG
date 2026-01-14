@@ -4,8 +4,15 @@ const DEBUG_HEADER = 'X-CCCG-Proxy-Debug';
 const SERVICE_NAME = 'discord-relay';
 
 function resolveCorsOrigin(origin) {
-  if (origin && LOCALHOST_ORIGINS.has(origin)) {
-    return origin;
+  try {
+    if (!origin) return PRIMARY_ORIGIN;
+    const { hostname } = new URL(origin);
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return origin;
+    }
+    if (origin === PRIMARY_ORIGIN) return PRIMARY_ORIGIN;
+  } catch {
+    /* ignore origin parse errors */
   }
   return PRIMARY_ORIGIN;
 }
@@ -16,6 +23,7 @@ function buildCorsHeaders(origin) {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Proxy-Debug',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Debug',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -134,6 +142,9 @@ async function handleRequest(request, env) {
       version: env.VERSION || env.BUILD_ID || 'unknown',
       now: new Date().toISOString(),
     }, 200, origin);
+      return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+    }
+    return jsonResponse({ ok: true, service: 'discord-relay', ts: Date.now() }, 200, origin);
   }
 
   if (url.pathname !== '/roll') {
@@ -146,6 +157,13 @@ async function handleRequest(request, env) {
 
   if (!isAuthorized(request, env.CCCG_SECRET)) {
     return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
+  }
+
+  const isDebug = url.searchParams.get('debug') === '1'
+    || request.headers.get('X-CCCG-Debug') === '1';
+
+  if (!env.DISCORD_WEBHOOK_URL && !isDebug) {
+    return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
   }
 
   let payload = null;
@@ -166,6 +184,8 @@ async function handleRequest(request, env) {
 
   if (!env.DISCORD_WEBHOOK_URL) {
     return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
+  if (isDebug) {
+    return jsonResponse({ ok: true, debug: true, payload: normalizedPayload }, 200, origin);
   }
 
   const result = await forwardToDiscord(env.DISCORD_WEBHOOK_URL, normalizedPayload);
