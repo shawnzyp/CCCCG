@@ -127,6 +127,7 @@ describe('discord relay configuration', () => {
     expect(status.classList.contains('dm-discord__status--disconnected')).toBe(true);
 
     sessionStorage.setItem('cc:discord:proxy-key', 'abc123');
+    localStorage.setItem('cc:discord:proxyUrl', 'https://relay.example');
     document.getElementById('dm-tools-discord').click();
     expect(status.textContent).toBe('Disabled');
     expect(status.classList.contains('dm-discord__status--disabled')).toBe(true);

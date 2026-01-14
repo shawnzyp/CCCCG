@@ -411,6 +411,7 @@ function getFirebaseConfig() {
 }
 
 function validateFirebaseConfig(config, source) {
+  if (source !== 'window' && source !== 'test') return;
   const missing = REQUIRED_CONFIG_KEYS.filter(key => typeof config?.[key] !== 'string' || !config[key].trim());
   if (missing.length) {
     const prefix = source === 'window'

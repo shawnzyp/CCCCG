@@ -5499,7 +5499,6 @@
     '#somfDM-inviteTargets',
     '#somfDM-sendInvite',
   ];
-  const SOMF_TOAST_ONCE_PREFIX = 'cc:somf:toast-once:';
   let playerAttached = false;
   let dmAttached = false;
   let lazyInitScheduled = false;
@@ -5516,27 +5515,15 @@
     } catch {}
   }
 
-  function toastOnce(id, message, level) {
-    if (!id || typeof message !== 'string') return;
-    const key = `${SOMF_TOAST_ONCE_PREFIX}${id}`;
-    try {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') return;
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(key, '1');
-      }
-    } catch {}
-    dispatchUiNotify({ id, message, level });
-  }
-
   function warnMissingSelectors(scope, selectors) {
     if (!selectors.length) return;
     console.warn(`SOMF ${scope} UI missing required selectors:`, selectors);
     if (isDmSessionActive()) {
-      toastOnce(
-        `somf-${scope}-missing`,
-        'Shards of Many Fates UI is missing required elements. Reload or sync the deployment.',
-        'warning'
-      );
+      dispatchUiNotify({
+        id: `somf-${scope}-missing`,
+        message: 'Shards of Many Fates UI is missing required elements. Reload or sync the deployment.',
+        level: 'warning',
+      });
     }
   }
 

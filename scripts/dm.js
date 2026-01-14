@@ -31,7 +31,7 @@ import {
   setDiscordEnabled,
   setDiscordProxyKey,
 } from './discord-settings.js';
-import { testDiscordRelay } from './discord-events.js';
+import { resolveDiscordProxyConfig, testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -5192,6 +5192,8 @@ function initDMLogin(){
 
     function syncDiscordSettingsUi() {
       const { enabled, hasKey } = reconcileDiscordSessionState({ warn: false });
+      const proxyConfig = resolveDiscordProxyConfig();
+      const hasProxy = !!proxyConfig?.baseUrl;
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
@@ -5206,6 +5208,9 @@ function initDMLogin(){
         );
         if (!hasKey) {
           discordStatus.textContent = 'Disconnected';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!hasProxy) {
+          discordStatus.textContent = 'Misconfigured';
           discordStatus.classList.add('dm-discord__status--disconnected');
         } else if (!enabled) {
           discordStatus.textContent = 'Disabled';
@@ -5225,7 +5230,7 @@ function initDMLogin(){
         }
       }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !hasKey;
+        discordTestBtn.disabled = !hasKey || !hasProxy;
       }
     }
 
