@@ -11,7 +11,6 @@ const getProxyConfig = () => {
     ? {
       ...DEFAULT_HEADERS,
       Authorization: `Bearer ${proxyKey}`,
-      'X-Proxy-Key': proxyKey,
       'X-CCCG-Secret': proxyKey,
     }
     : DEFAULT_HEADERS;

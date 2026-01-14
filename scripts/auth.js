@@ -376,8 +376,17 @@ function ensureGuestId() {
   }
 }
 
-function getFirebaseConfig() {
+let forceDefaultConfigForTest = false;
+
+function getFirebaseConfig({ forceDefault = false } = {}) {
+  const shouldForceDefault = forceDefaultConfigForTest || forceDefault;
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    if (shouldForceDefault) {
+      return {
+        source: 'default',
+        config: { databaseURL: CLOUD_BASE_URL },
+      };
+    }
     return {
       source: 'test',
       config: {
@@ -684,6 +693,16 @@ export function getCurrentUser() {
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const { config: firebaseConfig, source } = getFirebaseConfig();
+  if (source === 'default') {
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast('Firebase authentication is not configured for this deployment.', 'error');
+      } catch {}
+    }
+    const err = new Error('Firebase configuration missing. Add window.__CCCG_FIREBASE_CONFIG__ to index.html.');
+    err.code = 'firebase_config_missing';
+    throw err;
+  }
   validateFirebaseConfig(firebaseConfig, source);
   logEffectiveFirebaseConfig(firebaseConfig);
   assertExpectedProjectId(firebaseConfig);
@@ -767,6 +786,9 @@ export function initFirebaseAuth() {
         const auth = await initializeAuthInternal();
         return auth;
       } catch (err) {
+        if (err?.code === 'firebase_config_missing') {
+          throw err;
+        }
         console.error('Failed to initialize auth', err);
         authMode = 'local';
         restoreLocalSession();
@@ -777,6 +799,12 @@ export function initFirebaseAuth() {
   }
   return authInitPromise;
 }
+
+export const __test__ = {
+  setForceDefaultConfigForTest(value) {
+    forceDefaultConfigForTest = value === true;
+  },
+};
 
 export function getAuthState() {
   return { ...authState };

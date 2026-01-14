@@ -15,7 +15,7 @@ function buildCorsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Proxy-Key, X-CCCG-Secret, X-CCCG-Proxy-Debug',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Proxy-Debug',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
