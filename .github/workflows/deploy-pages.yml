@@ -46,7 +46,7 @@ jobs:
             ./ deploy/
       - name: DM PIN injection skipped
         if: ${{ secrets.DM_PIN_SHA256 == '' && secrets.DM_PIN == '' }}
-        run: echo "DM PIN injection skipped"
+        run: echo "DM PIN injection skipped (no secrets)"
       - name: Inject DM PIN hash
         if: ${{ secrets.DM_PIN_SHA256 != '' || secrets.DM_PIN != '' }}
         env:

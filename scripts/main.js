@@ -257,6 +257,18 @@ const recordBootError = (err, context = 'unknown') => {
     console.warn('[boot] error', entry);
   }
 };
+if (bootScope && typeof bootScope.addEventListener === 'function') {
+  const handleBootErrorEvent = event => {
+    if (bootState.stage === 'READY') return;
+    recordBootError(event?.error || new Error(event?.message || 'Window error'), 'window-error');
+  };
+  const handleBootRejection = event => {
+    if (bootState.stage === 'READY') return;
+    recordBootError(event?.reason || new Error('Unhandled promise rejection'), 'unhandledrejection');
+  };
+  bootScope.addEventListener('error', handleBootErrorEvent);
+  bootScope.addEventListener('unhandledrejection', handleBootRejection);
+}
 if (bootAlreadyStarted) {
   console.warn('Boot already started; skipping duplicate initialization.');
 }
@@ -2759,8 +2771,13 @@ function finalizeBootAndRender(reason = 'boot-complete') {
   bootFinalizeHandled = true;
   bootState.flags.finalizeReason = reason;
   setBootStage('RENDERING');
-  ensureDefaultMainTab('combat');
-  runPostBootUIHooksOnce();
+  try {
+    ensureDefaultMainTab('combat');
+    runPostBootUIHooksOnce();
+  } catch (err) {
+    recordBootError(err, 'finalize');
+    forceBootUIOnce('finalize-error');
+  }
   setBootStage('READY');
   if (bootWatchdogTimer) {
     clearTimeout(bootWatchdogTimer);
@@ -2789,8 +2806,11 @@ function forceBootUI(reason = 'launch-failsafe') {
     body.classList.remove('launching');
   }
   if (body) {
-    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal], [inert]');
-    inertTargets.forEach(el => {
+    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal]');
+    const shouldClearAll = bootState.flags.watchdogFired === true;
+    const extraTargets = shouldClearAll ? body.querySelectorAll('[inert]') : [];
+    const targets = [...inertTargets, ...extraTargets];
+    targets.forEach(el => {
       try {
         el.removeAttribute('data-cc-inert-by-modal');
         el.removeAttribute('inert');
@@ -26242,7 +26262,7 @@ async function handleAuthSubmit() {
   }
 }
 
-async function handleAuthCreateSubmit() {
+async function submitCreateAccount() {
   const usernameInput = authCreateUsername?.value?.trim() || '';
   const password = authCreatePassword?.value || '';
   const confirm = authCreateConfirm?.value || '';
@@ -26777,7 +26797,13 @@ registerBootTask(() => {
   if (authCreateForm) {
     authCreateForm.addEventListener('submit', event => {
       event.preventDefault();
-      handleAuthCreateSubmit();
+      submitCreateAccount();
+    });
+  }
+  if (authCreateSubmit) {
+    authCreateSubmit.addEventListener('click', event => {
+      event.preventDefault();
+      submitCreateAccount();
     });
   }
   if (authLoginCancel) {

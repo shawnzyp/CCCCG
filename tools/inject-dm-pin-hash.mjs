@@ -35,9 +35,10 @@ async function main() {
 
   const providedHash = normalizeHash(process.env.DM_PIN_SHA256);
   const computedHash = providedHash || computeHash(process.env.DM_PIN);
+  const hasEnv = Boolean(process.env.DM_PIN_SHA256 || process.env.DM_PIN);
   if (!computedHash) {
     const message = 'Provide DM_PIN_SHA256 or DM_PIN (4 to 6 digits).';
-    if (optional) {
+    if (optional && !hasEnv) {
       console.warn(`${message} Skipping DM PIN injection.`);
       return;
     }
