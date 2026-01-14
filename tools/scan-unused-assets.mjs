@@ -297,6 +297,11 @@ async function main() {
     existing.push(file.relativePath);
     collisions.set(baseName, existing);
   }
+  const basenameCounts = new Map();
+  for (const file of files) {
+    const baseName = path.basename(file.relativePath);
+    basenameCounts.set(baseName, (basenameCounts.get(baseName) || 0) + 1);
+  }
   const collisionList = Array.from(collisions.entries())
     .filter(([, paths]) => paths.length > 1)
     .map(([basename, paths]) => ({
@@ -309,7 +314,10 @@ async function main() {
     const baseName = path.basename(file.relativePath);
     const relativePath = file.relativePath;
     const hasRelativeMatch = rgHasMatch(relativePath, queryCache);
-    const hasBaseMatch = strictMatches ? false : rgHasMatch(baseName, queryCache);
+    const hasUniqueBasename = basenameCounts.get(baseName) === 1;
+    const hasBaseMatch = !strictMatches && !hasRelativeMatch && hasUniqueBasename
+      ? rgHasMatch(baseName, queryCache)
+      : false;
     const hasMatch = strictMatches ? hasRelativeMatch : hasRelativeMatch || hasBaseMatch;
     if (!hasMatch) {
       zeroHitFiles.push({
