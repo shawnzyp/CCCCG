@@ -139,6 +139,10 @@ Catalyst Core Character Tracker is a mobile friendly character sheet and campaig
 - If the GitHub Pages build is stuck on old config, clear the service worker cache for the site and reload.
 - Authorized domains for Firebase Auth must include shawnzyp.github.io.
 
+## Maintenance Tools
+
+- [Asset cleanup utilities](docs/cleanup.md)
+
 ## Schema Versioning and Migration
 
 - Character payloads include `schemaVersion` and `meta` fields.
