@@ -41,6 +41,7 @@ import {
   getRosterLoginStateLocal,
   getRosterLoginState,
   signInWithRosterPin,
+  createAccountWithUsernamePassword,
   normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
@@ -4345,16 +4346,14 @@ async function pinPrompt(message){
   const title = $('pin-title');
   const form = $('pin-form');
   const input = $('pin-input');
-  const submit = $('pin-submit');
   const close = $('pin-close');
-  if(!modal || !form || !input || !submit || !close){
+  if(!modal || !form || !input || !close){
     return typeof prompt === 'function' ? prompt(message) : null;
   }
   title.textContent = message;
   return new Promise(resolve => {
     function cleanup(result){
-      submit.removeEventListener('click', onSubmit);
-      form.removeEventListener('submit', onFormSubmit);
+      form.removeEventListener('submit', onSubmit);
       close.removeEventListener('click', onCancel);
       modal.removeEventListener('click', onOverlay);
       hide('modal-pin');
@@ -4365,13 +4364,8 @@ async function pinPrompt(message){
       cleanup(input.value);
     }
     function onCancel(){ cleanup(null); }
-    function onFormSubmit(event){
-      event.preventDefault();
-      onSubmit();
-    }
     function onOverlay(e){ if(e.target===modal) onCancel(); }
-    submit.addEventListener('click', onSubmit);
-    form.addEventListener('submit', onFormSubmit);
+    form.addEventListener('submit', onSubmit);
     close.addEventListener('click', onCancel);
     modal.addEventListener('click', onOverlay);
     show('modal-pin');
@@ -26155,6 +26149,64 @@ async function handleAuthSubmit() {
   }
 }
 
+async function handleAuthCreateSubmit() {
+  const usernameInput = authCreateUsername?.value?.trim() || '';
+  const password = authCreatePassword?.value || '';
+  const confirm = authCreateConfirm?.value || '';
+  try {
+    clearAuthErrors();
+    setAuthBusy(true);
+    await primeFirebaseAuth();
+    const normalized = normalizeUsername(usernameInput);
+    if (!usernameInput || !normalized) {
+      setAuthError('Enter a valid username to continue.', 'create');
+      return;
+    }
+    const lengthError = getPasswordLengthError(password, passwordPolicy);
+    if (lengthError) {
+      setAuthError(lengthError, 'create');
+      return;
+    }
+    if (!password) {
+      setAuthError('Enter a password to continue.', 'create');
+      return;
+    }
+    if (!confirm) {
+      setAuthError('Confirm your password to continue.', 'create');
+      return;
+    }
+    if (password !== confirm) {
+      setAuthError('Passwords do not match.', 'create');
+      return;
+    }
+    const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+    if (unmetRules.length) {
+      setAuthError('Password does not meet requirements.', 'create');
+      return;
+    }
+    pendingPostAuthChoice = true;
+    await createAccountWithUsernamePassword(usernameInput, password);
+    hide('modal-auth-create');
+    pendingPostAuthChoice = false;
+  } catch (err) {
+    console.error('Failed to create account', err);
+    const policyError = applyPasswordPolicyError({
+      container: authPasswordPolicy,
+      password,
+      policy: passwordPolicy,
+      error: err,
+    });
+    if (policyError?.message) {
+      setAuthError(policyError.message, 'create');
+      return;
+    }
+    setAuthError(getFriendlySignupError(err), 'create');
+  } finally {
+    setAuthBusy(false);
+    updateCreateSubmitState();
+  }
+}
+
 
 function setClaimTokenAdminVisibility(isDm) {
   if (!claimTokenAdmin) return;
@@ -26626,19 +26678,14 @@ registerBootTask(() => {
   if (authLoginForm) {
     authLoginForm.addEventListener('submit', event => {
       event.preventDefault();
-      if (event.submitter === authLoginSubmit) return;
       handleAuthSubmit();
     });
   }
   if (authCreateForm) {
     authCreateForm.addEventListener('submit', event => {
       event.preventDefault();
-      if (event.submitter === authCreateSubmit) return;
-      authCreateSubmit?.click();
+      handleAuthCreateSubmit();
     });
-  }
-  if (authLoginSubmit) {
-    authLoginSubmit.addEventListener('click', () => handleAuthSubmit());
   }
   if (authLoginCancel) {
     authLoginCancel.addEventListener('click', () => {

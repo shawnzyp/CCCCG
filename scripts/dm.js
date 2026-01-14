@@ -1344,12 +1344,8 @@ function initDMLogin(){
   if (loginForm) {
     loginForm.addEventListener('submit', event => {
       event.preventDefault();
-      if (event.submitter === loginSubmit) return;
       handleLoginSubmit(event);
     });
-  }
-  if (loginSubmit) {
-    loginSubmit.addEventListener('click', handleLoginSubmit);
   }
   if (loginClose) {
     loginClose.addEventListener('click', () => {
@@ -10926,11 +10922,6 @@ function initDMLogin(){
 
     discordKeyForm?.addEventListener('submit', event => {
       event.preventDefault();
-      if (event.submitter === discordTestBtn) return;
-      handleDiscordTest();
-    });
-
-    discordTestBtn?.addEventListener('click', () => {
       handleDiscordTest();
     });
 
