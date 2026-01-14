@@ -897,6 +897,7 @@ function initDMLogin(){
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
+  const loginForm = document.getElementById('dm-login-form');
   const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
@@ -1340,15 +1341,15 @@ function initDMLogin(){
     }
   }
 
+  if (loginForm) {
+    loginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      if (event.submitter === loginSubmit) return;
+      handleLoginSubmit(event);
+    });
+  }
   if (loginSubmit) {
     loginSubmit.addEventListener('click', handleLoginSubmit);
-  }
-  if (loginPin) {
-    loginPin.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        handleLoginSubmit(event);
-      }
-    });
   }
   if (loginClose) {
     loginClose.addEventListener('click', () => {
@@ -1616,6 +1617,7 @@ function initDMLogin(){
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
   const discordUrlInput = document.getElementById('dm-discord-proxy-url');
   const discordKeyInput = document.getElementById('dm-discord-key');
+  const discordKeyForm = document.getElementById('dm-discord-key-form');
   const discordTestBtn = document.getElementById('dm-discord-test');
   const discordStatus = document.getElementById('dm-discord-status');
   let discordEnableWarningShown = false;
@@ -10915,10 +10917,21 @@ function initDMLogin(){
       syncDiscordSettingsUi();
     });
 
-    discordTestBtn?.addEventListener('click', () => {
+    // Shared so form submit and click triggers the same behavior.
+    const handleDiscordTest = () => {
       sendDiscordTestMessage().catch(err => {
         console.error('Failed to send discord relay test', err);
       });
+    };
+
+    discordKeyForm?.addEventListener('submit', event => {
+      event.preventDefault();
+      if (event.submitter === discordTestBtn) return;
+      handleDiscordTest();
+    });
+
+    discordTestBtn?.addEventListener('click', () => {
+      handleDiscordTest();
     });
 
     const sessionState = refreshDiscordSessionState();

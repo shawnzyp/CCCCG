@@ -4343,28 +4343,35 @@ async function ensureFunTips(){
 async function pinPrompt(message){
   const modal = $('modal-pin');
   const title = $('pin-title');
+  const form = $('pin-form');
   const input = $('pin-input');
   const submit = $('pin-submit');
   const close = $('pin-close');
-  if(!modal || !input || !submit || !close){
+  if(!modal || !form || !input || !submit || !close){
     return typeof prompt === 'function' ? prompt(message) : null;
   }
   title.textContent = message;
   return new Promise(resolve => {
     function cleanup(result){
       submit.removeEventListener('click', onSubmit);
-      input.removeEventListener('keydown', onKey);
+      form.removeEventListener('submit', onFormSubmit);
       close.removeEventListener('click', onCancel);
       modal.removeEventListener('click', onOverlay);
       hide('modal-pin');
       resolve(result);
     }
-    function onSubmit(){ cleanup(input.value); }
+    function onSubmit(event){
+      event?.preventDefault?.();
+      cleanup(input.value);
+    }
     function onCancel(){ cleanup(null); }
-    function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
+    function onFormSubmit(event){
+      event.preventDefault();
+      onSubmit();
+    }
     function onOverlay(e){ if(e.target===modal) onCancel(); }
     submit.addEventListener('click', onSubmit);
-    input.addEventListener('keydown', onKey);
+    form.addEventListener('submit', onFormSubmit);
     close.addEventListener('click', onCancel);
     modal.addEventListener('click', onOverlay);
     show('modal-pin');
@@ -25268,6 +25275,8 @@ const welcomeContinue = $('welcome-continue');
 const welcomeCreate = $('welcome-create');
 const authLoginModal = $('modal-auth-login');
 const authCreateModal = $('modal-auth-create');
+const authLoginForm = $('auth-login-form');
+const authCreateForm = $('auth-create-form');
 const authLoginUsername = $('auth-login-username');
 const authLoginPin = $('auth-login-pin');
 const authLoginConfirm = $('auth-login-confirm');
@@ -25701,22 +25710,12 @@ if (authLoginPin) {
     authLoginPin.value = normalizeRosterPinInput(authLoginPin.value || '');
     setAuthError('', 'login');
   });
-  authLoginPin.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      handleAuthSubmit();
-    }
-  });
 }
 
 if (authLoginConfirm) {
   authLoginConfirm.addEventListener('input', () => {
     authLoginConfirm.value = normalizeRosterPinInput(authLoginConfirm.value || '');
     setAuthError('', 'login');
-  });
-  authLoginConfirm.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      handleAuthSubmit();
-    }
   });
 }
 
@@ -26622,6 +26621,20 @@ registerBootTask(() => {
       restoreLastLoadedCharacter().catch(err => {
         console.error('Failed to restore last loaded character', err);
       });
+    });
+  }
+  if (authLoginForm) {
+    authLoginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      if (event.submitter === authLoginSubmit) return;
+      handleAuthSubmit();
+    });
+  }
+  if (authCreateForm) {
+    authCreateForm.addEventListener('submit', event => {
+      event.preventDefault();
+      if (event.submitter === authCreateSubmit) return;
+      authCreateSubmit?.click();
     });
   }
   if (authLoginSubmit) {
