@@ -1356,6 +1356,26 @@ async function listLegacyCloudCharacterEntries(uid) {
   }
 }
 
+async function backfillCharacterIndexEntries(uid, keys) {
+  if (!uid || !Array.isArray(keys) || keys.length === 0) return;
+  const paths = getUserPaths(uid);
+  if (!paths?.charactersIndexPath) return;
+  const now = Date.now();
+  try {
+    await Promise.all(keys.map(async characterId => {
+      const payload = {
+        name: friendlyCharacterName(characterId) || '',
+        updatedAt: now,
+        updatedAtServer: now,
+      };
+      const ref = await getDatabaseRef(`${paths.charactersIndexPath}/${encodePath(characterId)}`);
+      await ref.set(payload);
+    }));
+  } catch (err) {
+    console.warn('Failed to backfill character index entries', err);
+  }
+}
+
 function applyCloudCharacterSlotToPayload(payload, slotId) {
   if (!payload || typeof payload !== 'object') return payload;
   const next = { ...payload };
@@ -2120,7 +2140,8 @@ export async function listCloudCharacterKeys(uid) {
     return Object.keys(indexObj || {});
   }
   const keys = await listCloudCharacterKeysFromPath(uid);
-  if (keys.length) return keys;
+  const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
+  if (filteredKeys.length) return filteredKeys;
   const legacyEntries = await listLegacyCloudCharacterEntries(uid);
   if (!legacyEntries.length) return [];
   const migrated = await migrateLegacyCloudCharacters(uid, legacyEntries);
@@ -2161,8 +2182,10 @@ export async function listCloudCharacters(uid) {
 
     // Index missing. Prefer charactersPath before legacy migration.
     const keys = await listCloudCharacterKeysFromPath(uid);
-    if (keys.length) {
-      return keys.map((characterId) => ({
+    const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
+    if (filteredKeys.length) {
+      void backfillCharacterIndexEntries(uid, filteredKeys);
+      return filteredKeys.map((characterId) => ({
         characterId,
         payload: null,
         name: '',
@@ -2177,16 +2200,7 @@ export async function listCloudCharacters(uid) {
   if (!legacyEntries.length) return [];
   const migrated = await migrateLegacyCloudCharacters(uid, legacyEntries);
   if (migrated.length) return migrated;
-  return legacyEntries.map(entry => {
-    const payload = entry.payload;
-    return {
-      characterId: entry.characterId,
-      payload,
-      name: getLegacyCharacterName(payload, entry.characterId),
-      updatedAt: Number(payload?.meta?.updatedAt || payload?.updatedAt) || 0,
-      updatedAtServer: 0,
-    };
-  });
+  return [];
 }
 
 export async function saveUserProfile(uid, profile) {
