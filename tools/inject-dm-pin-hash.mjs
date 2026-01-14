@@ -44,7 +44,7 @@ async function main() {
       const updated = content
         .replace(metaRegex, '')
         .replaceAll(PLACEHOLDER, '');
-      if (updated !== content) {
+      if (outputPath !== inputPath || updated !== content) {
         await fs.writeFile(outputPath, updated);
       }
       console.warn(`${message} Skipping DM PIN injection.`);

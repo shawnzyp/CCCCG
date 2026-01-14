@@ -902,6 +902,7 @@ function initDMLogin(){
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
+  let loginSubmitting = false;
   const loginErrorMessage = loginModal ? loginModal.querySelector('[data-login-error]') : null;
   const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
   let loginCooldownTimerId = null;
@@ -1288,61 +1289,73 @@ function initDMLogin(){
     if (event?.preventDefault) {
       try { event.preventDefault(); } catch { /* ignore */ }
     }
-    if (!loginPin) return;
-    if (!isDmPinConfigured()) {
-      applyLoginConfigDisabledState();
-      return;
-    }
-    const remaining = getLoginCooldownRemainingMs();
-    if (remaining > 0) {
-      startLoginCooldownCountdown(remaining);
-      notifyLoginCooldown(remaining);
-      return;
-    }
-    const normalized = validateDmPin(loginPin.value || '');
-    if (!normalized) {
-      showLoginError('Enter a 4-6 digit PIN.', { shake: true });
-      queueLoginFocus(loginPin);
-      return;
-    }
-    loginPin.value = normalized;
-    clearLoginError();
-    lockLoginControls();
-    setLoginWaitMessage('Checking PIN...');
+    if (loginSubmitting) return;
+    loginSubmitting = true;
     try {
-      const unlocked = await dmUnlockWithPin(normalized);
-      if (!unlocked) {
-        showLoginError('Incorrect PIN.', { shake: true });
-        dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
+      if (!loginPin) return;
+      if (!isDmPinConfigured()) {
+        applyLoginConfigDisabledState();
+        return;
+      }
+      const remaining = getLoginCooldownRemainingMs();
+      if (remaining > 0) {
+        startLoginCooldownCountdown(remaining);
+        notifyLoginCooldown(remaining);
+        return;
+      }
+      const normalized = validateDmPin(loginPin.value || '');
+      if (!normalized) {
+        showLoginError('Enter a 4-6 digit PIN.', { shake: true });
         queueLoginFocus(loginPin);
         return;
       }
-      onLoginSuccess();
-      dispatchLoginEvent('dm-login:success');
-      playCue('unlock-success', { source: 'action' });
-      closeLogin();
-      toast('DM tools unlocked.', 'success');
-    } catch (err) {
-      console.error('Failed to verify DM PIN', err);
-      if (err?.message === 'DM PIN not configured') {
-        applyLoginConfigDisabledState();
-        dispatchLoginEvent('dm-login:failure', { reason: 'config' });
-      } else if (err?.message === 'WebCrypto unavailable') {
-        showLoginError('PIN verification is unavailable in this browser.');
-        dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
-      } else {
-        showLoginError('Unable to verify PIN. Try again.', { shake: true });
-        dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+      loginPin.value = normalized;
+      clearLoginError();
+      lockLoginControls();
+      setLoginWaitMessage('Checking PIN...');
+      try {
+        const unlocked = await dmUnlockWithPin(normalized);
+        if (!unlocked) {
+          showLoginError('Incorrect PIN.', { shake: true });
+          dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
+          queueLoginFocus(loginPin);
+          return;
+        }
+        onLoginSuccess();
+        dispatchLoginEvent('dm-login:success');
+        playCue('unlock-success', { source: 'action' });
+        closeLogin();
+        toast('DM tools unlocked.', 'success');
+      } catch (err) {
+        console.error('Failed to verify DM PIN', err);
+        if (err?.message === 'DM PIN not configured') {
+          applyLoginConfigDisabledState();
+          dispatchLoginEvent('dm-login:failure', { reason: 'config' });
+        } else if (err?.message === 'WebCrypto unavailable') {
+          showLoginError('PIN verification is unavailable in this browser.');
+          dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
+        } else {
+          showLoginError('Unable to verify PIN. Try again.', { shake: true });
+          dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+        }
+      } finally {
+        if (getLoginCooldownRemainingMs() <= 0) {
+          setLoginWaitMessage('');
+        }
       }
     } finally {
-      if (getLoginCooldownRemainingMs() <= 0) {
-        setLoginWaitMessage('');
-      }
+      loginSubmitting = false;
     }
   }
 
   if (loginForm) {
     loginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      handleLoginSubmit(event);
+    });
+  }
+  if (loginSubmit) {
+    loginSubmit.addEventListener('click', event => {
       event.preventDefault();
       handleLoginSubmit(event);
     });
@@ -1618,6 +1631,8 @@ function initDMLogin(){
   const discordStatus = document.getElementById('dm-discord-status');
   let discordEnableWarningShown = false;
   let discordUrlDebounceId = null;
+  let discordTestInFlight = false;
+  let discordTestLastAt = 0;
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -10914,15 +10929,27 @@ function initDMLogin(){
     });
 
     // Shared so form submit and click triggers the same behavior.
-    const handleDiscordTest = () => {
-      sendDiscordTestMessage().catch(err => {
+    const handleDiscordTest = async () => {
+      const now = Date.now();
+      if (discordTestInFlight || now - discordTestLastAt < 500) return;
+      discordTestInFlight = true;
+      discordTestLastAt = now;
+      try {
+        await sendDiscordTestMessage();
+      } catch (err) {
         console.error('Failed to send discord relay test', err);
-      });
+      } finally {
+        discordTestInFlight = false;
+      }
     };
 
     discordKeyForm?.addEventListener('submit', event => {
       event.preventDefault();
-      handleDiscordTest();
+      void handleDiscordTest();
+    });
+    discordTestBtn?.addEventListener('click', event => {
+      event.preventDefault();
+      void handleDiscordTest();
     });
 
     const sessionState = refreshDiscordSessionState();

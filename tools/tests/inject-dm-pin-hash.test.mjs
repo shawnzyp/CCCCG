@@ -42,6 +42,20 @@ await withTempDir(async dir => {
 await withTempDir(async dir => {
   const inputPath = path.join(dir, 'input.html');
   const outputPath = path.join(dir, 'output.html');
+
+  await fs.writeFile(inputPath, '<!doctype html><head></head>');
+  const result = runInject({
+    args: ['--optional', inputPath, outputPath],
+    env: { DM_PIN: '', DM_PIN_SHA256: '' },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = await fs.readFile(outputPath, 'utf8');
+  assert.equal(output, '<!doctype html><head></head>');
+});
+
+await withTempDir(async dir => {
+  const inputPath = path.join(dir, 'input.html');
+  const outputPath = path.join(dir, 'output.html');
   const pin = '1234';
   const expected = crypto.createHash('sha256').update(pin).digest('hex');
 
