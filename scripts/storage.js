@@ -2171,26 +2171,29 @@ export async function listCloudCharacters(uid) {
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (val && typeof val === 'object') {
-      return Object.entries(val).map(([characterId, entry]) => ({
-        characterId,
-        payload: null,
-        name: entry?.name || '',
-        updatedAt: Number(entry?.updatedAt) || 0,
-        updatedAtServer: Number(entry?.updatedAtServer) || 0,
-      }));
+      return Object.entries(val)
+        .filter(([characterId]) => isCloudCharacterSlotId(characterId) || isLegacyCloudCharacterSlotId(characterId))
+        .map(([characterId, entry]) => ({
+          characterId,
+          payload: null,
+          name: entry?.name || '',
+          updatedAt: Number(entry?.updatedAt) || 0,
+          updatedAtServer: Number(entry?.updatedAtServer) || 0,
+        }));
     }
 
     // Index missing. Prefer charactersPath before legacy migration.
     const keys = await listCloudCharacterKeysFromPath(uid);
     const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
     if (filteredKeys.length) {
+      const now = Date.now();
       void backfillCharacterIndexEntries(uid, filteredKeys);
       return filteredKeys.map((characterId) => ({
         characterId,
         payload: null,
-        name: '',
-        updatedAt: 0,
-        updatedAtServer: 0,
+        name: friendlyCharacterName(characterId) || '',
+        updatedAt: now,
+        updatedAtServer: now,
       }));
     }
   } catch (e) {
