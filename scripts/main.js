@@ -2776,7 +2776,10 @@ function finalizeBootAndRender(reason = 'boot-complete') {
     runPostBootUIHooksOnce();
   } catch (err) {
     recordBootError(err, 'finalize');
-    forceBootUIOnce('finalize-error');
+    if (!bootState.flags.finalizeRecovering) {
+      bootState.flags.finalizeRecovering = true;
+      forceBootUIOnce('finalize-error');
+    }
   }
   setBootStage('READY');
   if (bootWatchdogTimer) {
@@ -2827,8 +2830,12 @@ function forceBootUI(reason = 'launch-failsafe') {
     launchShell.parentNode.removeChild(launchShell);
   }
   markLaunchSequenceComplete();
-  ensureDefaultMainTab('combat');
-  runPostBootUIHooksOnce();
+  try {
+    ensureDefaultMainTab('combat');
+    runPostBootUIHooksOnce();
+  } catch (err) {
+    recordBootError(err, 'force-boot');
+  }
   finalizeBootAndRender(`force-boot:${reason}`);
 }
 
