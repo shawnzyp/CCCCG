@@ -2141,11 +2141,13 @@ export async function listCloudCharacterKeys(uid) {
   }
   const keys = await listCloudCharacterKeysFromPath(uid);
   const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
-  if (filteredKeys.length) return filteredKeys;
   const legacyEntries = await listLegacyCloudCharacterEntries(uid);
-  if (!legacyEntries.length) return [];
-  const migrated = await migrateLegacyCloudCharacters(uid, legacyEntries);
-  if (migrated.length) return migrated.map(entry => entry.characterId);
+  const migrated = legacyEntries.length
+    ? await migrateLegacyCloudCharacters(uid, legacyEntries)
+    : [];
+  const migratedIds = migrated.map(entry => entry.characterId);
+  const combined = Array.from(new Set([...filteredKeys, ...migratedIds]));
+  if (combined.length) return combined;
   // If migration fails, do not return legacy IDs as canonical keys.
   return [];
 }
@@ -2164,6 +2166,7 @@ export async function listCloudCharacters(uid) {
     }).filter(Boolean);
     return rows;
   }
+  let entries = [];
   try {
     const paths = getUserPaths(uid);
     if (!paths) return [];
@@ -2171,7 +2174,7 @@ export async function listCloudCharacters(uid) {
     const snapshot = await ref.once('value');
     const val = snapshot.val();
     if (val && typeof val === 'object') {
-      return Object.entries(val)
+      entries = Object.entries(val)
         .filter(([characterId]) => isCloudCharacterSlotId(characterId) || isLegacyCloudCharacterSlotId(characterId))
         .map(([characterId, entry]) => ({
           characterId,
@@ -2180,30 +2183,32 @@ export async function listCloudCharacters(uid) {
           updatedAt: Number(entry?.updatedAt) || 0,
           updatedAtServer: Number(entry?.updatedAtServer) || 0,
         }));
-    }
-
-    // Index missing. Prefer charactersPath before legacy migration.
-    const keys = await listCloudCharacterKeysFromPath(uid);
-    const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
-    if (filteredKeys.length) {
-      const now = Date.now();
-      void backfillCharacterIndexEntries(uid, filteredKeys);
-      return filteredKeys.map((characterId) => ({
-        characterId,
-        payload: null,
-        name: friendlyCharacterName(characterId) || '',
-        updatedAt: now,
-        updatedAtServer: now,
-      }));
+    } else {
+      // Index missing. Prefer charactersPath before legacy migration.
+      const keys = await listCloudCharacterKeysFromPath(uid);
+      const filteredKeys = keys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key));
+      if (filteredKeys.length) {
+        const now = Date.now();
+        void backfillCharacterIndexEntries(uid, filteredKeys);
+        entries = filteredKeys.map((characterId) => ({
+          characterId,
+          payload: null,
+          name: friendlyCharacterName(characterId) || '',
+          updatedAt: now,
+          updatedAtServer: now,
+        }));
+      }
     }
   } catch (e) {
     console.error('Cloud character list failed', e);
   }
   const legacyEntries = await listLegacyCloudCharacterEntries(uid);
-  if (!legacyEntries.length) return [];
+  if (!legacyEntries.length) return entries;
   const migrated = await migrateLegacyCloudCharacters(uid, legacyEntries);
-  if (migrated.length) return migrated;
-  return [];
+  if (!migrated.length) return entries;
+  const existingIds = new Set(entries.map(entry => entry.characterId));
+  const combined = entries.concat(migrated.filter(entry => !existingIds.has(entry.characterId)));
+  return combined;
 }
 
 export async function saveUserProfile(uid, profile) {
