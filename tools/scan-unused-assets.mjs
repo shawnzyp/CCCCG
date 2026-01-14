@@ -297,6 +297,11 @@ async function main() {
     existing.push(file.relativePath);
     collisions.set(baseName, existing);
   }
+  const collisionBasenames = new Set(
+    Array.from(collisions.entries())
+      .filter(([, paths]) => paths.length > 1)
+      .map(([basename]) => basename),
+  );
   const basenameCounts = new Map();
   for (const file of files) {
     const baseName = path.basename(file.relativePath);
@@ -314,6 +319,8 @@ async function main() {
     const baseName = path.basename(file.relativePath);
     const relativePath = file.relativePath;
     const hasRelativeMatch = rgHasMatch(relativePath, queryCache);
+    const shouldCheckBase = !strictMatches && !collisionBasenames.has(baseName);
+    const hasBaseMatch = shouldCheckBase ? rgHasMatch(baseName, queryCache) : false;
     const hasUniqueBasename = basenameCounts.get(baseName) === 1;
     const hasBaseMatch = !strictMatches && !hasRelativeMatch && hasUniqueBasename
       ? rgHasMatch(baseName, queryCache)
