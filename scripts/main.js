@@ -222,11 +222,49 @@ const bootAlreadyStarted = !!(bootScope && bootScope.__CCCG_BOOT_STARTED__);
 if (bootScope && !bootScope.__CCCG_BOOT_STARTED__) {
   bootScope.__CCCG_BOOT_STARTED__ = true;
 }
+const bootState = {
+  stage: 'INIT',
+  startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now(),
+  errors: [],
+  flags: {},
+};
+if (bootScope) {
+  bootScope.__ccccgBootState = bootState;
+}
+const bootDebug = (() => {
+  if (bootScope && bootScope.__CCCCG_BOOT_DEBUG__) return true;
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('cc:boot-debug') === 'true';
+  } catch {
+    return false;
+  }
+})();
+const setBootStage = stage => {
+  bootState.stage = stage;
+  if (bootDebug) {
+    console.info(`[boot] stage=${stage}`);
+  }
+};
+const recordBootError = (err, context = 'unknown') => {
+  const entry = {
+    context,
+    message: err?.message || String(err),
+    stack: err?.stack || null,
+    at: Date.now(),
+  };
+  bootState.errors.push(entry);
+  if (bootDebug) {
+    console.warn('[boot] error', entry);
+  }
+};
 if (bootAlreadyStarted) {
   console.warn('Boot already started; skipping duplicate initialization.');
 }
 const bootTasks = [];
 let bootTasksRan = false;
+let bootFinalizeHandled = false;
+let bootWatchdogTimer = null;
+const BOOT_WATCHDOG_MS = 6000;
 const registerBootTask = task => {
   if (!bootAlreadyStarted && typeof task === 'function') {
     bootTasks.push(task);
@@ -235,20 +273,36 @@ const registerBootTask = task => {
 const runBootTasksOnce = () => {
   if (bootTasksRan || bootAlreadyStarted) return;
   bootTasksRan = true;
-  const run = () => {
+  setBootStage('TASKS_SCHEDULED');
+  const run = async () => {
+    setBootStage('TASKS_RUNNING');
     const tasks = bootTasks.splice(0, bootTasks.length);
-    tasks.forEach(task => {
+    for (const task of tasks) {
       try {
-        task();
+        const result = task();
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
       } catch (err) {
-        console.error('Boot task failed', err);
+        recordBootError(err, 'boot-task');
       }
-    });
+    }
+    setBootStage('TASKS_DONE');
+    finalizeBootAndRender('boot-tasks-complete');
   };
+  if (!bootWatchdogTimer && typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+    bootWatchdogTimer = window.setTimeout(() => {
+      if (bootState.stage === 'READY') return;
+      recordBootError(new Error('Boot watchdog fired'), 'watchdog');
+      bootState.flags.watchdogFired = true;
+      forceBootUIOnce('boot-watchdog');
+      finalizeBootAndRender('boot-watchdog');
+    }, BOOT_WATCHDOG_MS);
+  }
   if (typeof document !== 'undefined' && document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', () => void run(), { once: true });
   } else {
-    run();
+    void run();
   }
 };
 
@@ -2691,6 +2745,29 @@ function runPostBootUIHooksOnce() {
   schedulePlayerToolsLauncherReposition('post-boot');
 }
 
+function finalizeBootAndRender(reason = 'boot-complete') {
+  if (bootFinalizeHandled) return;
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const isLaunching = !!(body && body.classList.contains('launching'));
+  if (isLaunching && !launchSequenceComplete) {
+    bootState.flags.pendingFinalize = true;
+    if (bootDebug) {
+      console.info(`[boot] finalize deferred (${reason}).`);
+    }
+    return;
+  }
+  bootFinalizeHandled = true;
+  bootState.flags.finalizeReason = reason;
+  setBootStage('RENDERING');
+  ensureDefaultMainTab('combat');
+  runPostBootUIHooksOnce();
+  setBootStage('READY');
+  if (bootWatchdogTimer) {
+    clearTimeout(bootWatchdogTimer);
+    bootWatchdogTimer = null;
+  }
+}
+
 function forceBootUIOnce(reason = 'launch-failsafe') {
   if (bootCompletionHandled) return;
   forceBootUI(reason);
@@ -2732,6 +2809,7 @@ function forceBootUI(reason = 'launch-failsafe') {
   markLaunchSequenceComplete();
   ensureDefaultMainTab('combat');
   runPostBootUIHooksOnce();
+  finalizeBootAndRender(`force-boot:${reason}`);
 }
 
 function hideWelcomeModalPanel() {
@@ -2905,6 +2983,16 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 }
 async function setupLaunchAnimation(){
   try {
+    if (typeof window !== 'undefined') {
+      if (window.__ccccgIntroStarted) {
+        if (bootDebug) {
+          console.info('[boot] intro already started; skipping duplicate init.');
+        }
+        return;
+      }
+      window.__ccccgIntroStarted = true;
+    }
+    bootState.flags.introStarted = true;
     if (typeof document === 'undefined') {
       unlockTouchControls();
       markLaunchSequenceComplete();
@@ -3436,6 +3524,7 @@ async function setupLaunchAnimation(){
     }
   } catch (err) {
     console.error('Launch animation failed; continuing boot.', err);
+    recordBootError(err, 'launch-animation');
     forceBootUIOnce('launch-error');
   }
 }
@@ -24373,6 +24462,10 @@ function markLaunchSequenceComplete(){
   launchSequenceComplete = true;
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
+  if (bootState.flags.pendingFinalize) {
+    bootState.flags.pendingFinalize = false;
+  }
+  finalizeBootAndRender('launch-complete');
 }
 
 function markWelcomeSequenceComplete(){
