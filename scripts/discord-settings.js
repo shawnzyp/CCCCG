@@ -1,3 +1,5 @@
+import { toastOnce } from './ui-notify.js';
+
 const ENABLE_KEY = 'cc:discord:enabled';
 const ROUTE_KEY = 'cc:discord:route';
 const PROXY_KEY = 'cc:discord:proxy-key';
@@ -80,6 +82,21 @@ export function setDiscordProxyKey(key) {
   }
 }
 
+export function reconcileDiscordSessionState({ warn = true } = {}) {
+  const enabled = isDiscordEnabled();
+  const key = getDiscordProxyKey();
+  if (enabled && !key) {
+    setDiscordEnabled(false);
+    if (warn) {
+      toastOnce(
+        'discord-proxy-key-missing',
+        'Discord relay key expired. Re-enter the key to enable the relay.',
+        'warning'
+      );
+    }
+    return { enabled: false, hasKey: false };
+  }
+  return { enabled, hasKey: !!key };
 export function reconcileDiscordSessionState() {
   const enabled = isDiscordEnabled();
   const proxyKey = getDiscordProxyKey();

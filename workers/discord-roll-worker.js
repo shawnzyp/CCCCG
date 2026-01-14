@@ -1,4 +1,8 @@
 const PRIMARY_ORIGIN = 'https://shawnzyp.github.io';
+const LOCALHOST_ORIGINS = new Set(['http://localhost', 'http://127.0.0.1']);
+const DEBUG_HEADER = 'X-CCCG-Proxy-Debug';
+const SERVICE_NAME = 'discord-relay';
+
 function resolveCorsOrigin(origin) {
   try {
     if (!origin) return PRIMARY_ORIGIN;
@@ -18,6 +22,7 @@ function buildCorsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Proxy-Debug',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CCCG-Secret, X-CCCG-Debug',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
@@ -52,9 +57,17 @@ function normalizePayload(payload) {
   return null;
 }
 
+function resolveAuthToken(request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  return request.headers.get('X-CCCG-Secret') || '';
+}
+
 function isAuthorized(request, secret) {
   if (!secret) return true;
-  const headerSecret = request.headers.get('X-CCCG-Secret') || '';
+  const headerSecret = resolveAuthToken(request);
   return headerSecret === secret;
 }
 
@@ -94,6 +107,41 @@ async function handleRequest(request, env) {
 
   if (url.pathname === '/health' && request.method === 'GET') {
     if (!isAuthorized(request, env.CCCG_SECRET)) {
+      return jsonResponse({
+        ok: false,
+        service: SERVICE_NAME,
+        hasWebhookConfigured: !!env.DISCORD_WEBHOOK_URL,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
+        error: 'unauthorized',
+      }, 401, origin);
+    }
+    if (request.headers.get(DEBUG_HEADER)) {
+      return jsonResponse({
+        ok: true,
+        service: SERVICE_NAME,
+        hasWebhookConfigured: !!env.DISCORD_WEBHOOK_URL,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
+      }, 200, origin);
+    }
+    if (!env.DISCORD_WEBHOOK_URL) {
+      return jsonResponse({
+        ok: false,
+        code: 'webhook_not_configured',
+        service: SERVICE_NAME,
+        hasWebhookConfigured: false,
+        version: env.VERSION || env.BUILD_ID || 'unknown',
+        now: new Date().toISOString(),
+      }, 503, origin);
+    }
+    return jsonResponse({
+      ok: true,
+      service: SERVICE_NAME,
+      hasWebhookConfigured: true,
+      version: env.VERSION || env.BUILD_ID || 'unknown',
+      now: new Date().toISOString(),
+    }, 200, origin);
       return jsonResponse({ ok: false, status: 401, body: 'Unauthorized' }, 401, origin);
     }
     return jsonResponse({ ok: true, service: 'discord-relay', ts: Date.now() }, 200, origin);
@@ -130,6 +178,12 @@ async function handleRequest(request, env) {
     return jsonResponse({ ok: false, status: 400, body: 'Unsupported payload format' }, 400, origin);
   }
 
+  if (request.headers.get(DEBUG_HEADER)) {
+    return jsonResponse({ ok: true, debug: true, normalized: normalizedPayload }, 200, origin);
+  }
+
+  if (!env.DISCORD_WEBHOOK_URL) {
+    return jsonResponse({ ok: false, status: 500, body: 'DISCORD_WEBHOOK_URL is not configured' }, 500, origin);
   if (isDebug) {
     return jsonResponse({ ok: true, debug: true, payload: normalizedPayload }, 200, origin);
   }

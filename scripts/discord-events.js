@@ -1,7 +1,20 @@
+import { getDiscordProxyKey, isDiscordEnabled } from './discord-settings.js';
+import { toastOnce } from './ui-notify.js';
 import { getDiscordProxyKey, getDiscordProxyUrl, isDiscordEnabled } from './discord-settings.js';
 
-const DEFAULT_WORKER_URL = '';
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
+const PROXY_URL_OVERRIDE_KEY = 'cc:discord:proxyUrl';
+const LEGACY_PROXY_URL_OVERRIDE_KEY = 'cc.discord.proxyUrl';
+const DEBUG_HEADER = 'X-CCCG-Proxy-Debug';
+const MAX_RETRY_ATTEMPTS = 4;
+const BASE_RETRY_DELAY_MS = 500;
+const MAX_RETRY_DELAY_MS = 4_000;
+
+const PLACEHOLDER_VALUES = new Set([
+  'https://YOUR-WORKER.yourdomain.workers.dev',
+  '__DISCORD_PROXY_URL__',
+  'REPLACE_ME',
+]);
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const RETRY_DELAY_CAP_MS = 2500;
 const RETRY_JITTER_RATIO = 0.15;
@@ -64,6 +77,103 @@ const readMeta = (name) => {
   }
 };
 
+const readLocalStorageValue = (key) => {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const value = localStorage.getItem(key);
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const migrateLegacyProxyUrlOverride = () => {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const current = localStorage.getItem(PROXY_URL_OVERRIDE_KEY);
+    if (current && current.trim()) return;
+    const legacy = localStorage.getItem(LEGACY_PROXY_URL_OVERRIDE_KEY);
+    if (legacy && legacy.trim()) {
+      localStorage.setItem(PROXY_URL_OVERRIDE_KEY, legacy.trim());
+      localStorage.removeItem(LEGACY_PROXY_URL_OVERRIDE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+};
+
+const readGlobalProxyUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const candidate = window.DISCORD_PROXY_URL
+    || window.CCCG_DISCORD_PROXY_URL
+    || window.__CCCG_DISCORD_PROXY_URL__
+    || window.discordProxyUrl;
+  return typeof candidate === 'string' ? candidate : null;
+};
+
+const isPlaceholderValue = (value) => {
+  if (typeof value !== 'string') return true;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (PLACEHOLDER_VALUES.has(trimmed)) return true;
+  const lowered = trimmed.toLowerCase();
+  return lowered.includes('placeholder')
+    || lowered.includes('your-worker')
+    || lowered.includes('__discord_proxy_url__')
+    || lowered.includes('replace_me');
+};
+
+const normalizeProxyBaseUrl = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || isPlaceholderValue(trimmed)) return null;
+  let url;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (url.protocol === 'http:') {
+    const host = url.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return null;
+  } else if (url.protocol !== 'https:') {
+    return null;
+  }
+  let base = trimmed.replace(/\/+$/, '');
+  base = base.replace(/\/(roll|health)$/i, '');
+  return base;
+};
+
+export const resolveDiscordProxyConfig = () => {
+  migrateLegacyProxyUrlOverride();
+  const candidates = [
+    readLocalStorageValue(PROXY_URL_OVERRIDE_KEY),
+    readMeta('discord-proxy-url'),
+    readGlobalProxyUrl(),
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeProxyBaseUrl(candidate);
+    if (normalized) {
+      return {
+        baseUrl: normalized,
+        rollUrl: `${normalized}/roll`,
+        healthUrl: `${normalized}/health`,
+      };
+    }
+  }
+  return null;
+};
+
+const getDiscordProxyConfig = ({ warnOnMissing = false } = {}) => {
+  const config = resolveDiscordProxyConfig();
+  if (!config && warnOnMissing) {
+    toastOnce(
+      'discord-proxy-url-missing',
+      'Discord relay URL is missing or invalid. Update the proxy URL to enable relay.',
+      'warning'
+    );
+  }
+  return config;
 const resolveDiscordProxyUrl = () => (
   readStoredProxyUrl()
   || readMeta('discord-proxy-url')
@@ -149,6 +259,17 @@ const buildDiscordPayload = (payload = {}) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const jitter = (value) => value + Math.floor(Math.random() * 250);
+
+const parseRetryAfterMs = (value) => {
+  if (!value) return null;
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    return Math.max(0, asNumber * 1000);
+  }
+  const asDate = Date.parse(value);
+  if (Number.isFinite(asDate)) {
+    return Math.max(0, asDate - Date.now());
 const jitterDelay = (ms) => {
   const jitter = ms * RETRY_JITTER_RATIO;
   const offset = (Math.random() * (jitter * 2)) - jitter;
@@ -170,6 +291,95 @@ const parseRetryAfterMs = (value) => {
   return null;
 };
 
+const shouldRetry = (status) => status === 429 || status >= 500;
+
+const fetchWithRetry = async (requestFactory) => {
+  let attempt = 0;
+  let lastError = null;
+  while (attempt < MAX_RETRY_ATTEMPTS) {
+    attempt += 1;
+    try {
+      const response = await requestFactory();
+      if (response.ok || response.status === 401 || response.status === 403) {
+        return { response, attempt };
+      }
+      if (!shouldRetry(response.status) || attempt >= MAX_RETRY_ATTEMPTS) {
+        return { response, attempt };
+      }
+      const retryAfter = parseRetryAfterMs(response.headers.get('Retry-After'));
+      const baseDelay = Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * (2 ** (attempt - 1)));
+      const delay = retryAfter != null ? Math.max(retryAfter, jitter(baseDelay)) : jitter(baseDelay);
+      await sleep(delay);
+    } catch (err) {
+      lastError = err;
+      if (attempt >= MAX_RETRY_ATTEMPTS) {
+        return { error: lastError, attempt };
+      }
+      const delay = jitter(Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * (2 ** (attempt - 1))));
+      await sleep(delay);
+    }
+  }
+  return { error: lastError, attempt: MAX_RETRY_ATTEMPTS };
+};
+
+const buildDiscordHeaders = (key, extraHeaders = {}, includeFallback = false) => {
+  const headers = {
+    ...DEFAULT_HEADERS,
+    Authorization: `Bearer ${key}`,
+    ...extraHeaders,
+  };
+  if (includeFallback) {
+    headers['X-CCCG-Secret'] = key;
+  }
+  return headers;
+};
+
+export const testDiscordRelay = async ({ debug = false } = {}) => {
+  const config = getDiscordProxyConfig({ warnOnMissing: true });
+  if (!config) {
+    return { ok: false, code: 'missing_proxy_url', status: 0, detail: 'Missing proxy URL.' };
+  }
+  const key = getDiscordProxyKey();
+  if (!key) {
+    return { ok: false, code: 'missing_proxy_key', status: 0, detail: 'Missing proxy key.' };
+  }
+  if (typeof fetch !== 'function') {
+    return { ok: false, code: 'fetch_unavailable', status: 0, detail: 'Fetch unavailable.' };
+  }
+  const headers = buildDiscordHeaders(key, debug ? { [DEBUG_HEADER]: '1' } : {}, true);
+  const requestInit = { method: 'GET', headers };
+
+  const result = await fetchWithRetry(() => fetch(config.healthUrl, requestInit));
+  if (result.error) {
+    return { ok: false, code: 'network_error', status: 0, detail: result.error?.message || 'Network error.' };
+  }
+  const { response } = result;
+  let detail = null;
+  try {
+    detail = await response.clone().json();
+  } catch {
+    try {
+      detail = await response.text();
+    } catch {
+      detail = null;
+    }
+  }
+  if (response.ok) {
+    return { ok: true, code: 'ok', status: response.status, detail };
+  }
+  if (response.status === 401) {
+    return { ok: false, code: 'unauthorized', status: response.status, detail };
+  }
+  if (response.status === 403) {
+    return { ok: false, code: 'forbidden', status: response.status, detail };
+  }
+  if (response.status === 429) {
+    return { ok: false, code: 'rate_limited', status: response.status, detail };
+  }
+  if (response.status >= 500) {
+    return { ok: false, code: 'server_error', status: response.status, detail };
+  }
+  return { ok: false, code: 'error', status: response.status, detail };
 const classifyRelayStatus = (status) => {
   if (status === 401) return 'unauthorized';
   if (status === 403) return 'forbidden';
@@ -262,6 +472,8 @@ export const testDiscordRelay = async () => {
 
 export const sendEventToDiscordWorker = async (payload) => {
   if (!isDiscordEnabled()) return false;
+  const config = getDiscordProxyConfig({ warnOnMissing: true });
+  if (!config) return false;
   const metaUrl = resolveDiscordProxyUrl();
   const workerUrl = normalizeWorkerUrl(metaUrl);
   if (!isValidWorkerUrl(workerUrl)) {
@@ -275,6 +487,14 @@ export const sendEventToDiscordWorker = async (payload) => {
 
   const requestInit = {
     method: 'POST',
+    headers: buildDiscordHeaders(key),
+    body: JSON.stringify(body),
+  };
+
+  const result = await fetchWithRetry(() => fetch(config.rollUrl, requestInit));
+  if (result.error) {
+    console.warn('Discord relay request failed', result.error);
+    return false;
     headers: {
       ...DEFAULT_HEADERS,
       'X-CCCG-Secret': key,
@@ -352,4 +572,14 @@ export const testDiscordRelay = async () => {
     console.warn('Discord relay health check failed', err);
     return { ok: false, reason: 'network-error', status: 0 };
   }
+  if (result.response.ok) return true;
+  console.warn('Discord relay returned', result.response.status);
+  return false;
+};
+
+export const __test__ = {
+  normalizeProxyBaseUrl,
+  resolveDiscordProxyConfig,
+  isPlaceholderValue,
+  buildDiscordHeaders,
 };

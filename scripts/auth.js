@@ -1,5 +1,16 @@
-const CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
-const EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
+const DEFAULT_CLOUD_BASE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com';
+const DEFAULT_EXPECTED_PROJECT_ID = 'ccccg-7d6b6';
+const WINDOW_FIREBASE_CONFIG = (() => {
+  if (typeof window === 'undefined') return null;
+  const config = window.__CCCG_FIREBASE_CONFIG__;
+  return config && typeof config === 'object' ? config : null;
+})();
+const CLOUD_BASE_URL = typeof WINDOW_FIREBASE_CONFIG?.databaseURL === 'string' && WINDOW_FIREBASE_CONFIG.databaseURL.trim()
+  ? WINDOW_FIREBASE_CONFIG.databaseURL.trim()
+  : DEFAULT_CLOUD_BASE_URL;
+const EXPECTED_PROJECT_ID = typeof WINDOW_FIREBASE_CONFIG?.projectId === 'string' && WINDOW_FIREBASE_CONFIG.projectId.trim()
+  ? WINDOW_FIREBASE_CONFIG.projectId.trim()
+  : DEFAULT_EXPECTED_PROJECT_ID;
 const REQUIRED_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'databaseURL'];
 const AUTH_DOMAIN_WARNING_MESSAGE = 'Firebase Auth may require this host to be added in Firebase Console -> Auth -> Authorized domains.';
 const RESERVED_USERNAMES = new Set(['guest', 'admin', 'system', 'dm']);
@@ -365,8 +376,17 @@ function ensureGuestId() {
   }
 }
 
-function getFirebaseConfig() {
+let forceDefaultConfigForTest = false;
+
+function getFirebaseConfig({ forceDefault = false } = {}) {
+  const shouldForceDefault = forceDefaultConfigForTest || forceDefault;
   if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    if (shouldForceDefault) {
+      return {
+        source: 'default',
+        config: { databaseURL: CLOUD_BASE_URL },
+      };
+    }
     return {
       source: 'test',
       config: {
@@ -379,10 +399,17 @@ function getFirebaseConfig() {
     };
   }
   if (typeof window !== 'undefined' && window.__CCCG_FIREBASE_CONFIG__) {
+    const windowConfig = window.__CCCG_FIREBASE_CONFIG__;
     return {
       source: 'window',
       config: {
-        ...window.__CCCG_FIREBASE_CONFIG__,
+        ...windowConfig,
+        databaseURL: typeof windowConfig?.databaseURL === 'string' && windowConfig.databaseURL.trim()
+          ? windowConfig.databaseURL.trim()
+          : CLOUD_BASE_URL,
+        projectId: typeof windowConfig?.projectId === 'string' && windowConfig.projectId.trim()
+          ? windowConfig.projectId.trim()
+          : EXPECTED_PROJECT_ID,
       },
     };
   }
@@ -393,6 +420,7 @@ function getFirebaseConfig() {
 }
 
 function validateFirebaseConfig(config, source) {
+  if (source !== 'window' && source !== 'test') return;
   const missing = REQUIRED_CONFIG_KEYS.filter(key => typeof config?.[key] !== 'string' || !config[key].trim());
   if (missing.length) {
     const prefix = source === 'window'
@@ -665,6 +693,16 @@ export function getCurrentUser() {
 async function initializeAuthInternal() {
   const firebase = await loadFirebaseCompat();
   const { config: firebaseConfig, source } = getFirebaseConfig();
+  if (source === 'default') {
+    if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      try {
+        window.toast('Firebase authentication is not configured for this deployment.', 'error');
+      } catch {}
+    }
+    const err = new Error('Firebase configuration missing. Add window.__CCCG_FIREBASE_CONFIG__ to index.html.');
+    err.code = 'firebase_config_missing';
+    throw err;
+  }
   validateFirebaseConfig(firebaseConfig, source);
   logEffectiveFirebaseConfig(firebaseConfig);
   assertExpectedProjectId(firebaseConfig);
@@ -748,6 +786,9 @@ export function initFirebaseAuth() {
         const auth = await initializeAuthInternal();
         return auth;
       } catch (err) {
+        if (err?.code === 'firebase_config_missing') {
+          throw err;
+        }
         console.error('Failed to initialize auth', err);
         authMode = 'local';
         restoreLocalSession();
@@ -758,6 +799,12 @@ export function initFirebaseAuth() {
   }
   return authInitPromise;
 }
+
+export const __test__ = {
+  setForceDefaultConfigForTest(value) {
+    forceDefaultConfigForTest = value === true;
+  },
+};
 
 export function getAuthState() {
   return { ...authState };

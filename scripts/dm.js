@@ -34,6 +34,7 @@ import {
   setDiscordProxyKey,
   setDiscordProxyUrl,
 } from './discord-settings.js';
+import { resolveDiscordProxyConfig, testDiscordRelay } from './discord-events.js';
 import { testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
@@ -51,6 +52,9 @@ const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
+const DISCORD_HEALTH_AT_KEY = 'cc:discord:lastHealthCheckedAt';
+const DISCORD_HEALTH_OK_KEY = 'cc:discord:lastHealthOk';
+const DISCORD_HEALTH_WINDOW_MS = 10 * 60 * 1000;
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const DM_ACTIVE_BODY_CLASS = 'dm-active';
 const DM_BADGE_VISIBLE_ATTR = 'data-dm-active';
@@ -201,6 +205,47 @@ let dmNotificationsBaseLabel = '';
 let dmNotificationsHadExplicitAriaLabel = false;
 let notifyModalRef = null;
 let notifyExportFormatRef = null;
+let lastDiscordHealthCheckedAt = null;
+let lastDiscordHealthOk = null;
+
+loadDiscordHealthStatus();
+
+function loadDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const rawAt = sessionStorage.getItem(DISCORD_HEALTH_AT_KEY);
+    const rawOk = sessionStorage.getItem(DISCORD_HEALTH_OK_KEY);
+    const parsedAt = rawAt ? Number(rawAt) : NaN;
+    if (Number.isFinite(parsedAt)) {
+      lastDiscordHealthCheckedAt = parsedAt;
+    }
+    if (rawOk === 'true') {
+      lastDiscordHealthOk = true;
+    } else if (rawOk === 'false') {
+      lastDiscordHealthOk = false;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (Number.isFinite(lastDiscordHealthCheckedAt)) {
+      sessionStorage.setItem(DISCORD_HEALTH_AT_KEY, String(lastDiscordHealthCheckedAt));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_AT_KEY);
+    }
+    if (typeof lastDiscordHealthOk === 'boolean') {
+      sessionStorage.setItem(DISCORD_HEALTH_OK_KEY, String(lastDiscordHealthOk));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_OK_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 let discordMissingKeyToastShown = false;
 let discordSessionState = { cleared: false, enabled: false };
 
@@ -5160,6 +5205,9 @@ function initDMLogin(){
     }
 
     function syncDiscordSettingsUi() {
+      const { enabled, hasKey } = reconcileDiscordSessionState({ warn: false });
+      const proxyConfig = resolveDiscordProxyConfig();
+      const hasProxy = !!proxyConfig?.baseUrl;
       const { enabled } = discordSessionState;
       const proxyKey = getDiscordProxyKey();
       const relayReady = enabled && !!proxyKey;
@@ -5177,8 +5225,37 @@ function initDMLogin(){
         discordKeyInput.value = proxyKey;
         discordKeyInput.value = key;
       }
+      if (discordStatus) {
+        discordStatus.classList.remove(
+          'dm-discord__status--connected',
+          'dm-discord__status--disabled',
+          'dm-discord__status--disconnected'
+        );
+        if (!hasKey) {
+          discordStatus.textContent = 'Disconnected';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!hasProxy) {
+          discordStatus.textContent = 'Misconfigured';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!enabled) {
+          discordStatus.textContent = 'Disabled';
+          discordStatus.classList.add('dm-discord__status--disabled');
+        } else {
+          const now = Date.now();
+          const recentCheck = Number.isFinite(lastDiscordHealthCheckedAt)
+            && now - lastDiscordHealthCheckedAt <= DISCORD_HEALTH_WINDOW_MS;
+          let suffix = 'Unverified';
+          if (recentCheck && lastDiscordHealthOk === false) {
+            suffix = 'Last check failed';
+          } else if (recentCheck && lastDiscordHealthOk === true) {
+            suffix = 'Verified';
+          }
+          discordStatus.textContent = `Connected • ${suffix}`;
+          discordStatus.classList.add('dm-discord__status--connected');
+        }
+      }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !relayReady || !enabled;
+        discordTestBtn.disabled = !hasKey || !hasProxy;
       }
       if (discordStatus) {
         let statusText = 'Disabled';
@@ -5199,6 +5276,7 @@ function initDMLogin(){
 
     function openDiscordSettings() {
       if (!discordModal) return;
+      reconcileDiscordSessionState();
       syncDiscordSettingsUi();
       show('dm-discord-modal');
       if (typeof discordModal.scrollTo === 'function') {
@@ -5246,6 +5324,24 @@ function initDMLogin(){
     };
 
     async function sendDiscordTestMessage() {
+      if (!getDiscordProxyKey()) {
+        toast('Discord relay key is required to test the relay.', 'warn');
+        return;
+      }
+      const result = await testDiscordRelay();
+      lastDiscordHealthCheckedAt = Date.now();
+      lastDiscordHealthOk = !!result.ok;
+      persistDiscordHealthStatus();
+      syncDiscordSettingsUi();
+      if (result.ok) {
+        toast('Discord relay health check passed.', 'success');
+        return;
+      }
+      if (result.code === 'unauthorized' || result.code === 'forbidden') {
+        toast('Discord relay rejected the key. Re-enter the key and try again.', 'warn');
+        return;
+      }
+      toast('Discord relay health check failed.', 'warn');
       if (!isDiscordEnabled()) {
         toast('Enable Discord relay before running a test.', 'warn');
         return;
@@ -10779,6 +10875,7 @@ function initDMLogin(){
 
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
+      reconcileDiscordSessionState({ warn: false });
       refreshDiscordSessionState();
       if (discordEnabledInput.checked) {
         const url = (getDiscordProxyUrl() || '').trim();
@@ -10813,12 +10910,15 @@ function initDMLogin(){
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
+      reconcileDiscordSessionState({ warn: false });
       refreshDiscordSessionState();
       syncDiscordSettingsUi();
     });
 
     discordTestBtn?.addEventListener('click', () => {
-      sendDiscordTestMessage();
+      sendDiscordTestMessage().catch(err => {
+        console.error('Failed to send discord relay test', err);
+      });
     });
 
     const sessionState = refreshDiscordSessionState();

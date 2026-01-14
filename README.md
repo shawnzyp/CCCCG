@@ -20,6 +20,12 @@ Catalyst Core Character Tracker is a mobile friendly character sheet and campaig
 - Usernames are unique and cannot be changed after claim.
 - There is no email login and no password reset flow. Account recovery requires the correct credentials.
 
+## Firebase Configuration Source of Truth
+
+- The runtime Firebase configuration is supplied via `window.__CCCG_FIREBASE_CONFIG__` in `index.html`.
+- `scripts/auth.js` derives `projectId` and `databaseURL` from that runtime config when present, falling back to the default values baked into the build if they are missing.
+- When updating Firebase settings for a deployment, update the `window.__CCCG_FIREBASE_CONFIG__` block so the runtime config, expected project ID, and database URL stay aligned.
+
 ## User Roles and Permissions
 
 - Player. Can read and write their own data and manage their own characters.

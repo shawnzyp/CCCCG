@@ -2484,6 +2484,8 @@
       <header class="dm-discord__header">
         <p class="dm-discord__eyebrow">Discord Relay</p>
         <h3 id="dm-discord-title">Discord Broadcast</h3>
+        <p class="dm-discord__intro">Add the relay key, then test the relay.</p>
+        <p id="dm-discord-status" class="dm-discord__status dm-discord__status--disconnected" aria-live="polite">Disconnected</p>
         <p class="dm-discord__intro">Add the relay key, then send a test event.</p>
         <p id="dm-discord-status" class="dm-discord__status" role="status" aria-live="polite">Disconnected</p>
         <p class="dm-discord__intro">Add the relay URL and key, then run a test.</p>
@@ -2505,6 +2507,7 @@
         </label>
         <div class="dm-discord__field dm-discord__actions" role="group" aria-label="Discord telemetry actions">
           <button type="button" id="dm-discord-test" class="btn-sm">Test Discord Relay</button>
+          <p class="dm-discord__hint">Runs a relay health check without sending a message.</p>
           <p class="dm-discord__hint">Runs a health check to verify the relay.</p>
           <p class="dm-discord__hint">Runs a health check or debug event to verify the relay.</p>
         </div>
@@ -3577,6 +3580,7 @@ aria-label="Open player tools"
 <script type="module" src="scripts/player-tools-drawer.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
 <script type="module" src="scripts/main.js"></script>
+<script src="shard-of-many-fates.js" defer></script>
 <script defer src="shard-of-many-fates.js"></script>
 
 </body>
