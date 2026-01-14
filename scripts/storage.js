@@ -24,7 +24,8 @@ const LAST_SYNCED_PREFIX = 'cc:last-synced:';
 const CONFLICT_SNAPSHOT_PREFIX = 'cc:conflict:';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
 const CLOUD_CHARACTERS_PATH = 'characters';
-const CLOUD_CHARACTER_SLOT_IDS = ['legacy', 'slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const CLOUD_CHARACTER_SLOT_IDS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'];
+const CLOUD_CHARACTER_LEGACY_SLOT_ID = 'legacy';
 let cloudSyncDisabled = false;
 let cloudSyncUnsupported = false;
 let cloudSyncDisabledReason = '';
@@ -1199,6 +1200,10 @@ function isCloudCharacterSlotId(candidate) {
   return CLOUD_CHARACTER_SLOT_IDS.includes(candidate);
 }
 
+function isLegacyCloudCharacterSlotId(candidate) {
+  return candidate === CLOUD_CHARACTER_LEGACY_SLOT_ID;
+}
+
 function getActiveUserPaths({ notify = false } = {}) {
   if (isLocalAuthMode()) {
     showLocalAuthModeNotice();
@@ -1391,9 +1396,15 @@ function resolveLegacySlotId(payload, fallbackId, usedSlots) {
     if (candidate && isCloudCharacterSlotId(candidate) && !usedSlots.has(candidate)) {
       return candidate;
     }
+    if (candidate && isLegacyCloudCharacterSlotId(candidate) && !usedSlots.has(candidate)) {
+      return candidate;
+    }
   }
   for (const slotId of CLOUD_CHARACTER_SLOT_IDS) {
     if (!usedSlots.has(slotId)) return slotId;
+  }
+  if (!usedSlots.has(CLOUD_CHARACTER_LEGACY_SLOT_ID)) {
+    return CLOUD_CHARACTER_LEGACY_SLOT_ID;
   }
   return '';
 }
@@ -1401,7 +1412,7 @@ function resolveLegacySlotId(payload, fallbackId, usedSlots) {
 async function migrateLegacyCloudCharacters(uid, legacyEntries) {
   if (!uid || !Array.isArray(legacyEntries) || legacyEntries.length === 0) return [];
   const existingKeys = await listCloudCharacterKeysFromPath(uid);
-  const usedSlots = new Set(existingKeys.filter(isCloudCharacterSlotId));
+  const usedSlots = new Set(existingKeys.filter(key => isCloudCharacterSlotId(key) || isLegacyCloudCharacterSlotId(key)));
   const sorted = [...legacyEntries].sort((a, b) => {
     const aUpdated = Number(a?.payload?.meta?.updatedAt || a?.payload?.updatedAt) || 0;
     const bUpdated = Number(b?.payload?.meta?.updatedAt || b?.payload?.updatedAt) || 0;
@@ -1414,27 +1425,27 @@ async function migrateLegacyCloudCharacters(uid, legacyEntries) {
       console.warn('No available slots to migrate legacy character', entry.characterId);
       continue;
     }
-    usedSlots.add(slotId);
     const normalizedPayload = applyCloudCharacterSlotToPayload(entry.payload, slotId);
     const updatedAt = Number(normalizedPayload?.meta?.updatedAt || normalizedPayload?.updatedAt) || Date.now();
     const name = getLegacyCharacterName(normalizedPayload, slotId);
     try {
       const targetPath = buildUserCharacterPath(uid, slotId);
-      if (targetPath) {
-        const targetRef = await getDatabaseRef(targetPath);
-        await targetRef.set(normalizedPayload);
-      }
+      if (!targetPath) continue;
+      const targetRef = await getDatabaseRef(targetPath);
+      await targetRef.set(normalizedPayload);
       await saveCharacterIndexEntry(uid, slotId, { name, updatedAt });
+      usedSlots.add(slotId);
+      migrated.push({
+        characterId: slotId,
+        payload: normalizedPayload,
+        name,
+        updatedAt,
+        updatedAtServer: 0,
+      });
     } catch (err) {
       console.warn('Failed to migrate legacy character payload', err);
+      // do not push into migrated, do not reserve the slot
     }
-    migrated.push({
-      characterId: slotId,
-      payload: normalizedPayload,
-      name,
-      updatedAt,
-      updatedAtServer: 0,
-    });
   }
   return migrated;
 }
@@ -2114,7 +2125,8 @@ export async function listCloudCharacterKeys(uid) {
   if (!legacyEntries.length) return [];
   const migrated = await migrateLegacyCloudCharacters(uid, legacyEntries);
   if (migrated.length) return migrated.map(entry => entry.characterId);
-  return legacyEntries.map(entry => entry.characterId);
+  // If migration fails, do not return legacy IDs as canonical keys.
+  return [];
 }
 
 export async function listCloudCharacters(uid) {
@@ -2144,6 +2156,18 @@ export async function listCloudCharacters(uid) {
         name: entry?.name || '',
         updatedAt: Number(entry?.updatedAt) || 0,
         updatedAtServer: Number(entry?.updatedAtServer) || 0,
+      }));
+    }
+
+    // Index missing. Prefer charactersPath before legacy migration.
+    const keys = await listCloudCharacterKeysFromPath(uid);
+    if (keys.length) {
+      return keys.map((characterId) => ({
+        characterId,
+        payload: null,
+        name: '',
+        updatedAt: 0,
+        updatedAtServer: 0,
       }));
     }
   } catch (e) {
