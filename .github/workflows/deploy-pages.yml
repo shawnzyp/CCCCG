@@ -44,7 +44,11 @@ jobs:
             --exclude "src" \
             --exclude "*.md" \
             ./ deploy/
+      - name: DM PIN injection skipped
+        if: ${{ secrets.DM_PIN_SHA256 == '' && secrets.DM_PIN == '' }}
+        run: echo "DM PIN injection skipped"
       - name: Inject DM PIN hash
+        if: ${{ secrets.DM_PIN_SHA256 != '' || secrets.DM_PIN != '' }}
         env:
           DM_PIN: ${{ secrets.DM_PIN }}
           DM_PIN_SHA256: ${{ secrets.DM_PIN_SHA256 }}
@@ -52,12 +56,14 @@ jobs:
       - name: Generate asset manifest
         run: node tools/generate-asset-manifest.mjs deploy
       - name: Assert DM PIN meta tag exists
+        if: ${{ secrets.DM_PIN_SHA256 != '' || secrets.DM_PIN != '' }}
         run: |
           if ! grep -n "name=\"cc-dm-pin-sha256\"" deploy/index.html; then
             echo "DM PIN meta tag is missing from deploy artifact."
             exit 1
           fi
       - name: Assert DM PIN placeholder removed
+        if: ${{ secrets.DM_PIN_SHA256 != '' || secrets.DM_PIN != '' }}
         run: |
           if grep -n -e "__DM_PIN_SHA256__" -e "REPLACE_WITH_DM_PIN_SHA256" deploy/index.html; then
             echo "DM PIN placeholder still present in deploy artifact."
