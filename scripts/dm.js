@@ -10924,10 +10924,6 @@ function initDMLogin(){
       event.preventDefault();
       handleDiscordTest();
     });
-    discordTestBtn?.addEventListener('click', event => {
-      event.preventDefault();
-      handleDiscordTest();
-    });
 
     const sessionState = refreshDiscordSessionState();
     if (!discordMissingKeyToastShown && sessionState.cleared) {

@@ -277,7 +277,7 @@ const bootTasks = [];
 let bootTasksRan = false;
 let bootFinalizeHandled = false;
 let bootWatchdogTimer = null;
-const BOOT_WATCHDOG_MS = 6000;
+const BOOT_WATCHDOG_MS = 10000;
 const registerBootTask = task => {
   if (!bootAlreadyStarted && typeof task === 'function') {
     bootTasks.push(task);
@@ -287,7 +287,25 @@ const runBootTasksOnce = () => {
   if (bootTasksRan || bootAlreadyStarted) return;
   bootTasksRan = true;
   setBootStage('TASKS_SCHEDULED');
+  const scheduleBootWatchdog = () => {
+    if (bootWatchdogTimer || typeof window === 'undefined' || typeof window.setTimeout !== 'function') {
+      return;
+    }
+    bootWatchdogTimer = window.setTimeout(() => {
+      if (bootState.stage === 'READY') return;
+      if (bootState.flags.launchVideoPlaying) {
+        bootWatchdogTimer = null;
+        scheduleBootWatchdog();
+        return;
+      }
+      recordBootError(new Error('Boot watchdog fired'), 'watchdog');
+      bootState.flags.watchdogFired = true;
+      forceBootUIOnce('boot-watchdog');
+      finalizeBootAndRender('boot-watchdog');
+    }, BOOT_WATCHDOG_MS);
+  };
   const run = async () => {
+    scheduleBootWatchdog();
     setBootStage('TASKS_RUNNING');
     const tasks = bootTasks.splice(0, bootTasks.length);
     for (const task of tasks) {
@@ -303,15 +321,6 @@ const runBootTasksOnce = () => {
     setBootStage('TASKS_DONE');
     finalizeBootAndRender('boot-tasks-complete');
   };
-  if (!bootWatchdogTimer && typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
-    bootWatchdogTimer = window.setTimeout(() => {
-      if (bootState.stage === 'READY') return;
-      recordBootError(new Error('Boot watchdog fired'), 'watchdog');
-      bootState.flags.watchdogFired = true;
-      forceBootUIOnce('boot-watchdog');
-      finalizeBootAndRender('boot-watchdog');
-    }, BOOT_WATCHDOG_MS);
-  }
   if (typeof document !== 'undefined' && document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => void run(), { once: true });
   } else {
@@ -3481,6 +3490,7 @@ async function setupLaunchAnimation(){
     if(!playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
       playbackStartedAt = performance.now();
     }
+    bootState.flags.launchVideoPlaying = true;
     cleanupUserGestures();
     playbackRetryTimer = clearTimer(playbackRetryTimer);
     const naturalDuration = Number.isFinite(video.duration) && video.duration > 0
