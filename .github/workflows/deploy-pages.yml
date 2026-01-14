@@ -44,15 +44,11 @@ jobs:
             --exclude "src" \
             --exclude "*.md" \
             ./ deploy/
-      - name: DM PIN injection skipped
-        if: ${{ secrets.DM_PIN_SHA256 == '' && secrets.DM_PIN == '' }}
-        run: echo "DM PIN injection skipped (no secrets)"
-      - name: Inject DM PIN hash
-        if: ${{ secrets.DM_PIN_SHA256 != '' || secrets.DM_PIN != '' }}
+      - name: Inject DM PIN hash (optional)
         env:
           DM_PIN: ${{ secrets.DM_PIN }}
           DM_PIN_SHA256: ${{ secrets.DM_PIN_SHA256 }}
-        run: node tools/inject-dm-pin-hash.mjs deploy/index.html
+        run: node tools/inject-dm-pin-hash.mjs --optional deploy/index.html
       - name: Generate asset manifest
         run: node tools/generate-asset-manifest.mjs deploy
       - name: Assert DM PIN meta tag exists

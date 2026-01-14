@@ -257,7 +257,7 @@ const recordBootError = (err, context = 'unknown') => {
     console.warn('[boot] error', entry);
   }
 };
-if (bootScope && typeof bootScope.addEventListener === 'function') {
+if (!bootAlreadyStarted && bootScope && typeof bootScope.addEventListener === 'function' && !bootScope.__ccccgBootErrorHooksInstalled) {
   const handleBootErrorEvent = event => {
     if (bootState.stage === 'READY') return;
     recordBootError(event?.error || new Error(event?.message || 'Window error'), 'window-error');
@@ -268,6 +268,7 @@ if (bootScope && typeof bootScope.addEventListener === 'function') {
   };
   bootScope.addEventListener('error', handleBootErrorEvent);
   bootScope.addEventListener('unhandledrejection', handleBootRejection);
+  bootScope.__ccccgBootErrorHooksInstalled = true;
 }
 if (bootAlreadyStarted) {
   console.warn('Boot already started; skipping duplicate initialization.');
@@ -26270,6 +26271,7 @@ async function handleAuthSubmit() {
 }
 
 async function submitCreateAccount() {
+  if (authBusy) return;
   const usernameInput = authCreateUsername?.value?.trim() || '';
   const password = authCreatePassword?.value || '';
   const confirm = authCreateConfirm?.value || '';
@@ -26803,12 +26805,6 @@ registerBootTask(() => {
   }
   if (authCreateForm) {
     authCreateForm.addEventListener('submit', event => {
-      event.preventDefault();
-      submitCreateAccount();
-    });
-  }
-  if (authCreateSubmit) {
-    authCreateSubmit.addEventListener('click', event => {
       event.preventDefault();
       submitCreateAccount();
     });
