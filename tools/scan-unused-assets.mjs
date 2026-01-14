@@ -3,7 +3,11 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import readline from 'readline';
 
-const ROOT = path.resolve(process.argv[2] || process.cwd());
+const argv = process.argv.slice(2);
+const flags = new Set(argv.filter((arg) => arg.startsWith('--')));
+const positionalArgs = argv.filter((arg) => !arg.startsWith('--'));
+
+const ROOT = path.resolve(positionalArgs[0] || process.cwd());
 const REPORT_DIR = path.join(ROOT, 'reports');
 const JSON_REPORT = path.join(REPORT_DIR, 'unused-assets.json');
 const TEXT_REPORT = path.join(REPORT_DIR, 'unused-assets.txt');
@@ -45,6 +49,21 @@ const EXCLUDED_FILES = new Set([
 ]);
 
 const EXCLUDED_EXTENSIONS = new Set(['.map']);
+
+const deleteEnabled = flags.has('--delete');
+const reportOnly = flags.has('--report-only');
+const strictMatches = flags.has('--strict');
+const deleteAll = flags.has('--yes');
+
+if (reportOnly && deleteEnabled) {
+  console.error('Choose either --report-only or --delete, not both.');
+  process.exit(1);
+}
+
+if (deleteAll && !deleteEnabled) {
+  console.error('--yes requires --delete.');
+  process.exit(1);
+}
 
 function normalizePath(filePath) {
   return filePath.split(path.sep).join('/');
@@ -94,7 +113,10 @@ function collectFiles(dir, base = '') {
   return files;
 }
 
-function rgHasMatch(query) {
+function rgHasMatch(query, cache) {
+  if (cache.has(query)) {
+    return cache.get(query);
+  }
   const args = [
     '--fixed-strings',
     '--quiet',
@@ -133,13 +155,25 @@ function rgHasMatch(query) {
     stdio: 'ignore',
   });
   if (result.status === 0) {
+    cache.set(query, true);
     return true;
   }
   if (result.status === 1) {
+    cache.set(query, false);
     return false;
   }
   const error = result.error ? result.error.message : 'unknown error';
   throw new Error(`ripgrep failed while searching for "${query}": ${error}`);
+}
+
+function ensureRipgrepAvailable() {
+  const result = spawnSync('rg', ['--version'], {
+    stdio: 'ignore',
+  });
+  if (result.status !== 0) {
+    console.error('ripgrep (rg) is required to run this script. Please install rg and try again.');
+    process.exit(1);
+  }
 }
 
 function ensureReportsDir() {
@@ -156,6 +190,7 @@ function writeReports(report) {
     `Scanned files: ${report.scannedFiles}`,
     `Zero-hit files: ${report.zeroHitFiles.length}`,
     `Deleted files: ${report.deletedFiles}`,
+    `Match strategy: ${report.matchStrategy}`,
     '',
   ];
   if (report.zeroHitFiles.length === 0) {
@@ -166,17 +201,57 @@ function writeReports(report) {
       lines.push(`- ${file.relativePath} (${file.type})${file.deleted ? ' [deleted]' : ''}`);
     }
   }
+  if (report.collisions.length === 0) {
+    lines.push('', 'No basename collisions detected.');
+  } else {
+    lines.push('', 'Basename collisions:');
+    for (const collision of report.collisions) {
+      lines.push(`- ${collision.basename}`);
+      for (const filePath of collision.paths) {
+        lines.push(`  - ${filePath}`);
+      }
+    }
+  }
   fs.writeFileSync(TEXT_REPORT, `${lines.join('\n')}\n`);
 }
 
 async function confirmDeletes(zeroHitFiles) {
+  if (!deleteEnabled || reportOnly) {
+    return 0;
+  }
   if (zeroHitFiles.length === 0) {
     return 0;
   }
+
   if (!process.stdin.isTTY) {
-    console.warn('Non-interactive terminal detected. Skipping deletions.');
+    if (deleteAll) {
+      console.warn('Non-interactive terminal detected. Proceeding with --yes deletions.');
+    } else {
+      console.warn('Non-interactive terminal detected. Skipping deletions (use --delete --yes to override).');
+      return 0;
+    }
+  }
+
+  if (deleteAll) {
+    let deletedCount = 0;
+    for (const file of zeroHitFiles) {
+      const fullPath = path.join(ROOT, file.relativePath);
+      try {
+        fs.unlinkSync(fullPath);
+        file.deleted = true;
+        deletedCount += 1;
+        console.log(`Deleted ${file.relativePath}`);
+      } catch (error) {
+        console.warn(`Failed to delete ${file.relativePath}: ${error.message}`);
+      }
+    }
+    return deletedCount;
+  }
+
+  if (!process.stdin.isTTY) {
     return 0;
   }
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -209,12 +284,33 @@ async function confirmDeletes(zeroHitFiles) {
 }
 
 async function main() {
+  ensureRipgrepAvailable();
   const files = collectFiles(ROOT);
   const zeroHitFiles = [];
+  const queryCache = new Map();
+
+  const assetFiles = files.filter((file) => file.type === 'asset');
+  const collisions = new Map();
+  for (const file of assetFiles) {
+    const baseName = path.basename(file.relativePath);
+    const existing = collisions.get(baseName) || [];
+    existing.push(file.relativePath);
+    collisions.set(baseName, existing);
+  }
+  const collisionList = Array.from(collisions.entries())
+    .filter(([, paths]) => paths.length > 1)
+    .map(([basename, paths]) => ({
+      basename,
+      paths: paths.sort(),
+    }))
+    .sort((a, b) => a.basename.localeCompare(b.basename));
 
   for (const file of files) {
     const baseName = path.basename(file.relativePath);
-    const hasMatch = rgHasMatch(baseName);
+    const relativePath = file.relativePath;
+    const hasRelativeMatch = rgHasMatch(relativePath, queryCache);
+    const hasBaseMatch = strictMatches ? false : rgHasMatch(baseName, queryCache);
+    const hasMatch = strictMatches ? hasRelativeMatch : hasRelativeMatch || hasBaseMatch;
     if (!hasMatch) {
       zeroHitFiles.push({
         ...file,
@@ -231,6 +327,8 @@ async function main() {
     scannedFiles: files.length,
     zeroHitFiles,
     deletedFiles,
+    matchStrategy: strictMatches ? 'strict' : 'default',
+    collisions: collisionList,
   };
 
   writeReports(report);
