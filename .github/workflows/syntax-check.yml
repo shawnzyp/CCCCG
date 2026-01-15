@@ -18,3 +18,7 @@ jobs:
         run: node tools/tests/inject-dm-pin-hash.test.mjs
       - name: Check main.js syntax
         run: node --check scripts/main.js
+      - name: Check dm.js syntax
+        run: node --check scripts/dm.js
+      - name: Check injector syntax
+        run: node --check tools/inject-dm-pin-hash.mjs

@@ -35,7 +35,6 @@ import {
   setDiscordProxyUrl,
 } from './discord-settings.js';
 import { resolveDiscordProxyConfig, testDiscordRelay } from './discord-events.js';
-import { testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -1350,12 +1349,6 @@ function initDMLogin(){
 
   if (loginForm) {
     loginForm.addEventListener('submit', event => {
-      event.preventDefault();
-      handleLoginSubmit(event);
-    });
-  }
-  if (loginSubmit) {
-    loginSubmit.addEventListener('click', event => {
       event.preventDefault();
       handleLoginSubmit(event);
     });
@@ -5221,13 +5214,8 @@ function initDMLogin(){
       const { enabled, hasKey } = reconcileDiscordSessionState({ warn: false });
       const proxyConfig = resolveDiscordProxyConfig();
       const hasProxy = !!proxyConfig?.baseUrl;
-      const { enabled } = discordSessionState;
-      const proxyKey = getDiscordProxyKey();
-      const relayReady = enabled && !!proxyKey;
-      const enabled = isDiscordEnabled();
       const url = (getDiscordProxyUrl() || '').trim();
       const key = (getDiscordProxyKey() || '').trim();
-      const relayReady = enabled && !!url && !!key;
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
@@ -5235,7 +5223,6 @@ function initDMLogin(){
         discordUrlInput.value = url;
       }
       if (discordKeyInput) {
-        discordKeyInput.value = proxyKey;
         discordKeyInput.value = key;
       }
       if (discordStatus) {
@@ -5270,19 +5257,7 @@ function initDMLogin(){
       if (discordTestBtn) {
         discordTestBtn.disabled = !hasKey || !hasProxy;
       }
-      if (discordStatus) {
-        let statusText = 'Disabled';
-        let statusState = 'disabled';
-        if (!proxyKey) {
-          statusText = 'Disconnected';
-          statusState = 'disconnected';
-        } else if (enabled) {
-          statusText = 'Connected';
-          statusState = 'connected';
-        }
-        discordStatus.textContent = statusText;
-        discordStatus.dataset.state = statusState;
-      if (relayReady) {
+      if (enabled && url && key) {
         discordEnableWarningShown = false;
       }
     }
@@ -5337,6 +5312,10 @@ function initDMLogin(){
     };
 
     async function sendDiscordTestMessage() {
+      if (!isDiscordEnabled()) {
+        toast('Enable Discord relay before running a test.', 'warn');
+        return;
+      }
       if (!getDiscordProxyKey()) {
         toast('Discord relay key is required to test the relay.', 'warn');
         return;
@@ -5353,35 +5332,6 @@ function initDMLogin(){
       if (result.code === 'unauthorized' || result.code === 'forbidden') {
         toast('Discord relay rejected the key. Re-enter the key and try again.', 'warn');
         return;
-      }
-      toast('Discord relay health check failed.', 'warn');
-      if (!isDiscordEnabled()) {
-        toast('Enable Discord relay before running a test.', 'warn');
-        return;
-      }
-      const result = await testDiscordRelay();
-      if (result.ok) {
-        toast('Discord relay test succeeded.', 'success');
-        return;
-      }
-      const result = await testDiscordRelay();
-      if (result.ok) {
-        toast('Discord relay is reachable.', 'success');
-      } else {
-        let message = 'Discord relay health check failed.';
-        if (result.reason === 'missing-url') {
-          message = 'Discord relay URL is missing.';
-        } else if (result.reason === 'invalid-url') {
-          message = 'Discord relay URL is invalid.';
-        } else if (result.reason === 'missing-key') {
-          message = 'Discord relay key is missing.';
-        } else if (result.reason === 'network-error') {
-          message = 'Unable to reach the Discord relay.';
-        } else if (result.reason === 'bad-status') {
-          const detail = result.status ? ` (status ${result.status})` : '';
-          message = `Discord relay health check failed${detail}.`;
-        }
-        toast(message, 'warn');
       }
       toast(formatDiscordTestFailure(result), 'warn');
     }
@@ -10944,10 +10894,6 @@ function initDMLogin(){
     };
 
     discordKeyForm?.addEventListener('submit', event => {
-      event.preventDefault();
-      void handleDiscordTest();
-    });
-    discordTestBtn?.addEventListener('click', event => {
       event.preventDefault();
       void handleDiscordTest();
     });
