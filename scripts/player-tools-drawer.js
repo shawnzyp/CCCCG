@@ -479,19 +479,10 @@ function createPlayerToolsDrawer() {
       setDrawerOpen(false);
     };
 
-    const handleClick = (event) => {
-      if (!isOpen) return;
-      if (tray && tray.contains(event.target)) return;
-      if (tab && tab.contains(event.target)) return;
-      setDrawerOpen(false);
-    };
-
     doc.addEventListener('pointerdown', handlePointerDown, true);
-    doc.addEventListener('click', handleClick, true);
 
     removeOutsideCloseListeners = () => {
       doc.removeEventListener('pointerdown', handlePointerDown, true);
-      doc.removeEventListener('click', handleClick, true);
       removeOutsideCloseListeners = null;
     };
   };
