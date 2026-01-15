@@ -9497,7 +9497,7 @@ cursor: pointer;
   #player-tools-tab.pt-tab {
     left: var(--pt-launcher-left, 0px);
     margin-left: 0;
-    transform: translate3d(var(--pt-tab-x, 0px), 0, 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
