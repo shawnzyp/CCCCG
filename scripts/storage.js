@@ -631,7 +631,7 @@ export async function getQueuedCloudSaves() {
         name: typeof entry?.name === 'string' ? entry.name : '',
         ts: Number(entry?.ts),
         queuedAt: Number(entry?.queuedAt),
-        kind: entry?.kind === 'autosave' ? 'autosave' : 'manual',
+        kind: entry?.kind === 'autosave' ? 'autosave' : entry?.kind === 'character' ? 'character' : 'manual',
       }))
       .sort((a, b) => {
         if (Number.isFinite(a.queuedAt) && Number.isFinite(b.queuedAt) && a.queuedAt !== b.queuedAt) {
@@ -968,6 +968,22 @@ function normalizeAutosaveOutboxEntry(entry) {
   };
 }
 
+function buildCharacterIndexPayload({ characterId, payload, entry }) {
+  const resolvedName =
+    entry?.name ||
+    payload?.meta?.name ||
+    payload?.meta?.displayName ||
+    payload?.character?.name ||
+    characterId ||
+    '';
+  const updatedAt = Number(entry?.updatedAt || payload?.meta?.updatedAt || payload?.updatedAt) || Date.now();
+  return {
+    name: resolvedName,
+    updatedAt,
+    updatedAtServer: getServerTimestampValue(),
+  };
+}
+
 async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId }) {
   const autosaveKey = resolveAutosaveKey({ uid, characterId });
   if (!autosaveKey) {
@@ -983,6 +999,37 @@ async function pushQueuedAutosaveLocally({ name, payload, ts, uid, characterId }
   }
   const ref = await getDatabaseRef(`${CLOUD_AUTOSAVES_PATH}/${encoded}/${ts}`);
   await ref.set(serialized.value);
+}
+
+async function pushQueuedCharacterSaveLocally({ uid, characterId, payload, characterIndex }) {
+  const paths = getUserPaths(uid);
+  if (!paths) throw new Error('Missing user id');
+  const encodedCharacterId = encodePath(characterId || '');
+  if (!encodedCharacterId) throw new Error('Missing character id');
+  const serializedPayload = safeJsonStringify(payload);
+  if (!serializedPayload.ok) {
+    const error = new Error('Invalid JSON payload for character save');
+    error.name = 'InvalidPayloadError';
+    error.cause = serializedPayload.error;
+    throw error;
+  }
+  const payloadRef = await getDatabaseRef(`${paths.charactersPath}/${encodedCharacterId}`);
+  await payloadRef.set(serializedPayload.value);
+
+  const indexPayload = buildCharacterIndexPayload({
+    characterId,
+    payload,
+    entry: characterIndex,
+  });
+  const serializedIndex = safeJsonStringify(indexPayload);
+  if (!serializedIndex.ok) {
+    const error = new Error('Invalid JSON payload for character index');
+    error.name = 'InvalidPayloadError';
+    error.cause = serializedIndex.error;
+    throw error;
+  }
+  const indexRef = await getDatabaseRef(`${paths.charactersIndexPath}/${encodedCharacterId}`);
+  await indexRef.set(serializedIndex.value);
 }
 
 async function flushLocalCloudOutbox() {
@@ -1021,6 +1068,8 @@ async function flushLocalCloudOutbox() {
             continue;
           }
           await pushQueuedAutosaveLocally(normalized.entry);
+        } else if (entry?.kind === 'character') {
+          await pushQueuedCharacterSaveLocally(entry);
         } else {
           await attemptCloudSave(entry.name, entry.payload, entry.ts);
         }
@@ -1141,6 +1190,8 @@ async function getCloudUrlsForOutbox() {
     savesUrl: `${base}/${userPaths.savesPath}`,
     historyUrl: `${base}/${userPaths.historyPath}`,
     autosavesUrl: `${base}/${userPaths.autosavesPath}`,
+    charactersUrl: `${base}/${userPaths.charactersPath}`,
+    charactersIndexUrl: `${base}/${userPaths.charactersIndexPath}`,
   };
 }
 
@@ -1877,6 +1928,222 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
     });
     if (typeof indexedDB !== 'undefined') {
       return queueCloudSaveLocally(entry);
+    }
+    return false;
+  }
+}
+
+export async function enqueueCloudCharacterSave(uid, characterId, payload, indexEntry = null) {
+  const resolvedUid = typeof uid === 'string' ? uid.trim() : '';
+  const resolvedCharacterId = typeof characterId === 'string' ? characterId.trim() : '';
+  if (!resolvedUid || !resolvedCharacterId) {
+    console.warn('Missing uid or characterId for queued character save');
+    return false;
+  }
+  const payloadWithServerTime = {
+    ...payload,
+    meta: {
+      ...(payload?.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      updatedAtServer: getServerTimestampValue(),
+    },
+    updatedAtServer: getServerTimestampValue(),
+  };
+  const serializedPayload = safeJsonStringify(payloadWithServerTime);
+  if (!serializedPayload.ok) {
+    console.warn('Failed to serialize character payload for queueing', serializedPayload.error);
+    return false;
+  }
+  const ts = Number(payloadWithServerTime?.meta?.updatedAt || payloadWithServerTime?.updatedAt) || Date.now();
+  const characterIndex = buildCharacterIndexPayload({
+    characterId: resolvedCharacterId,
+    payload: payloadWithServerTime,
+    entry: indexEntry,
+  });
+  const serializedIndex = safeJsonStringify(characterIndex);
+  if (!serializedIndex.ok) {
+    console.warn('Failed to serialize character index payload for queueing', serializedIndex.error);
+    return false;
+  }
+  const deviceId = getDeviceId();
+  const cloudUrls = await getCloudUrlsForOutbox();
+  let entry;
+  try {
+    entry = createCloudSaveOutboxEntry({
+      name: characterIndex.name || resolvedCharacterId,
+      payload: serializedPayload.value,
+      ts,
+      kind: 'character',
+      deviceId,
+      uid: resolvedUid,
+      characterId: resolvedCharacterId,
+      cloudUrls,
+      characterIndex: serializedIndex.value,
+    });
+  } catch (err) {
+    console.error('Failed to prepare character save entry', err);
+    return false;
+  }
+
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    const queued = await queueCloudSaveLocally(entry);
+    if (queued) {
+      setSyncStatus('queued');
+    }
+    return queued;
+  }
+
+  try {
+    const ready = await navigator.serviceWorker.ready;
+    const controller = navigator.serviceWorker.controller || null;
+    const activeWorker = ready?.active || null;
+    if (!controller) {
+      const queued = await queueCloudSaveLocally(entry);
+      if (ready?.sync && typeof ready.sync.register === 'function') {
+        try {
+          await ready.sync.register('cloud-save-sync');
+        } catch {}
+      }
+      scheduleControllerFlush(ready);
+      if (queued) {
+        setSyncStatus('queued');
+      }
+      return queued;
+    }
+
+    const requestId = nextCloudQueueRequestId++;
+    const message = {
+      type: 'queue-cloud-save',
+      name: entry.name,
+      payload: entry.payload,
+      ts: entry.ts,
+      deviceId,
+      uid: resolvedUid,
+      characterId: resolvedCharacterId,
+      characterIndex: entry.characterIndex,
+      kind: entry.kind,
+      queuedAt: entry.queuedAt,
+      cloudUrls: entry.cloudUrls || null,
+      requestId,
+    };
+
+    const ackTimeoutMs = 5000;
+    const waitForAck = () => {
+      if (typeof MessageChannel === 'function') {
+        const channel = new MessageChannel();
+        const { port1, port2 } = channel;
+        return new Promise(resolve => {
+          let settled = false;
+          const cleanup = () => {
+            settled = true;
+            try { port1.onmessage = null; } catch {}
+            try { port1.close(); } catch {}
+          };
+          const timeoutId = setTimeout(() => {
+            if (settled) return;
+            cleanup();
+            resolve({ ok: false, error: { message: 'Timed out waiting for service worker' }, timeout: true });
+          }, ackTimeoutMs);
+          port1.onmessage = event => {
+            if (settled) return;
+            clearTimeout(timeoutId);
+            cleanup();
+            resolve(event?.data ?? null);
+          };
+          controller.postMessage(message, [port2]);
+        });
+      }
+
+      return new Promise(resolve => {
+        let settled = false;
+        let timeoutId = null;
+        const cleanup = () => {
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (typeof navigator?.serviceWorker?.removeEventListener === 'function') {
+            try { navigator.serviceWorker.removeEventListener('message', handler); } catch {}
+          }
+        };
+        const handler = event => {
+          const detail = event?.data;
+          if (!detail || typeof detail !== 'object') return;
+          if (detail.type !== 'queue-cloud-save-result') return;
+          if (detail.requestId !== requestId) return;
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(detail);
+        };
+        if (typeof navigator?.serviceWorker?.addEventListener === 'function') {
+          try { navigator.serviceWorker.addEventListener('message', handler, { once: false }); } catch {}
+        }
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ ok: false, error: { message: 'Timed out waiting for service worker' }, timeout: true });
+        }, ackTimeoutMs);
+        try {
+          controller.postMessage(message);
+        } catch (err) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ ok: false, error: err });
+        }
+      });
+    };
+
+    const response = await waitForAck();
+    if (!response || response.ok !== true) {
+      const responseError = response?.error ?? null;
+      const normalizedError = (() => {
+        if (responseError instanceof Error) return responseError;
+        if (responseError && typeof responseError === 'object') {
+          const err = new Error(responseError.message || 'Failed to queue character save');
+          Object.assign(err, responseError);
+          return err;
+        }
+        if (typeof responseError === 'string') {
+          return new Error(responseError);
+        }
+        if (response?.timeout) {
+          return new Error('Timed out waiting for service worker to queue character save');
+        }
+        return new Error('Failed to queue character save');
+      })();
+      console.error('Service worker failed to queue character save', normalizedError);
+      emitSyncError({
+        message: 'Failed to queue character save',
+        error: normalizedError,
+        name: entry.name,
+        timestamp: Date.now(),
+      });
+      return false;
+    }
+
+    emitSyncQueueUpdate();
+    if (ready.sync && typeof ready.sync.register === 'function') {
+      await ready.sync.register('cloud-save-sync');
+    } else {
+      (controller || activeWorker)?.postMessage({ type: 'flush-cloud-saves' });
+    }
+    setSyncStatus('queued');
+    return true;
+  } catch (e) {
+    console.error('Failed to queue character save', e);
+    emitSyncError({
+      message: 'Failed to queue character save',
+      error: e,
+      timestamp: Date.now(),
+    });
+    if (typeof indexedDB !== 'undefined') {
+      const queued = await queueCloudSaveLocally(entry);
+      if (queued) {
+        setSyncStatus('queued');
+      }
+      return queued;
     }
     return false;
   }

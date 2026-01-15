@@ -15,6 +15,7 @@ import {
   getActiveAuthUserId,
   loadCloudCharacter,
   saveCloudCharacter,
+  enqueueCloudCharacterSave,
   deleteCloudCharacter,
   saveCharacterIndexEntry,
   deleteCharacterIndexEntry,
@@ -67,6 +68,17 @@ function normalizedCharacterName(name) {
   const canonical = canonicalCharacterKey(name);
   if (canonical) return canonical;
   return typeof name === 'string' ? name.trim() : '';
+}
+
+function isOfflineSaveError(err) {
+  if (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  ) {
+    return true;
+  }
+  return err?.name === 'TypeError';
 }
 
 function getCharacterIdStorageKey(name) {
@@ -1377,6 +1389,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
     } catch (err) {
       console.error('Failed to update local recovery snapshot', err);
     }
+    let queuedCloudSave = false;
     try {
       if (authUid) {
         await saveCloudCharacter(authUid, characterId, payload);
@@ -1387,14 +1400,27 @@ export async function saveCharacter(data, name = currentCharacter()) {
         writeLastSyncedAt(characterId, payload.meta.updatedAt);
       }
     } catch (err) {
-      console.error('Cloud save failed', err);
+      if (authUid && isOfflineSaveError(err)) {
+        const queued = await enqueueCloudCharacterSave(authUid, characterId, payload, {
+          name: displayCharacterName(name),
+          updatedAt: payload.meta.updatedAt,
+        });
+        if (queued) {
+          queuedCloudSave = true;
+          safeToast('Offline mode: character save queued for cloud sync.', 'warning');
+        } else {
+          console.warn('Failed to queue character save for retry', err);
+        }
+      } else {
+        console.error('Cloud save failed', err);
+      }
     }
     try {
       document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
     } catch (err) {
       console.error('Failed to dispatch character-saved event', err);
     }
-    return true;
+    return queuedCloudSave ? 'queued' : true;
   } catch (err) {
     throw reportCharacterError(err, `Failed to save character "${name}"`);
   }

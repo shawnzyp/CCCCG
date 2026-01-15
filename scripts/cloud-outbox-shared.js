@@ -89,7 +89,18 @@
     });
   }
 
-  function createCloudSaveOutboxEntry({ name, payload, ts, kind, queuedAt, deviceId, uid, characterId, cloudUrls }) {
+  function createCloudSaveOutboxEntry({
+    name,
+    payload,
+    ts,
+    kind,
+    queuedAt,
+    deviceId,
+    uid,
+    characterId,
+    cloudUrls,
+    characterIndex,
+  }) {
     if (typeof name !== 'string' || !name) {
       throw new TypeError('Invalid cloud save entry name');
     }
@@ -97,7 +108,12 @@
     if (!Number.isFinite(normalizedTs)) {
       throw new TypeError('Invalid cloud save entry timestamp');
     }
-    const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
+    const entryKind =
+      kind === 'autosave'
+        ? 'autosave'
+        : kind === 'character'
+          ? 'character'
+          : 'manual';
     return {
       name,
       payload,
@@ -108,6 +124,7 @@
       uid: typeof uid === 'string' && uid ? uid : null,
       characterId: typeof characterId === 'string' && characterId ? characterId : null,
       cloudUrls: cloudUrls && typeof cloudUrls === 'object' ? { ...cloudUrls } : null,
+      characterIndex: characterIndex && typeof characterIndex === 'object' ? { ...characterIndex } : null,
     };
   }
 
