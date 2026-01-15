@@ -1424,6 +1424,32 @@
     </div>
   </fieldset>
 
+  <footer>
+    <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
+    <button id="dm-login" class="dm-login-btn" type="button" aria-label="DM Tools">
+      <img class="dm-login-logo" src="images/XoVrom.png" alt="XoVrom Industries logo">
+    </button>
+    <div class="dm-tools-portal">
+      <div id="dm-tools-menu" class="dm-tools-menu" hidden>
+        <button id="dm-tools-tsomf" class="btn-sm is-active" data-dm-tool="tsomf" aria-current="page">TSoMF</button>
+        <button id="dm-tools-notifications" class="btn-sm" data-unread="0" data-dm-tool="notifications">
+          Notifications
+          <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
+        </button>
+        <button id="dm-tools-rewards" class="btn-sm" data-dm-tool="rewards">Rewards &amp; Catalog</button>
+        <button id="dm-tools-discord" class="btn-sm" data-dm-tool="discord">Discord Telemetry</button>
+        <button id="dm-tools-characters" class="btn-sm" data-dm-tool="characters">Characters</button>
+        <button id="dm-tools-mini-games" class="btn-sm" data-dm-tool="mini-games">Mini-Games</button>
+        <button id="dm-tools-logout" class="btn-sm" data-dm-tool="logout">Logout</button>
+      </div>
+      <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
+        <img class="dm-tools-toggle__icon" src="images/settings.png" alt="" aria-hidden="true" />
+        <span class="sr-only">DM Tools</span>
+        <span class="dm-tools-badge dm-tools-toggle__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
+      </button>
+    </div>
+  </footer>
+
 </main>
 
 
@@ -2331,31 +2357,6 @@
   </div>
 </div>
 
-<footer>
-  <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
-  <button id="dm-login" class="dm-login-btn" type="button" aria-label="DM Tools">
-    <img class="dm-login-logo" src="images/XoVrom.png" alt="XoVrom Industries logo">
-  </button>
-  <div class="dm-tools-portal">
-    <div id="dm-tools-menu" class="dm-tools-menu" hidden>
-      <button id="dm-tools-tsomf" class="btn-sm is-active" data-dm-tool="tsomf" aria-current="page">TSoMF</button>
-      <button id="dm-tools-notifications" class="btn-sm" data-unread="0" data-dm-tool="notifications">
-        Notifications
-        <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
-      </button>
-      <button id="dm-tools-rewards" class="btn-sm" data-dm-tool="rewards">Rewards &amp; Catalog</button>
-      <button id="dm-tools-discord" class="btn-sm" data-dm-tool="discord">Discord Telemetry</button>
-      <button id="dm-tools-characters" class="btn-sm" data-dm-tool="characters">Characters</button>
-      <button id="dm-tools-mini-games" class="btn-sm" data-dm-tool="mini-games">Mini-Games</button>
-      <button id="dm-tools-logout" class="btn-sm" data-dm-tool="logout">Logout</button>
-    </div>
-    <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
-      <img class="dm-tools-toggle__icon" src="images/settings.png" alt="" aria-hidden="true" />
-      <span class="sr-only">DM Tools</span>
-      <span class="dm-tools-badge dm-tools-toggle__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
-    </button>
-  </div>
-</footer>
 <div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
   <div class="modal-frame">
     <section class="modal dm-login" role="dialog" aria-modal="true" aria-labelledby="dm-login-title">
