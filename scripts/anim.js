@@ -1,3 +1,5 @@
+import { clamp } from './helpers.js';
+
 // Full-screen hit FX (separate from Player Tools drawer cracks)
 (() => {
   if (typeof document === 'undefined') return;
@@ -11,8 +13,6 @@
   // If you previously used 1200ms, this becomes 2200ms total.
   const HIT_FX_DURATION_MS = 2200;
   const HIT_FX_COOLDOWN_MS = 250;
-
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
   const queryFirst = (selectors) => {
     for (const sel of selectors) {

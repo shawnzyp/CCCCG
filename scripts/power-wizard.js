@@ -1,3 +1,5 @@
+import { clamp, getGlobal } from './helpers.js';
+
 /* scripts/power-wizard.js
    Power Wizard v2: responsive, intuitive, supports create/edit/duplicate,
    and updates existing powers in-place without duplication.
@@ -40,24 +42,12 @@ const STEPS = [
   { key: 'review', label: 'Review' },
 ];
 
-function getGlobal() {
-  try {
-    if (typeof window !== 'undefined') return window;
-    if (typeof globalThis !== 'undefined') return globalThis;
-  } catch (_) {}
-  return null;
-}
-
 function $(sel, root = document) {
   return root ? root.querySelector(sel) : null;
 }
 
 function $all(sel, root = document) {
   return root ? Array.from(root.querySelectorAll(sel)) : [];
-}
-
-function clamp(n, a, b) {
-  return Math.max(a, Math.min(b, n));
 }
 
 function safeText(v) {
