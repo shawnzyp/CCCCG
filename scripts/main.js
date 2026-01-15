@@ -41,6 +41,7 @@ import {
   getRosterLoginStateLocal,
   getRosterLoginState,
   signInWithRosterPin,
+  createAccountWithUsernamePassword,
   normalizeRosterUsername,
   checkUsernameAvailability,
   normalizeUsername,
@@ -221,11 +222,62 @@ const bootAlreadyStarted = !!(bootScope && bootScope.__CCCG_BOOT_STARTED__);
 if (bootScope && !bootScope.__CCCG_BOOT_STARTED__) {
   bootScope.__CCCG_BOOT_STARTED__ = true;
 }
+const bootState = {
+  stage: 'INIT',
+  startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now(),
+  errors: [],
+  flags: {},
+};
+if (bootScope) {
+  bootScope.__ccccgBootState = bootState;
+}
+const bootDebug = (() => {
+  if (bootScope && bootScope.__CCCCG_BOOT_DEBUG__) return true;
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('cc:boot-debug') === 'true';
+  } catch {
+    return false;
+  }
+})();
+const setBootStage = stage => {
+  bootState.stage = stage;
+  if (bootDebug) {
+    console.info(`[boot] stage=${stage}`);
+  }
+};
+const recordBootError = (err, context = 'unknown') => {
+  const entry = {
+    context,
+    message: err?.message || String(err),
+    stack: err?.stack || null,
+    at: Date.now(),
+  };
+  bootState.errors.push(entry);
+  if (bootDebug) {
+    console.warn('[boot] error', entry);
+  }
+};
+if (!bootAlreadyStarted && bootScope && typeof bootScope.addEventListener === 'function' && !bootScope.__ccccgBootErrorHooksInstalled) {
+  const handleBootErrorEvent = event => {
+    if (bootState.stage === 'READY') return;
+    recordBootError(event?.error || new Error(event?.message || 'Window error'), 'window-error');
+  };
+  const handleBootRejection = event => {
+    if (bootState.stage === 'READY') return;
+    recordBootError(event?.reason || new Error('Unhandled promise rejection'), 'unhandledrejection');
+  };
+  bootScope.addEventListener('error', handleBootErrorEvent);
+  bootScope.addEventListener('unhandledrejection', handleBootRejection);
+  bootScope.__ccccgBootErrorHooksInstalled = true;
+}
 if (bootAlreadyStarted) {
   console.warn('Boot already started; skipping duplicate initialization.');
 }
 const bootTasks = [];
 let bootTasksRan = false;
+let bootFinalizeHandled = false;
+let bootWatchdogTimer = null;
+const BOOT_WATCHDOG_MS = 10000;
 const registerBootTask = task => {
   if (!bootAlreadyStarted && typeof task === 'function') {
     bootTasks.push(task);
@@ -234,20 +286,45 @@ const registerBootTask = task => {
 const runBootTasksOnce = () => {
   if (bootTasksRan || bootAlreadyStarted) return;
   bootTasksRan = true;
-  const run = () => {
-    const tasks = bootTasks.splice(0, bootTasks.length);
-    tasks.forEach(task => {
-      try {
-        task();
-      } catch (err) {
-        console.error('Boot task failed', err);
+  setBootStage('TASKS_SCHEDULED');
+  const scheduleBootWatchdog = () => {
+    if (bootWatchdogTimer || typeof window === 'undefined' || typeof window.setTimeout !== 'function') {
+      return;
+    }
+    bootWatchdogTimer = window.setTimeout(() => {
+      if (bootState.stage === 'READY') return;
+      if (bootState.flags.launchVideoPlaying) {
+        bootWatchdogTimer = null;
+        scheduleBootWatchdog();
+        return;
       }
-    });
+      recordBootError(new Error('Boot watchdog fired'), 'watchdog');
+      bootState.flags.watchdogFired = true;
+      forceBootUIOnce('boot-watchdog');
+      finalizeBootAndRender('boot-watchdog');
+    }, BOOT_WATCHDOG_MS);
+  };
+  const run = async () => {
+    scheduleBootWatchdog();
+    setBootStage('TASKS_RUNNING');
+    const tasks = bootTasks.splice(0, bootTasks.length);
+    for (const task of tasks) {
+      try {
+        const result = task();
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      } catch (err) {
+        recordBootError(err, 'boot-task');
+      }
+    }
+    setBootStage('TASKS_DONE');
+    finalizeBootAndRender('boot-tasks-complete');
   };
   if (typeof document !== 'undefined' && document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', () => void run(), { once: true });
   } else {
-    run();
+    void run();
   }
 };
 
@@ -2690,6 +2767,37 @@ function runPostBootUIHooksOnce() {
   schedulePlayerToolsLauncherReposition('post-boot');
 }
 
+function finalizeBootAndRender(reason = 'boot-complete') {
+  if (bootFinalizeHandled) return;
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const isLaunching = !!(body && body.classList.contains('launching'));
+  if (isLaunching && !launchSequenceComplete) {
+    bootState.flags.pendingFinalize = true;
+    if (bootDebug) {
+      console.info(`[boot] finalize deferred (${reason}).`);
+    }
+    return;
+  }
+  bootFinalizeHandled = true;
+  bootState.flags.finalizeReason = reason;
+  setBootStage('RENDERING');
+  try {
+    ensureDefaultMainTab('combat');
+    runPostBootUIHooksOnce();
+  } catch (err) {
+    recordBootError(err, 'finalize');
+    if (!bootState.flags.finalizeRecovering) {
+      bootState.flags.finalizeRecovering = true;
+      forceBootUIOnce('finalize-error');
+    }
+  }
+  setBootStage('READY');
+  if (bootWatchdogTimer) {
+    clearTimeout(bootWatchdogTimer);
+    bootWatchdogTimer = null;
+  }
+}
+
 function forceBootUIOnce(reason = 'launch-failsafe') {
   if (bootCompletionHandled) return;
   forceBootUI(reason);
@@ -2711,8 +2819,11 @@ function forceBootUI(reason = 'launch-failsafe') {
     body.classList.remove('launching');
   }
   if (body) {
-    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal], [inert]');
-    inertTargets.forEach(el => {
+    const inertTargets = body.querySelectorAll('[data-cc-inert-by-modal]');
+    const shouldClearAll = bootState.flags.watchdogFired === true;
+    const extraTargets = shouldClearAll ? body.querySelectorAll('[inert]') : [];
+    const targets = [...inertTargets, ...extraTargets];
+    targets.forEach(el => {
       try {
         el.removeAttribute('data-cc-inert-by-modal');
         el.removeAttribute('inert');
@@ -2729,8 +2840,13 @@ function forceBootUI(reason = 'launch-failsafe') {
     launchShell.parentNode.removeChild(launchShell);
   }
   markLaunchSequenceComplete();
-  ensureDefaultMainTab('combat');
-  runPostBootUIHooksOnce();
+  try {
+    ensureDefaultMainTab('combat');
+    runPostBootUIHooksOnce();
+  } catch (err) {
+    recordBootError(err, 'force-boot');
+  }
+  finalizeBootAndRender(`force-boot:${reason}`);
 }
 
 function hideWelcomeModalPanel() {
@@ -2904,6 +3020,16 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 }
 async function setupLaunchAnimation(){
   try {
+    if (typeof window !== 'undefined') {
+      if (window.__ccccgIntroStarted) {
+        if (bootDebug) {
+          console.info('[boot] intro already started; skipping duplicate init.');
+        }
+        return;
+      }
+      window.__ccccgIntroStarted = true;
+    }
+    bootState.flags.introStarted = true;
     if (typeof document === 'undefined') {
       unlockTouchControls();
       markLaunchSequenceComplete();
@@ -3364,6 +3490,7 @@ async function setupLaunchAnimation(){
     if(!playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
       playbackStartedAt = performance.now();
     }
+    bootState.flags.launchVideoPlaying = true;
     cleanupUserGestures();
     playbackRetryTimer = clearTimer(playbackRetryTimer);
     const naturalDuration = Number.isFinite(video.duration) && video.duration > 0
@@ -3435,6 +3562,7 @@ async function setupLaunchAnimation(){
     }
   } catch (err) {
     console.error('Launch animation failed; continuing boot.', err);
+    recordBootError(err, 'launch-animation');
     forceBootUIOnce('launch-error');
   }
 }
@@ -4343,28 +4471,28 @@ async function ensureFunTips(){
 async function pinPrompt(message){
   const modal = $('modal-pin');
   const title = $('pin-title');
+  const form = $('pin-form');
   const input = $('pin-input');
-  const submit = $('pin-submit');
   const close = $('pin-close');
-  if(!modal || !input || !submit || !close){
+  if(!modal || !form || !input || !close){
     return typeof prompt === 'function' ? prompt(message) : null;
   }
   title.textContent = message;
   return new Promise(resolve => {
     function cleanup(result){
-      submit.removeEventListener('click', onSubmit);
-      input.removeEventListener('keydown', onKey);
+      form.removeEventListener('submit', onSubmit);
       close.removeEventListener('click', onCancel);
       modal.removeEventListener('click', onOverlay);
       hide('modal-pin');
       resolve(result);
     }
-    function onSubmit(){ cleanup(input.value); }
+    function onSubmit(event){
+      event?.preventDefault?.();
+      cleanup(input.value);
+    }
     function onCancel(){ cleanup(null); }
-    function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
     function onOverlay(e){ if(e.target===modal) onCancel(); }
-    submit.addEventListener('click', onSubmit);
-    input.addEventListener('keydown', onKey);
+    form.addEventListener('submit', onSubmit);
     close.addEventListener('click', onCancel);
     modal.addEventListener('click', onOverlay);
     show('modal-pin');
@@ -24372,6 +24500,10 @@ function markLaunchSequenceComplete(){
   launchSequenceComplete = true;
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
+  if (bootState.flags.pendingFinalize) {
+    bootState.flags.pendingFinalize = false;
+  }
+  finalizeBootAndRender('launch-complete');
 }
 
 function markWelcomeSequenceComplete(){
@@ -25268,6 +25400,8 @@ const welcomeContinue = $('welcome-continue');
 const welcomeCreate = $('welcome-create');
 const authLoginModal = $('modal-auth-login');
 const authCreateModal = $('modal-auth-create');
+const authLoginForm = $('auth-login-form');
+const authCreateForm = $('auth-create-form');
 const authLoginUsername = $('auth-login-username');
 const authLoginPin = $('auth-login-pin');
 const authLoginConfirm = $('auth-login-confirm');
@@ -25701,22 +25835,12 @@ if (authLoginPin) {
     authLoginPin.value = normalizeRosterPinInput(authLoginPin.value || '');
     setAuthError('', 'login');
   });
-  authLoginPin.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      handleAuthSubmit();
-    }
-  });
 }
 
 if (authLoginConfirm) {
   authLoginConfirm.addEventListener('input', () => {
     authLoginConfirm.value = normalizeRosterPinInput(authLoginConfirm.value || '');
     setAuthError('', 'login');
-  });
-  authLoginConfirm.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      handleAuthSubmit();
-    }
   });
 }
 
@@ -26153,6 +26277,65 @@ async function handleAuthSubmit() {
       pendingRosterBootstrap = false;
       rosterBootstrapPreferLegacy = false;
     }
+  }
+}
+
+async function submitCreateAccount() {
+  if (authBusy) return;
+  const usernameInput = authCreateUsername?.value?.trim() || '';
+  const password = authCreatePassword?.value || '';
+  const confirm = authCreateConfirm?.value || '';
+  try {
+    clearAuthErrors();
+    setAuthBusy(true);
+    await primeFirebaseAuth();
+    const normalized = normalizeUsername(usernameInput);
+    if (!usernameInput || !normalized) {
+      setAuthError('Enter a valid username to continue.', 'create');
+      return;
+    }
+    const lengthError = getPasswordLengthError(password, passwordPolicy);
+    if (lengthError) {
+      setAuthError(lengthError, 'create');
+      return;
+    }
+    if (!password) {
+      setAuthError('Enter a password to continue.', 'create');
+      return;
+    }
+    if (!confirm) {
+      setAuthError('Confirm your password to continue.', 'create');
+      return;
+    }
+    if (password !== confirm) {
+      setAuthError('Passwords do not match.', 'create');
+      return;
+    }
+    const unmetRules = updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+    if (unmetRules.length) {
+      setAuthError('Password does not meet requirements.', 'create');
+      return;
+    }
+    pendingPostAuthChoice = true;
+    await createAccountWithUsernamePassword(usernameInput, password);
+    hide('modal-auth-create');
+    pendingPostAuthChoice = false;
+  } catch (err) {
+    console.error('Failed to create account', err);
+    const policyError = applyPasswordPolicyError({
+      container: authPasswordPolicy,
+      password,
+      policy: passwordPolicy,
+      error: err,
+    });
+    if (policyError?.message) {
+      setAuthError(policyError.message, 'create');
+      return;
+    }
+    setAuthError(getFriendlySignupError(err), 'create');
+  } finally {
+    setAuthBusy(false);
+    updateCreateSubmitState();
   }
 }
 
@@ -26624,8 +26807,17 @@ registerBootTask(() => {
       });
     });
   }
-  if (authLoginSubmit) {
-    authLoginSubmit.addEventListener('click', () => handleAuthSubmit());
+  if (authLoginForm) {
+    authLoginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      handleAuthSubmit();
+    });
+  }
+  if (authCreateForm) {
+    authCreateForm.addEventListener('submit', event => {
+      event.preventDefault();
+      submitCreateAccount();
+    });
   }
   if (authLoginCancel) {
     authLoginCancel.addEventListener('click', () => {
