@@ -8902,7 +8902,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 :root {
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
   --pt-launcher-top: 50%;
-  --pt-launcher-left: max(0px, env(safe-area-inset-left, 0px));
+  --pt-launcher-left: 0px;
 }
 
 /* Player Tools tray trigger (vertical tab on the left edge) */
