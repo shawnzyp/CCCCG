@@ -2486,7 +2486,6 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const safeTop = getSafeAreaInsetTop();
   const launcherRect = playerToolsTabElement.getBoundingClientRect();
   const launcherHeight = launcherRect.height || 0;
-  const launcherWidth = launcherRect.width || 0;
   const desiredTop = viewportHeight * 0.75;
   const minTop = headerHeight + tickerHeight + safeTop + 12;
   const top = Math.max(0, desiredTop);
@@ -2495,24 +2494,9 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const clampedTop = ccClamp(top, Math.max(minTop, topMargin + safeTop), maxTop);
   const safeLeft = getSafeAreaInsetLeft();
   const baseLeft = safeLeft + 12;
-  let left = baseLeft;
-
-  if (document.body?.classList.contains('player-tools-open')) {
-    const shell = document.querySelector('.player-tools-shell, .player-tools-phone__shell, #player-tools-drawer .pt-device__shell');
-    if (shell) {
-      const shellRect = shell.getBoundingClientRect();
-      if (Number.isFinite(shellRect.left)) {
-        left = shellRect.left - (launcherWidth * 0.35);
-      }
-    }
-  }
-
-  const maxLeft = Math.max(baseLeft, (window.innerWidth || 0) - launcherWidth - 12);
-  left = clamp(left, baseLeft, maxLeft);
+  const left = baseLeft;
 
   document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(top)}px`);
-  left = ccClamp(left, baseLeft, maxLeft);
-
   document.documentElement.style.setProperty('--pt-launcher-top', `${Math.round(clampedTop)}px`);
   document.documentElement.style.setProperty('--pt-launcher-left', `${Math.round(left)}px`);
   playerToolsTabElement.dataset.launcherReason = reason;
