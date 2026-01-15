@@ -67,6 +67,10 @@ function readPreferredAuthMode() {
     const mode = String(w.__CCCG_AUTH_MODE__ || '').trim().toLowerCase();
     if (mode === 'firebase') return 'firebase';
     if (mode === 'local') return 'local';
+    const config = w.__CCCG_FIREBASE_CONFIG__;
+    const hasConfig = config && typeof config === 'object'
+      && REQUIRED_CONFIG_KEYS.every(key => typeof config[key] === 'string' && config[key].trim());
+    if (hasConfig) return 'firebase';
     return 'local';
   } catch {
     return 'local';
