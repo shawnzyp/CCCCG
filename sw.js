@@ -319,8 +319,12 @@ function normalizeAutosaveEntry(entry) {
   };
 }
 
-async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloudUrls }) {
-  const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
+async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloudUrls, characterIndex }) {
+  const entryKind = kind === 'autosave'
+    ? 'autosave'
+    : kind === 'character'
+      ? 'character'
+      : 'manual';
   const serialized = safeJsonStringify(payload);
   if (!serialized.ok) {
     const error = new Error('Invalid JSON payload for cloud save');
@@ -344,6 +348,51 @@ async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloud
       body: serialized.json,
     });
     if (!autosaveRes.ok) throw new Error(`HTTP ${autosaveRes.status}`);
+    return;
+  }
+
+  if (entryKind === 'character') {
+    const resolvedId = typeof characterId === 'string' && characterId.trim()
+      ? characterId.trim()
+      : typeof name === 'string'
+        ? name.trim()
+        : '';
+    if (!resolvedId) {
+      throw new Error('Missing characterId for character save');
+    }
+    const charactersBase = cloudUrls?.charactersUrl;
+    const indexBase = cloudUrls?.charactersIndexUrl;
+    if (!charactersBase || !indexBase) {
+      throw new Error('Missing character save base URL');
+    }
+    const encoded = encodePath(resolvedId);
+    const characterRes = await fetch(`${charactersBase}/${encoded}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: serialized.json,
+    });
+    if (!characterRes.ok) throw new Error(`HTTP ${characterRes.status}`);
+
+    const indexPayload = characterIndex && typeof characterIndex === 'object'
+      ? characterIndex
+      : {
+          name: resolvedId,
+          updatedAt: Date.now(),
+          updatedAtServer: Date.now(),
+        };
+    const serializedIndex = safeJsonStringify(indexPayload);
+    if (!serializedIndex.ok) {
+      const error = new Error('Invalid JSON payload for character index');
+      error.name = 'InvalidPayloadError';
+      error.cause = serializedIndex.error;
+      throw error;
+    }
+    const indexRes = await fetch(`${indexBase}/${encoded}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: serializedIndex.json,
+    });
+    if (!indexRes.ok) throw new Error(`HTTP ${indexRes.status}`);
     return;
   }
 
@@ -609,7 +658,7 @@ self.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'queue-cloud-save') {
-    const { name, payload, ts, uid = '', characterId = '', requestId = null } = data;
+    const { name, payload, ts, uid = '', characterId = '', characterIndex = null, requestId = null } = data;
     const port = Array.isArray(event.ports) && event.ports.length ? event.ports[0] : null;
     const respond = message => {
       if (!message || typeof message !== 'object') return;
@@ -657,9 +706,10 @@ self.addEventListener('message', event => {
         name,
         payload,
         ts,
-        kind: data.kind === 'autosave' ? 'autosave' : 'manual',
+        kind: data.kind === 'autosave' ? 'autosave' : data.kind === 'character' ? 'character' : 'manual',
         uid,
         characterId,
+        characterIndex,
         queuedAt: data.queuedAt,
         cloudUrls: data.cloudUrls || null,
       });
