@@ -1454,6 +1454,15 @@ async function migrateLegacyCloudCharacters(uid, legacyEntries) {
       const targetRef = await getDatabaseRef(targetPath);
       await targetRef.set(normalizedPayload);
       await saveCharacterIndexEntry(uid, slotId, { name, updatedAt });
+      const legacyPath = buildUserLegacyCharacterPath(uid, entry.characterId);
+      if (legacyPath) {
+        try {
+          const legacyRef = await getDatabaseRef(legacyPath);
+          await legacyRef.remove();
+        } catch (err) {
+          console.warn('Failed to remove legacy character payload after migration', err);
+        }
+      }
       usedSlots.add(slotId);
       migrated.push({
         characterId: slotId,
