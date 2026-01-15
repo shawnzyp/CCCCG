@@ -23,6 +23,14 @@ export const qsa = (s, r = getDocument()) => {
 };
 export const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 export const mod = (score) => Math.floor((num(score) - 10) / 2);
+export const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+export const getGlobal = () => {
+  try {
+    if (typeof window !== 'undefined') return window;
+    if (typeof globalThis !== 'undefined') return globalThis;
+  } catch (_) {}
+  return null;
+};
 // Proficiency bonuses in 5e are based on character level and always assume a
 // minimum level of 1. The previous implementation allowed invalid or
 // non-numeric values to fall through as level 0 which produced an incorrect

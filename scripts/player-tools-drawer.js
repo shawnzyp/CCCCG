@@ -2,18 +2,12 @@ import * as Characters from './characters.js';
 import { getActiveUserId } from './storage.js';
 import { sendEventToDiscordWorker } from './discord-events.js';
 import { playCue } from './audio.js';
+import { clamp, getGlobal } from './helpers.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
-const getGlobal = () => {
-  try {
-    if (typeof window !== 'undefined') return window;
-    if (typeof globalThis !== 'undefined') return globalThis;
-  } catch (_) {}
-  return null;
-};
 
 const formatBonus = (value = 0) => {
   const num = Number(value);
@@ -732,7 +726,6 @@ function createPlayerToolsDrawer() {
   // Crack layering utilities
   const MAX_CRACK_LAYERS = 5;
 
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
   const rand = (min, max) => min + Math.random() * (max - min);
 
   const ensureCrackLayers = () => {
