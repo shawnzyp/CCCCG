@@ -13845,7 +13845,13 @@ registerBootTask(() => {
   }
 });
 
+const btnLogin = $('btn-login');
 const btnLog = $('btn-log');
+registerBootTask(() => {
+  if (btnLogin) {
+    btnLogin.addEventListener('click', () => openLoginModal());
+  }
+});
 registerBootTask(() => {
   if (btnLog) {
     btnLog.addEventListener('click', ()=>{ renderLogs(); openNarrativeModal('modal-log'); });
