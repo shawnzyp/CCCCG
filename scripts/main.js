@@ -2570,14 +2570,8 @@ function getWelcomeSeenKey() {
   return `${WELCOME_SEEN_KEY_PREFIX}${build || 'default'}`;
 }
 
-try {
-  const storage = getLocalStorageSafe();
-  if (storage) {
-    welcomeModalDismissed = storage.getItem(getWelcomeSeenKey()) === 'true';
-  }
-} catch {}
-
-welcomeSequenceComplete = welcomeModalDismissed;
+welcomeModalDismissed = false;
+welcomeSequenceComplete = false;
 
 function clearTouchUnlockTimer() {
   if (touchUnlockTimer) {
