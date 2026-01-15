@@ -551,8 +551,10 @@ function createPlayerToolsDrawer() {
       updateClock();
       showSplashThenApp();
       addOutsideCloseListeners();
+      startCrackUpdates();
     } else {
       if (removeOutsideCloseListeners) removeOutsideCloseListeners();
+      stopCrackUpdates();
       splashSeq += 1; // cancel any in-flight splash finish
       if (splash) {
         splash.classList.remove('is-visible');
@@ -869,6 +871,18 @@ function createPlayerToolsDrawer() {
     }
   };
 
+  const startCrackUpdates = () => {
+    if (hpInterval) return;
+    updateCracks();
+    hpInterval = setInterval(updateCracks, 1_000);
+  };
+
+  const stopCrackUpdates = () => {
+    if (!hpInterval) return;
+    clearInterval(hpInterval);
+    hpInterval = null;
+  };
+
   const handleKeydown = (event) => {
     if (!isOpen) return;
     if (event.key === 'Escape') {
@@ -911,8 +925,6 @@ function createPlayerToolsDrawer() {
   updateTabOffset();
 
   timeInterval = setInterval(updateClock, 15_000);
-  updateCracks();
-  hpInterval = setInterval(updateCracks, 1_000);
 
   setupDrawer();
   setupInitiative();
@@ -945,7 +957,7 @@ function createPlayerToolsDrawer() {
 
   const teardown = () => {
     clearInterval(timeInterval);
-    clearInterval(hpInterval);
+    stopCrackUpdates();
     clearTimeout(splashTimer);
 
     try {
