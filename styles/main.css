@@ -9591,6 +9591,20 @@ pointer-events:none;
 z-index: 50;
 }
 
+@media (max-width: 600px) {
+  #player-tools-drawer .pt-device__shell{
+    display: none;
+  }
+
+  #player-tools-drawer .pt-tray{
+    width: 100%;
+  }
+
+  #player-tools-drawer .pt-screen{
+    border-radius: 0;
+  }
+}
+
 /* Screen hole inside the device */
 #player-tools-drawer .pt-screen{
   position:absolute;
