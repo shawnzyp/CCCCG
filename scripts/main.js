@@ -25954,6 +25954,14 @@ function queueSyncConflict(conflict) {
   }
 }
 
+if (typeof document !== 'undefined') {
+  document.addEventListener('cc:sync-conflict', (event) => {
+    const detail = event?.detail;
+    if (!detail) return;
+    queueSyncConflict(detail);
+  });
+}
+
 function openNextSyncConflict() {
   if (activeSyncConflict || !syncConflictQueue.length || !conflictModal) return;
   activeSyncConflict = syncConflictQueue.shift();
