@@ -22,6 +22,7 @@ import {
   listCharacterIndex,
   listCloudCharacterKeys,
   getDeviceId,
+  readLastSyncedAt,
   writeLastSyncedAt,
 } from './storage.js';
 import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
@@ -29,6 +30,7 @@ import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensur
 import { toast, dismissToast } from './notifications.js';
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
 import { getAuthState } from './auth.js';
+import { detectSyncConflict } from './sync-utils.js';
 
 function safeToast(message, type = 'error', options = {}) {
   if (!message) return;
@@ -1137,7 +1139,25 @@ async function refreshCloudCharacter({ name, storageName, localPayload, uid }) {
   try {
     const cloudPayload = await loadCloudCharacter(uid, characterId);
     if (!isCloudNewer(localPayload, cloudPayload)) return;
+    const localUpdatedAt = resolveUpdatedAt(localPayload);
     const cloudUpdatedAt = resolveUpdatedAt(cloudPayload);
+    const lastSyncedAt = readLastSyncedAt(characterId);
+    if (detectSyncConflict({ localUpdatedAt, cloudUpdatedAt, lastSyncedAt })) {
+      if (typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('cc:sync-conflict', {
+          detail: {
+            uid,
+            name,
+            characterId,
+            localPayload,
+            cloudPayload,
+            localUpdatedAt,
+            cloudUpdatedAt,
+          },
+        }));
+      }
+      return;
+    }
     await saveLocal(storageName, cloudPayload, { characterId });
     if (typeof document !== 'undefined') {
       document.dispatchEvent(new CustomEvent('character-cloud-update', {
