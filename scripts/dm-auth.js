@@ -1,5 +1,7 @@
 const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
 const DM_PIN_META_NAME = 'cc-dm-pin-sha256';
+let cachedDmPinHash = '';
+let cachedDmPinHashLoaded = false;
 
 export function validateDmPin(pin) {
   const raw = typeof pin === 'string' || typeof pin === 'number' ? String(pin) : '';
@@ -11,15 +13,23 @@ export function validateDmPin(pin) {
 }
 
 function readDmPinHash() {
-  if (typeof document === 'undefined') return '';
+  if (cachedDmPinHashLoaded) {
+    return cachedDmPinHash;
+  }
+  cachedDmPinHashLoaded = true;
+  if (typeof document === 'undefined') {
+    cachedDmPinHash = '';
+    return cachedDmPinHash;
+  }
   const meta = document.querySelector(`meta[name="${DM_PIN_META_NAME}"]`);
   const content = meta?.content || '';
-  if (typeof content !== 'string') return '';
-  const normalized = content.trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(normalized)) {
-    return '';
+  if (typeof content !== 'string') {
+    cachedDmPinHash = '';
+    return cachedDmPinHash;
   }
-  return normalized;
+  const normalized = content.trim().toLowerCase();
+  cachedDmPinHash = /^[0-9a-f]{64}$/.test(normalized) ? normalized : '';
+  return cachedDmPinHash;
 }
 
 function getSubtleCrypto() {

@@ -2161,19 +2161,17 @@ export async function listCloudCharacterKeys(uid) {
   return [];
 }
 
-export async function listCloudCharacters(uid) {
+export async function listCloudCharacterIndex(uid) {
   if (isLocalAuthMode()) {
     const resolvedUid = uid || activeAuthUserId || 'local';
     const indexObj = readLocalCloudIndex(resolvedUid);
     const entries = Object.values(indexObj || {}).filter(v => v && typeof v === 'object');
-    const rows = entries.map(entry => {
-      const characterId = entry?.characterId || entry?.id || '';
-      if (!characterId) return null;
-      const payload = readLocalCloudCharacter(resolvedUid, characterId);
-      if (!payload) return null;
-      return { characterId, payload };
-    }).filter(Boolean);
-    return rows;
+    return entries.map(entry => ({
+      characterId: entry?.characterId || entry?.id || '',
+      name: entry?.name || '',
+      updatedAt: Number(entry?.updatedAt) || 0,
+      updatedAtServer: Number(entry?.updatedAtServer) || 0,
+    })).filter(entry => entry.characterId);
   }
   let entries = [];
   try {
@@ -2208,6 +2206,36 @@ export async function listCloudCharacters(uid) {
         }));
       }
     }
+    if (!val || typeof val !== 'object') return [];
+    return Object.entries(val).map(([characterId, entry]) => ({
+      characterId,
+      name: entry?.name || '',
+      updatedAt: Number(entry?.updatedAt) || 0,
+      updatedAtServer: Number(entry?.updatedAtServer) || 0,
+    }));
+  } catch (e) {
+    console.error('Cloud character index list failed', e);
+    return [];
+  }
+}
+
+export async function listCloudCharacters(uid) {
+  try {
+    const entries = await listCloudCharacterIndex(uid);
+    if (!entries.length) return [];
+    const results = await Promise.all(entries.map(async entry => {
+      const characterId = entry?.characterId || '';
+      if (!characterId) return null;
+      try {
+        const payload = await loadCloudCharacter(uid, characterId);
+        if (!payload) return null;
+        return { characterId, payload };
+      } catch (err) {
+        console.warn('Failed to load cloud character', characterId, err);
+        return null;
+      }
+    }));
+    return results.filter(Boolean);
   } catch (e) {
     console.error('Cloud character list failed', e);
   }

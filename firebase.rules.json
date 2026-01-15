@@ -34,8 +34,8 @@
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".read": false,
+        ".write": false,
         "characters": {
           "$slotId": {
             ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
@@ -43,6 +43,12 @@
           }
         },
         "charactersIndex": {
+          "$slotId": {
+            ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+            ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+          }
+        },
+        "autosaves": {
           "$slotId": {
             ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
             ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"

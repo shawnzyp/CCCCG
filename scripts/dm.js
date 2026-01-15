@@ -1,6 +1,7 @@
-import { currentCharacter, listCharacters, loadCharacter } from './characters.js';
+import { listCharacters, loadCharacter } from './characters.js';
 import { show, hide } from './modal.js';
 import { dmIsUnlocked, dmLock, dmUnlockWithPin, isDmPinConfigured, validateDmPin } from './dm-auth.js';
+import { playCue } from './audio.js';
 import {
   listMiniGames,
   getMiniGame,
@@ -26,12 +27,14 @@ import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
 import {
   getDiscordProxyKey,
+  getDiscordProxyUrl,
   isDiscordEnabled,
+  reconcileDiscordSessionState,
   setDiscordEnabled,
   setDiscordProxyKey,
+  setDiscordProxyUrl,
 } from './discord-settings.js';
-import { sendEventToDiscordWorker } from './discord-events.js';
-import { getActiveUserId } from './storage.js';
+import { resolveDiscordProxyConfig, testDiscordRelay } from './discord-events.js';
 import { getFirebaseDatabase } from './auth.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -48,7 +51,12 @@ const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_LAST_TOOL_KEY = 'cc:dm:last-tool';
+const DISCORD_HEALTH_AT_KEY = 'cc:discord:lastHealthCheckedAt';
+const DISCORD_HEALTH_OK_KEY = 'cc:discord:lastHealthOk';
+const DISCORD_HEALTH_WINDOW_MS = 10 * 60 * 1000;
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
+const DM_ACTIVE_BODY_CLASS = 'dm-active';
+const DM_BADGE_VISIBLE_ATTR = 'data-dm-active';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
 const DM_IS_JSDOM_ENV = /jsdom/i.test(DM_USER_AGENT);
@@ -196,6 +204,49 @@ let dmNotificationsBaseLabel = '';
 let dmNotificationsHadExplicitAriaLabel = false;
 let notifyModalRef = null;
 let notifyExportFormatRef = null;
+let lastDiscordHealthCheckedAt = null;
+let lastDiscordHealthOk = null;
+
+loadDiscordHealthStatus();
+
+function loadDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const rawAt = sessionStorage.getItem(DISCORD_HEALTH_AT_KEY);
+    const rawOk = sessionStorage.getItem(DISCORD_HEALTH_OK_KEY);
+    const parsedAt = rawAt ? Number(rawAt) : NaN;
+    if (Number.isFinite(parsedAt)) {
+      lastDiscordHealthCheckedAt = parsedAt;
+    }
+    if (rawOk === 'true') {
+      lastDiscordHealthOk = true;
+    } else if (rawOk === 'false') {
+      lastDiscordHealthOk = false;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistDiscordHealthStatus() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (Number.isFinite(lastDiscordHealthCheckedAt)) {
+      sessionStorage.setItem(DISCORD_HEALTH_AT_KEY, String(lastDiscordHealthCheckedAt));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_AT_KEY);
+    }
+    if (typeof lastDiscordHealthOk === 'boolean') {
+      sessionStorage.setItem(DISCORD_HEALTH_OK_KEY, String(lastDiscordHealthOk));
+    } else {
+      sessionStorage.removeItem(DISCORD_HEALTH_OK_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+let discordMissingKeyToastShown = false;
+let discordSessionState = { cleared: false, enabled: false };
 
 function persistUnreadCount() {
   if (typeof sessionStorage === 'undefined') return;
@@ -829,6 +880,7 @@ function initDMLogin(){
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
   const menu = document.getElementById('dm-tools-menu');
   const dmPortal = document.querySelector('.dm-tools-portal');
+  const dmModeBadge = document.getElementById('dm-mode-badge');
 
   if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
     try {
@@ -844,15 +896,36 @@ function initDMLogin(){
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
+  const loginForm = document.getElementById('dm-login-form');
   const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
+  let loginSubmitting = false;
   const loginErrorMessage = loginModal ? loginModal.querySelector('[data-login-error]') : null;
   const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = loginWaitMessageDefault;
   let loginConfigDisabled = false;
+  const loginInvalidClass = 'dm-login__input--invalid';
+  const loginShakeClass = 'dm-login--shake';
+
+  function setDmModeIndicator(isActive) {
+    if (typeof document === 'undefined') return;
+    const { body } = document;
+    if (body) {
+      body.classList.toggle(DM_ACTIVE_BODY_CLASS, isActive);
+      if (isActive) {
+        body.setAttribute(DM_BADGE_VISIBLE_ATTR, 'true');
+      } else {
+        body.removeAttribute(DM_BADGE_VISIBLE_ATTR);
+      }
+    }
+    if (dmModeBadge) {
+      dmModeBadge.hidden = !isActive;
+      dmModeBadge.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    }
+  }
 
   function createLoginEvent(type, detail) {
     if (typeof type !== 'string' || !type) {
@@ -917,16 +990,33 @@ function initDMLogin(){
     if (!loginErrorMessage) return;
     loginErrorMessage.textContent = '';
     loginErrorMessage.hidden = true;
+    if (loginPin) {
+      loginPin.classList.remove(loginInvalidClass);
+    }
+    if (loginModal) {
+      loginModal.classList.remove(loginShakeClass);
+    }
   }
 
-  function showLoginError(message) {
+  function showLoginError(message, { shake = false } = {}) {
     if (!loginErrorMessage) return;
     loginErrorMessage.textContent = message || '';
     loginErrorMessage.hidden = !message;
+    if (loginPin) {
+      loginPin.classList.toggle(loginInvalidClass, Boolean(message));
+    }
+    if (loginModal && shake) {
+      loginModal.classList.remove(loginShakeClass);
+      void loginModal.offsetWidth;
+      loginModal.classList.add(loginShakeClass);
+      loginModal.addEventListener('animationend', () => {
+        loginModal.classList.remove(loginShakeClass);
+      }, { once: true });
+    }
   }
   function applyLoginConfigDisabledState() {
     loginConfigDisabled = true;
-    showLoginError('DM PIN is not configured for this deployment.');
+    showLoginError('DM tools not available – no PIN set.');
     if (loginPin) {
       loginPin.disabled = true;
       loginPin.setAttribute('aria-disabled', 'true');
@@ -1198,66 +1288,69 @@ function initDMLogin(){
     if (event?.preventDefault) {
       try { event.preventDefault(); } catch { /* ignore */ }
     }
-    if (!loginPin) return;
-    if (!isDmPinConfigured()) {
-      applyLoginConfigDisabledState();
-      return;
-    }
-    const remaining = getLoginCooldownRemainingMs();
-    if (remaining > 0) {
-      startLoginCooldownCountdown(remaining);
-      notifyLoginCooldown(remaining);
-      return;
-    }
-    const normalized = validateDmPin(loginPin.value || '');
-    if (!normalized) {
-      showLoginError('Enter a 4-6 digit PIN.');
-      queueLoginFocus(loginPin);
-      return;
-    }
-    loginPin.value = normalized;
-    clearLoginError();
-    lockLoginControls();
-    setLoginWaitMessage('Checking PIN...');
+    if (loginSubmitting) return;
+    loginSubmitting = true;
     try {
-      const unlocked = await dmUnlockWithPin(normalized);
-      if (!unlocked) {
-        showLoginError('Incorrect PIN.');
-        dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
+      if (!loginPin) return;
+      if (!isDmPinConfigured()) {
+        applyLoginConfigDisabledState();
+        return;
+      }
+      const remaining = getLoginCooldownRemainingMs();
+      if (remaining > 0) {
+        startLoginCooldownCountdown(remaining);
+        notifyLoginCooldown(remaining);
+        return;
+      }
+      const normalized = validateDmPin(loginPin.value || '');
+      if (!normalized) {
+        showLoginError('Enter a 4-6 digit PIN.', { shake: true });
         queueLoginFocus(loginPin);
         return;
       }
-      onLoginSuccess();
-      dispatchLoginEvent('dm-login:success');
-      closeLogin();
-      toast('DM tools unlocked.', 'success');
-    } catch (err) {
-      console.error('Failed to verify DM PIN', err);
-      if (err?.message === 'DM PIN not configured') {
-        applyLoginConfigDisabledState();
-        dispatchLoginEvent('dm-login:failure', { reason: 'config' });
-      } else if (err?.message === 'WebCrypto unavailable') {
-        showLoginError('PIN verification is unavailable in this browser.');
-        dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
-      } else {
-        showLoginError('Unable to verify PIN. Try again.');
-        dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+      loginPin.value = normalized;
+      clearLoginError();
+      lockLoginControls();
+      setLoginWaitMessage('Checking PIN...');
+      try {
+        const unlocked = await dmUnlockWithPin(normalized);
+        if (!unlocked) {
+          showLoginError('Incorrect PIN.', { shake: true });
+          dispatchLoginEvent('dm-login:failure', { reason: 'invalid' });
+          queueLoginFocus(loginPin);
+          return;
+        }
+        onLoginSuccess();
+        dispatchLoginEvent('dm-login:success');
+        playCue('unlock-success', { source: 'action' });
+        closeLogin();
+        toast('DM tools unlocked.', 'success');
+      } catch (err) {
+        console.error('Failed to verify DM PIN', err);
+        if (err?.message === 'DM PIN not configured') {
+          applyLoginConfigDisabledState();
+          dispatchLoginEvent('dm-login:failure', { reason: 'config' });
+        } else if (err?.message === 'WebCrypto unavailable') {
+          showLoginError('PIN verification is unavailable in this browser.');
+          dispatchLoginEvent('dm-login:failure', { reason: 'crypto' });
+        } else {
+          showLoginError('Unable to verify PIN. Try again.', { shake: true });
+          dispatchLoginEvent('dm-login:failure', { reason: 'error' });
+        }
+      } finally {
+        if (getLoginCooldownRemainingMs() <= 0) {
+          setLoginWaitMessage('');
+        }
       }
     } finally {
-      if (getLoginCooldownRemainingMs() <= 0) {
-        setLoginWaitMessage('');
-      }
+      loginSubmitting = false;
     }
   }
 
-  if (loginSubmit) {
-    loginSubmit.addEventListener('click', handleLoginSubmit);
-  }
-  if (loginPin) {
-    loginPin.addEventListener('keydown', event => {
-      if (event?.key === 'Enter') {
-        handleLoginSubmit(event);
-      }
+  if (loginForm) {
+    loginForm.addEventListener('submit', event => {
+      event.preventDefault();
+      handleLoginSubmit(event);
     });
   }
   if (loginClose) {
@@ -1524,8 +1617,15 @@ function initDMLogin(){
   const discordModal = document.getElementById('dm-discord-modal');
   const discordClose = document.getElementById('dm-discord-close');
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
+  const discordUrlInput = document.getElementById('dm-discord-proxy-url');
   const discordKeyInput = document.getElementById('dm-discord-key');
+  const discordKeyForm = document.getElementById('dm-discord-key-form');
   const discordTestBtn = document.getElementById('dm-discord-test');
+  const discordStatus = document.getElementById('dm-discord-status');
+  let discordEnableWarningShown = false;
+  let discordUrlDebounceId = null;
+  let discordTestInFlight = false;
+  let discordTestLastAt = 0;
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -5105,22 +5205,66 @@ function initDMLogin(){
       clearActiveDmTool('rewards');
     }
 
+    function refreshDiscordSessionState() {
+      discordSessionState = reconcileDiscordSessionState();
+      return discordSessionState;
+    }
+
     function syncDiscordSettingsUi() {
-      const enabled = isDiscordEnabled();
-      const relayReady = enabled && !!getDiscordProxyKey();
+      const { enabled, hasKey } = reconcileDiscordSessionState({ warn: false });
+      const proxyConfig = resolveDiscordProxyConfig();
+      const hasProxy = !!proxyConfig?.baseUrl;
+      const url = (getDiscordProxyUrl() || '').trim();
+      const key = (getDiscordProxyKey() || '').trim();
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
       }
+      if (discordUrlInput) {
+        discordUrlInput.value = url;
+      }
       if (discordKeyInput) {
-        discordKeyInput.value = getDiscordProxyKey();
+        discordKeyInput.value = key;
+      }
+      if (discordStatus) {
+        discordStatus.classList.remove(
+          'dm-discord__status--connected',
+          'dm-discord__status--disabled',
+          'dm-discord__status--disconnected'
+        );
+        if (!hasKey) {
+          discordStatus.textContent = 'Disconnected';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!hasProxy) {
+          discordStatus.textContent = 'Misconfigured';
+          discordStatus.classList.add('dm-discord__status--disconnected');
+        } else if (!enabled) {
+          discordStatus.textContent = 'Disabled';
+          discordStatus.classList.add('dm-discord__status--disabled');
+        } else {
+          const now = Date.now();
+          const recentCheck = Number.isFinite(lastDiscordHealthCheckedAt)
+            && now - lastDiscordHealthCheckedAt <= DISCORD_HEALTH_WINDOW_MS;
+          let suffix = 'Unverified';
+          if (recentCheck && lastDiscordHealthOk === false) {
+            suffix = 'Last check failed';
+          } else if (recentCheck && lastDiscordHealthOk === true) {
+            suffix = 'Verified';
+          }
+          discordStatus.textContent = `Connected • ${suffix}`;
+          discordStatus.classList.add('dm-discord__status--connected');
+        }
       }
       if (discordTestBtn) {
-        discordTestBtn.disabled = !relayReady || !enabled;
+        discordTestBtn.disabled = !hasKey || !hasProxy;
+      }
+      if (enabled && url && key) {
+        discordEnableWarningShown = false;
       }
     }
 
     function openDiscordSettings() {
       if (!discordModal) return;
+      reconcileDiscordSessionState();
       syncDiscordSettingsUi();
       show('dm-discord-modal');
       if (typeof discordModal.scrollTo === 'function') {
@@ -5141,29 +5285,55 @@ function initDMLogin(){
       clearActiveDmTool('discord');
     }
 
+    const formatDiscordTestFailure = (result) => {
+      const reason = result?.reason || 'unknown';
+      switch (reason) {
+        case 'missing-url':
+          return 'Discord relay URL is missing. Add the Proxy URL in Discord settings.';
+        case 'invalid-url':
+          return 'Discord relay URL is invalid. Check the Proxy URL in Discord settings.';
+        case 'missing-key':
+          return 'Discord relay key is missing. Add the Relay Key in Discord settings.';
+        case 'missing-health-endpoint':
+          return 'Discord relay health check not found. Deploy the latest relay worker.';
+        case 'unauthorized':
+          return 'Discord relay rejected the key (401 unauthorized). Verify the Relay Key.';
+        case 'forbidden':
+          return 'Discord relay denied access (403 forbidden). Check key permissions.';
+        case 'server-error':
+          return 'Discord relay error (5xx). The worker may be down.';
+        case 'network-error':
+          return 'Network error contacting the Discord relay.';
+        case 'bad-response':
+          return `Discord relay returned ${result?.status ?? 'an error'}.`;
+        default:
+          return 'Discord relay test failed.';
+      }
+    };
+
     async function sendDiscordTestMessage() {
       if (!isDiscordEnabled()) {
-        toast('Enable Discord relay before sending a test.', 'warn');
+        toast('Enable Discord relay before running a test.', 'warn');
         return;
       }
       if (!getDiscordProxyKey()) {
-        toast('Discord relay is not fully configured.', 'warn');
+        toast('Discord relay key is required to test the relay.', 'warn');
         return;
       }
-      const actorName = $('superhero')?.value?.trim() || currentCharacter() || 'System';
-      const uid = getActiveUserId();
-      const ok = await sendEventToDiscordWorker({
-        type: 'character.update',
-        actor: { vigilanteName: actorName, uid },
-        detail: {
-          updateType: 'note',
-          before: { message: 'Discord relay test' },
-          after: { message: 'Discord relay test' },
-          reason: 'Relay test event',
-        },
-        ts: Date.now(),
-      });
-      toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
+      const result = await testDiscordRelay();
+      lastDiscordHealthCheckedAt = Date.now();
+      lastDiscordHealthOk = !!result.ok;
+      persistDiscordHealthStatus();
+      syncDiscordSettingsUi();
+      if (result.ok) {
+        toast('Discord relay health check passed.', 'success');
+        return;
+      }
+      if (result.code === 'unauthorized' || result.code === 'forbidden') {
+        toast('Discord relay rejected the key. Re-enter the key and try again.', 'warn');
+        return;
+      }
+      toast(formatDiscordTestFailure(result), 'warn');
     }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
@@ -8573,6 +8743,7 @@ function initDMLogin(){
 
   function updateButtons(){
     const loggedIn = isLoggedIn();
+    const pinConfigured = isDmPinConfigured();
     if (!loggedIn) closeMenu();
     if (!loggedIn) {
       teardownPlayerBroadcastChannels();
@@ -8582,17 +8753,21 @@ function initDMLogin(){
       renderStoredNotifications();
     }
     if (dmBtn){
-      dmBtn.hidden = loggedIn;
+      dmBtn.hidden = loggedIn || !pinConfigured;
       if (loggedIn) {
         dmBtn.style.opacity = '1';
         dmBtn.setAttribute('aria-hidden', 'true');
       } else {
         dmBtn.style.opacity = '';
-        dmBtn.removeAttribute('aria-hidden');
+        if (!pinConfigured) {
+          dmBtn.setAttribute('aria-hidden', 'true');
+        } else {
+          dmBtn.removeAttribute('aria-hidden');
+        }
       }
     }
     if (dmToggleBtn) {
-      dmToggleBtn.hidden = !loggedIn;
+      dmToggleBtn.hidden = !loggedIn || !pinConfigured;
       const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
@@ -8600,6 +8775,7 @@ function initDMLogin(){
       menu.hidden = true;
       menu.setAttribute('aria-hidden', 'true');
     }
+    setDmModeIndicator(loggedIn);
   }
 
   function logDmInitError(error) {
@@ -10662,16 +10838,71 @@ function initDMLogin(){
 
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
+      reconcileDiscordSessionState({ warn: false });
+      refreshDiscordSessionState();
+      if (discordEnabledInput.checked) {
+        const url = (getDiscordProxyUrl() || '').trim();
+        const key = (getDiscordProxyKey() || '').trim();
+        if ((!url || !key) && !discordEnableWarningShown) {
+          discordEnableWarningShown = true;
+          toast('Discord enabled, but Proxy URL and Relay Key are required.', 'warn');
+        }
+      }
+      syncDiscordSettingsUi();
+    });
+
+    discordUrlInput?.addEventListener('input', () => {
+      if (discordUrlDebounceId) {
+        clearTimeout(discordUrlDebounceId);
+      }
+      discordUrlDebounceId = setTimeout(() => {
+        discordUrlDebounceId = null;
+        setDiscordProxyUrl(discordUrlInput.value);
+        syncDiscordSettingsUi();
+      }, 300);
+    });
+
+    discordUrlInput?.addEventListener('blur', () => {
+      if (discordUrlDebounceId) {
+        clearTimeout(discordUrlDebounceId);
+        discordUrlDebounceId = null;
+      }
+      setDiscordProxyUrl(discordUrlInput.value);
       syncDiscordSettingsUi();
     });
 
     discordKeyInput?.addEventListener('input', () => {
       setDiscordProxyKey(discordKeyInput.value);
+      reconcileDiscordSessionState({ warn: false });
+      refreshDiscordSessionState();
+      syncDiscordSettingsUi();
     });
 
-    discordTestBtn?.addEventListener('click', () => {
-      sendDiscordTestMessage();
+    // Shared so form submit and click triggers the same behavior.
+    const handleDiscordTest = async () => {
+      const now = Date.now();
+      if (discordTestInFlight || now - discordTestLastAt < 500) return;
+      discordTestInFlight = true;
+      discordTestLastAt = now;
+      try {
+        await sendDiscordTestMessage();
+      } catch (err) {
+        console.error('Failed to send discord relay test', err);
+      } finally {
+        discordTestInFlight = false;
+      }
+    };
+
+    discordKeyForm?.addEventListener('submit', event => {
+      event.preventDefault();
+      void handleDiscordTest();
     });
+
+    const sessionState = refreshDiscordSessionState();
+    if (!discordMissingKeyToastShown && sessionState.cleared) {
+      discordMissingKeyToastShown = true;
+      toast('Discord relay was enabled, but the relay key is missing. Re-enter your key to reconnect.', 'warn');
+    }
 
     syncDiscordSettingsUi();
 

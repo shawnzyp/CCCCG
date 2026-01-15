@@ -1,3 +1,5 @@
+import { clamp } from './helpers.js';
+
 // Full-screen hit FX (separate from Player Tools drawer cracks)
 (() => {
   if (typeof document === 'undefined') return;
@@ -11,8 +13,6 @@
   // If you previously used 1200ms, this becomes 2200ms total.
   const HIT_FX_DURATION_MS = 2200;
   const HIT_FX_COOLDOWN_MS = 250;
-
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
   const queryFirst = (selectors) => {
     for (const sel of selectors) {
@@ -151,23 +151,148 @@
     lastHpCur = hp.cur;
   };
 
-  // Start after DOM ready
-  let intervalId = null;
+  const getHpRefs = () => {
+    const curEl = queryFirst([
+      '#hp-current',
+      '#current-hp',
+      '#hpCurrent',
+      '[data-hp-current]',
+      '.hp-current input',
+      '.hp-current',
+      '[name="hp-current"]'
+    ]);
+
+    const maxEl = queryFirst([
+      '#hp-max',
+      '#max-hp',
+      '#hpMax',
+      '[data-hp-max]',
+      '.hp-max input',
+      '.hp-max',
+      '[name="hp-max"]'
+    ]);
+
+    if (!curEl && !maxEl) return null;
+
+    const ancestors = (el) => {
+      const list = [];
+      let current = el;
+      while (current) {
+        list.push(current);
+        current = current.parentElement;
+      }
+      return list;
+    };
+
+    const commonAncestor = (a, b) => {
+      if (!a) return b?.parentElement ?? null;
+      if (!b) return a.parentElement ?? null;
+      const aAncestors = new Set(ancestors(a));
+      let current = b;
+      while (current) {
+        if (aAncestors.has(current)) return current;
+        current = current.parentElement;
+      }
+      return a.parentElement ?? b.parentElement ?? null;
+    };
+
+    const container = commonAncestor(curEl, maxEl) || document.body;
+    return { curEl, maxEl, container };
+  };
+
+  const isInputLike = (el) =>
+    el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
+
+  let hpBindings = null;
+  let bodyObserver = null;
+
+  const bindHpRefs = (refs) => {
+    const inputs = [refs.curEl, refs.maxEl].filter((el) => el && isInputLike(el));
+    const onInput = () => tick();
+    inputs.forEach((el) => {
+      el.addEventListener('input', onInput);
+      el.addEventListener('change', onInput);
+    });
+
+    const observer = new MutationObserver(() => {
+      if (
+        (refs.curEl && !document.contains(refs.curEl)) ||
+        (refs.maxEl && !document.contains(refs.maxEl))
+      ) {
+        refreshHpBindings();
+        return;
+      }
+      tick();
+    });
+
+    if (refs.container) {
+      observer.observe(refs.container, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true
+      });
+    }
+
+    return () => {
+      inputs.forEach((el) => {
+        el.removeEventListener('input', onInput);
+        el.removeEventListener('change', onInput);
+      });
+      observer.disconnect();
+    };
+  };
+
+  const refreshHpBindings = () => {
+    const refs = getHpRefs();
+    if (!refs) {
+      if (hpBindings) {
+        hpBindings.cleanup();
+        hpBindings = null;
+      }
+      return;
+    }
+
+    if (
+      hpBindings &&
+      hpBindings.refs.curEl === refs.curEl &&
+      hpBindings.refs.maxEl === refs.maxEl &&
+      hpBindings.refs.container === refs.container
+    ) {
+      return;
+    }
+
+    const hadBindings = Boolean(hpBindings);
+    if (hpBindings) hpBindings.cleanup();
+    hpBindings = { refs, cleanup: bindHpRefs(refs) };
+    if (!hadBindings) tick();
+  };
 
   const start = () => {
     // Only start once body exists
     if (!document.body) return;
     ensureHitFxEl();
-    if (intervalId) return;
-    intervalId = setInterval(tick, 220);
+    if (bodyObserver) return;
+    refreshHpBindings();
+    bodyObserver = new MutationObserver(() => {
+      refreshHpBindings();
+    });
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
   };
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
+    if (document.hidden) {
+      if (bodyObserver) {
+        bodyObserver.disconnect();
+        bodyObserver = null;
+      }
+      if (hpBindings) {
+        hpBindings.cleanup();
+        hpBindings = null;
+      }
+      return;
     }
-    if (!document.hidden) start();
+    start();
   });
 
   if (document.readyState === 'loading') {

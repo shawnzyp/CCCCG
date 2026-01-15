@@ -17,7 +17,7 @@ const AUDIO_CUE_SETTINGS = {
     frequency: 58,
     type: 'triangle',
     duration: 1.8,
-    volume: 0.28,
+    volume: 0.32,
     attack: 0.03,
     release: 1.1,
     partials: [
@@ -159,6 +159,101 @@ const AUDIO_CUE_SETTINGS = {
           { ratio: 1, amplitude: 0.4 },
           { ratio: 2.2, amplitude: 0.22 },
           { ratio: 3.4, amplitude: 0.16 },
+        ],
+      },
+    ],
+  },
+  'unlock-success': {
+    frequency: 960,
+    type: 'sine',
+    duration: 0.24,
+    volume: 0.2,
+    attack: 0.003,
+    release: 0.16,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.5, amplitude: 0.5 },
+      { ratio: 2.4, amplitude: 0.3 },
+    ],
+  },
+  'ui-click': {
+    frequency: 1080,
+    type: 'triangle',
+    duration: 0.06,
+    volume: 0.08,
+    attack: 0.001,
+    release: 0.04,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2.2, amplitude: 0.4 },
+    ],
+  },
+  'error-buzz': {
+    volume: 0.2,
+    type: 'sawtooth',
+    segments: [
+      {
+        frequency: 180,
+        duration: 0.08,
+        attack: 0.004,
+        release: 0.06,
+        partials: [
+          { ratio: 1, amplitude: 0.9 },
+          { ratio: 0.5, amplitude: 0.6 },
+          { ratio: 1.4, amplitude: 0.4 },
+        ],
+      },
+      {
+        delay: 0.06,
+        frequency: 150,
+        duration: 0.1,
+        attack: 0.004,
+        release: 0.08,
+        partials: [
+          { ratio: 1, amplitude: 0.85 },
+          { ratio: 0.5, amplitude: 0.55 },
+          { ratio: 1.6, amplitude: 0.35 },
+        ],
+      },
+    ],
+  },
+  'card-flip': {
+    frequency: 640,
+    type: 'square',
+    duration: 0.12,
+    volume: 0.14,
+    attack: 0.002,
+    release: 0.08,
+    partials: [
+      { ratio: 1, amplitude: 0.8 },
+      { ratio: 1.8, amplitude: 0.4 },
+      { ratio: 2.6, amplitude: 0.25 },
+    ],
+  },
+  'mission-start': {
+    volume: 0.18,
+    type: 'sine',
+    segments: [
+      {
+        frequency: 420,
+        duration: 0.12,
+        attack: 0.004,
+        release: 0.08,
+        partials: [
+          { ratio: 1, amplitude: 0.7 },
+          { ratio: 2.4, amplitude: 0.35 },
+        ],
+      },
+      {
+        delay: 0.04,
+        frequency: 720,
+        duration: 0.16,
+        attack: 0.004,
+        release: 0.12,
+        type: 'triangle',
+        partials: [
+          { ratio: 1, amplitude: 0.6 },
+          { ratio: 1.8, amplitude: 0.3 },
         ],
       },
     ],
@@ -858,7 +953,9 @@ const AUDIO_DEBUG_FLAG = '__CC_AUDIO_DEBUG__';
 const audioScope = typeof window !== 'undefined' ? window : null;
 const audioGlobal = audioScope || (typeof globalThis !== 'undefined' ? globalThis : null);
 const SFX_SETTINGS_STORAGE_KEY = 'cc:sfx-settings';
+const MUSIC_SETTINGS_STORAGE_KEY = 'cc:music-settings';
 const DEFAULT_SFX_SETTINGS = Object.freeze({ enabled: true, volume: 1 });
+const DEFAULT_MUSIC_SETTINGS = Object.freeze({ enabled: true, volume: 1 });
 
 let audioContext = null;
 const audioCueCache = new Map();
@@ -868,6 +965,7 @@ let audioContextGestureReady = false;
 let audioGestureListenersBound = false;
 let audioLifecycleListenersBound = false;
 let cachedSfxSettings = null;
+let cachedMusicSettings = null;
 
 let dedupePending = false;
 const dedupedCues = new Set();
@@ -942,6 +1040,39 @@ function persistSfxSettings(settings) {
   }
 }
 
+function loadMusicSettings() {
+  if (cachedMusicSettings) return cachedMusicSettings;
+  if (!audioScope || typeof audioScope.localStorage === 'undefined') {
+    cachedMusicSettings = { ...DEFAULT_MUSIC_SETTINGS };
+    return cachedMusicSettings;
+  }
+  try {
+    const raw = audioScope.localStorage.getItem(MUSIC_SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      cachedMusicSettings = { ...DEFAULT_MUSIC_SETTINGS };
+      return cachedMusicSettings;
+    }
+    const parsed = JSON.parse(raw);
+    const enabled = parsed?.enabled !== false;
+    const volume = clampScalar(parsed?.volume, DEFAULT_MUSIC_SETTINGS.volume);
+    cachedMusicSettings = { enabled, volume };
+    return cachedMusicSettings;
+  } catch {
+    cachedMusicSettings = { ...DEFAULT_MUSIC_SETTINGS };
+    return cachedMusicSettings;
+  }
+}
+
+function persistMusicSettings(settings) {
+  cachedMusicSettings = { ...settings };
+  if (!audioScope || typeof audioScope.localStorage === 'undefined') return;
+  try {
+    audioScope.localStorage.setItem(MUSIC_SETTINGS_STORAGE_KEY, JSON.stringify(cachedMusicSettings));
+  } catch {
+    /* noop */
+  }
+}
+
 export function getSfxSettings() {
   return { ...loadSfxSettings() };
 }
@@ -961,6 +1092,27 @@ export function setSfxEnabled(enabled) {
 
 export function setSfxVolume(volume) {
   return setSfxSettings({ volume });
+}
+
+export function getMusicSettings() {
+  return { ...loadMusicSettings() };
+}
+
+export function setMusicSettings(nextSettings = {}) {
+  const current = loadMusicSettings();
+  const enabled = typeof nextSettings.enabled === 'boolean' ? nextSettings.enabled : current.enabled;
+  const volume = clampScalar(nextSettings.volume, current.volume);
+  const updated = { enabled, volume };
+  persistMusicSettings(updated);
+  return { ...updated };
+}
+
+export function setMusicEnabled(enabled) {
+  return setMusicSettings({ enabled: Boolean(enabled) });
+}
+
+export function setMusicVolume(volume) {
+  return setMusicSettings({ volume });
 }
 
 function closeAudioContext(reason = 'pagehide') {

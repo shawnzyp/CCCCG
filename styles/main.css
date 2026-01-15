@@ -828,6 +828,24 @@ body:not(.no-hover) [data-tip]:hover::after,[data-tip]:focus::after{content:attr
   grid-area:title;
   justify-self:center;
 }
+.dm-mode-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  background:color-mix(in srgb,var(--accent) 24%, transparent);
+  color:var(--text);
+  border:1px solid color-mix(in srgb,var(--accent) 55%, transparent);
+  box-shadow:0 8px 18px color-mix(in srgb,var(--accent) 18%, transparent);
+}
+body.dm-active{
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%, transparent);
+}
 
 .tabs-title__label{
   display:inline-flex;
@@ -5304,6 +5322,20 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
   text-transform:uppercase;
   color:var(--muted);
 }
+.claim-section__info{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  margin-left:6px;
+  border-radius:50%;
+  font-size:.7rem;
+  font-weight:700;
+  color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 18%, transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 45%, transparent);
+}
 .claim-section__hint{
   margin:0;
   font-size:.88rem;
@@ -6356,6 +6388,21 @@ body:not(.no-hover) #dm-notifications-modal .dm-notifications__filters input:hov
 .dm-login__wait{margin:12px 0 0;color:var(--muted);font-weight:600}
 .dm-login__error{margin:12px 0 0;font-weight:600;color:var(--error)}
 .dm-login__wait{margin:10px 0 0;font-weight:600;color:var(--accent-2)}
+.dm-login__input--invalid{
+  border-color:color-mix(in srgb,var(--error) 80%, transparent);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--error) 35%, transparent);
+}
+.dm-login--shake .dm-login__content{
+  animation:dmLoginShake .35s ease;
+}
+@keyframes dmLoginShake{
+  0%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+  100%{transform:translateX(0)}
+}
 .dm-login__links--back{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .somf-toast{background:#0b1119;color:#e6f1ff;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}
@@ -8758,12 +8805,21 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-reminder--mini-game {
   background: radial-gradient(circle at 0 100%, rgba(255, 196, 0, 0.3), rgba(0, 0, 0, 0.9));
 }
+.player-tools-reminder--mini-game.is-pulsing{
+  box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%, transparent);
+  animation:miniGamePulse 1.6s ease-out infinite;
+}
 
 .player-tools-reminder__body {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   justify-content: space-between;
+}
+@keyframes miniGamePulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%, transparent)}
+  70%{box-shadow:0 0 0 12px color-mix(in srgb,var(--accent) 0%, transparent)}
+  100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 0%, transparent)}
 }
 
 .player-tools-reminder__trigger {
@@ -10635,6 +10691,14 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .dm-discord__header{display:flex;flex-direction:column;gap:6px}
 .dm-discord__eyebrow{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0}
 .dm-discord__intro{margin:0;color:var(--muted)}
+.dm-discord__status{margin:0;font-weight:600;font-size:.95rem}
+.dm-discord__status--connected{color:var(--success)}
+.dm-discord__status--disabled{color:var(--warning)}
+.dm-discord__status--disconnected{color:var(--danger)}
+.dm-discord__status{margin:0;font-size:.95rem;font-weight:600;color:var(--muted)}
+.dm-discord__status[data-state="connected"]{color:var(--success)}
+.dm-discord__status[data-state="disconnected"]{color:var(--error)}
+.dm-discord__status[data-state="disabled"]{color:var(--muted)}
 .dm-discord__grid{display:flex;flex-direction:column;gap:12px}
 .dm-discord__field{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .dm-discord__label{font-weight:600}
