@@ -9473,7 +9473,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 #player-tools-tab.pt-tab{
 position: fixed;
-top: var(--pt-launcher-top, 50%);
+top: var(--pt-launcher-top, 75%);
 left: var(--pt-launcher-left, max(0px, env(safe-area-inset-left, 0px)));
 transform: translate3d(0, 0, 0);
 z-index: 1500;

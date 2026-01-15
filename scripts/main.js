@@ -2483,15 +2483,16 @@ function ccRepositionPlayerToolsLauncher(reason = 'unknown') {
   const tickerOpen = tickerDrawer?.getAttribute('data-state') !== 'closed';
   const tickerHeight = tickerOpen && tickerPanel ? tickerPanel.getBoundingClientRect().height : 0;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-  const baseOffset = ccClamp(viewportHeight * 0.30, 180, 520);
   const safeTop = getSafeAreaInsetTop();
   const launcherRect = playerToolsTabElement.getBoundingClientRect();
   const launcherHeight = launcherRect.height || 0;
   const launcherWidth = launcherRect.width || 0;
-  const top = Math.max(0, headerHeight + tickerHeight + baseOffset + safeTop);
+  const desiredTop = viewportHeight * 0.75;
+  const minTop = headerHeight + tickerHeight + safeTop + 12;
+  const top = Math.max(0, desiredTop);
   const topMargin = 12;
   const maxTop = Math.max(topMargin, viewportHeight - launcherHeight - topMargin - safeTop);
-  const clampedTop = ccClamp(top, topMargin + safeTop, maxTop);
+  const clampedTop = ccClamp(top, Math.max(minTop, topMargin + safeTop), maxTop);
   const safeLeft = getSafeAreaInsetLeft();
   const baseLeft = safeLeft + 12;
   let left = baseLeft;
@@ -2784,6 +2785,8 @@ function finalizeBootAndRender(reason = 'boot-complete') {
   try {
     ensureDefaultMainTab('combat');
     runPostBootUIHooksOnce();
+    setAppShellInteractive(true);
+    unlockTouchControls({ immediate: true });
   } catch (err) {
     recordBootError(err, 'finalize');
     if (!bootState.flags.finalizeRecovering) {
